@@ -73,50 +73,564 @@ function serializeHeaderTotalsFmrV3_(header) {
     fulfillmentPct: numberFmrV3_(header.Fulfillment_Pct)
   };
 }
+function fieldActionDescriptorFmrV3_(
+  action,
+  label,
+  group,
+  maximumQuantity,
+  uom,
+  requiredFields,
+  optionalFields,
+  helpText,
+  sources
+) {
+  return {
+    action: normalizeUpperFmrV3_(
+      action
+    ),
 
-function serializeLineForPortalFmrV3_(line, activeBags, returnedBackorders) {
-  const requested = numberFmrV3_(line.Qty_Requested);
-  const confirmed = numberFmrV3_(line.Qty_Confirmed_Located);
-  const pending = numberFmrV3_(line.Qty_Pending_Backorder);
-  const confirmedBackorder = numberFmrV3_(line.Qty_Confirmed_Backorder);
+    label: normalizeFmrV3_(
+      label
+    ),
+
+    group: normalizeUpperFmrV3_(
+      group
+    ),
+
+    maxQuantity: Math.max(
+      0,
+      numberFmrV3_(
+        maximumQuantity
+      )
+    ),
+
+    uom: normalizeFmrV3_(
+      uom
+    ),
+
+    requiredFields:
+      requiredFields || [],
+
+    optionalFields:
+      optionalFields || [],
+
+    helpText: normalizeFmrV3_(
+      helpText
+    ),
+
+    quantityLimitScope:
+      sources && sources.length
+        ? 'SELECTED_BAG'
+        : 'LINE',
+
+    sources:
+      sources || []
+  };
+}
+
+function buildFieldWorkflowFmrV3_(
+  line,
+  actionLimits,
+  activeBags,
+  returnedBackorders
+) {
+  const limits =
+    actionLimits || {};
+
+  const bags =
+    (activeBags || [])
+      .filter(function (bag) {
+        return numberFmrV3_(
+          bag.qtyRemaining
+        ) > 0;
+      });
+
+  const returned =
+    returnedBackorders || [];
+
+  const actions = [];
+
+  if (bags.length) {
+    const bagSources =
+      bags.map(function (bag) {
+        return {
+          bagTagId:
+            normalizeFmrV3_(
+              bag.bagTagId
+            ),
+
+          tagNumber:
+            normalizeFmrV3_(
+              bag.tagNumber
+            ),
+
+          storageLocation:
+            normalizeFmrV3_(
+              bag.storageLocation
+            ),
+
+          qtyRemaining:
+            numberFmrV3_(
+              bag.qtyRemaining
+            ),
+
+          uom:
+            normalizeFmrV3_(
+              bag.uom
+            ),
+
+          status:
+            normalizeFmrV3_(
+              bag.status
+            )
+        };
+      });
+
+    const totalBagRemaining =
+      bagSources.reduce(
+        function (total, bag) {
+          return (
+            total +
+            numberFmrV3_(
+              bag.qtyRemaining
+            )
+          );
+        },
+        0
+      );
+
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS
+          .ISSUE_FROM_BAG,
+        'Issue From Bag',
+        'ISSUE',
+        totalBagRemaining,
+        line.UOM,
+        [
+          'quantity',
+          'bagTagId',
+          'issuedToName',
+          'performedByName'
+        ],
+        [
+          'notes'
+        ],
+        'Issue material already reserved under an active Bag & Tag.',
+        bagSources
+      )
+    );
+  }
+
+  if (
+    numberFmrV3_(
+      limits.issueAvailable
+    ) > 0
+  ) {
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS
+          .ISSUE_FROM_AVAILABLE,
+        'Issue Available',
+        'ISSUE',
+        limits.issueAvailable,
+        line.UOM,
+        [
+          'quantity',
+          'issuedToName',
+          'performedByName'
+        ],
+        [
+          'notes'
+        ],
+        'Issue material that has already been located and is currently available.'
+      )
+    );
+  }
+
+  if (
+    numberFmrV3_(
+      limits.directIssue
+    ) > 0
+  ) {
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS
+          .DIRECT_ISSUE,
+        'Locate & Issue',
+        'ISSUE',
+        limits.directIssue,
+        line.UOM,
+        [
+          'quantity',
+          'issuedToName',
+          'performedByName'
+        ],
+        [
+          'storageLocation',
+          'notes'
+        ],
+        'Record material as located and issue it directly to the recipient.'
+      )
+    );
+  }
+
+  if (
+    numberFmrV3_(
+      limits.bag
+    ) > 0
+  ) {
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS.BAG,
+        'Bag & Tag',
+        'RESERVE',
+        limits.bag,
+        line.UOM,
+        [
+          'quantity',
+          'storageLocation',
+          'performedByName'
+        ],
+        [
+          'notes'
+        ],
+        'Reserve located material, or locate and reserve it in one controlled transaction.'
+      )
+    );
+  }
+
+  if (
+    numberFmrV3_(
+      limits.confirmAvailable
+    ) > 0
+  ) {
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS
+          .CONFIRM_AVAILABLE,
+        'Confirm Available',
+        'LOCATE',
+        limits.confirmAvailable,
+        line.UOM,
+        [
+          'quantity',
+          'performedByName'
+        ],
+        [
+          'storageLocation',
+          'notes'
+        ],
+        'Record material as physically located and available for later reservation or issuance.'
+      )
+    );
+  }
+
+  if (
+    numberFmrV3_(
+      limits.backorder
+    ) > 0
+  ) {
+    actions.push(
+      fieldActionDescriptorFmrV3_(
+        FMR_V3.ACTIONS
+          .BACKORDER_REQUESTED,
+        'Submit Backorder',
+        'EXCEPTION',
+        limits.backorder,
+        line.UOM,
+        [
+          'quantity',
+          'reason',
+          'performedByName'
+        ],
+        [
+          'notes'
+        ],
+        'Submit the unresolved quantity for Admin review. Field users do not confirm backorders.'
+      )
+    );
+  }
+
+  const remaining =
+    numberFmrV3_(
+      line.Qty_Remaining_Requirement
+    );
+
+  const available =
+    numberFmrV3_(
+      line.Qty_Available
+    );
+
+  const pendingBackorder =
+    numberFmrV3_(
+      line.Qty_Pending_Backorder
+    );
+
+  let phase =
+    'NO_ACTION';
+
+  let headline =
+    'No Field action is currently available.';
+
+  if (remaining <= 0) {
+    phase = 'COMPLETE';
+    headline =
+      'The requested requirement is complete.';
+  } else if (returned.length) {
+    phase =
+      'FIELD_REVIEW_REQUIRED';
+
+    headline =
+      'Admin returned a backorder request for Field review.';
+  } else if (bags.length) {
+    phase =
+      'ISSUE_RESERVED';
+
+    headline =
+      'Reserved material is ready to issue from an active Bag & Tag.';
+  } else if (available > 0) {
+    phase =
+      'ISSUE_OR_RESERVE_AVAILABLE';
+
+    headline =
+      'Located material is available to issue or reserve.';
+  } else if (
+    actions.length > 0
+  ) {
+    phase =
+      'LOCATE_OR_EXCEPTION';
+
+    headline =
+      'Material still needs to be located, reserved, issued, or submitted for review.';
+  } else if (
+    pendingBackorder > 0
+  ) {
+    phase =
+      'AWAITING_ADMIN_REVIEW';
+
+    headline =
+      'A backorder request is awaiting Admin review.';
+  }
 
   return {
-    fmrLineId: normalizeFmrV3_(line.FMR_Line_ID),
-    lineNumber: numberFmrV3_(line.Line_Number),
-    isoNumber: normalizeFmrV3_(line.ISO_Number),
-    isoSheet: normalizeFmrV3_(line.ISO_Sheet),
-    isoKey: normalizeFmrV3_(line.ISO_Key),
-    commodityCode: normalizeFmrV3_(line.Commodity_Code),
-    size: normalizeFmrV3_(line.Size),
-    description: normalizeFmrV3_(line.Material_Description),
-    uom: normalizeFmrV3_(line.UOM),
-    qtyRequested: requested,
-    qtyConfirmedLocated: confirmed,
-    qtyActiveBagged: numberFmrV3_(line.Qty_Active_Bagged),
-    qtyAvailable: numberFmrV3_(line.Qty_Available),
-    qtyIssued: numberFmrV3_(line.Qty_Issued),
-    qtyPendingBackorder: pending,
-    qtyConfirmedBackorder: confirmedBackorder,
-    qtyNotYetLocated: numberFmrV3_(line.Qty_Not_Yet_Located),
-    qtyRemainingRequirement: numberFmrV3_(line.Qty_Remaining_Requirement),
-    lineStatus: normalizeFmrV3_(line.Line_Status),
-    storageLocation: normalizeFmrV3_(line.Storage_Location),
-    actionLimits: {
-      confirmAvailable: Math.max(0, numberFmrV3_(line.Qty_Not_Yet_Located)),
-      bag: Math.max(
+    phase: phase,
+    headline: headline,
+
+    isComplete:
+      remaining <= 0,
+
+    requiresFieldReview:
+      returned.length > 0,
+
+    returnedReviewCount:
+      returned.length,
+
+    hasPendingAdminReview:
+      pendingBackorder > 0,
+
+    activeBagCount:
+      bags.length,
+
+    availableActionCount:
+      actions.length,
+
+    actions: actions
+  };
+}
+function serializeLineForPortalFmrV3_(
+  line,
+  activeBags,
+  returnedBackorders
+) {
+  const requested =
+    numberFmrV3_(
+      line.Qty_Requested
+    );
+
+  const confirmed =
+    numberFmrV3_(
+      line.Qty_Confirmed_Located
+    );
+
+  const pending =
+    numberFmrV3_(
+      line.Qty_Pending_Backorder
+    );
+
+  const confirmedBackorder =
+    numberFmrV3_(
+      line.Qty_Confirmed_Backorder
+    );
+
+  const bags =
+    activeBags || [];
+
+  const returned =
+    returnedBackorders || [];
+
+  const actionLimits = {
+    confirmAvailable:
+      Math.max(
         0,
-        numberFmrV3_(line.Qty_Available) +
-        numberFmrV3_(line.Qty_Not_Yet_Located)
+        numberFmrV3_(
+          line.Qty_Not_Yet_Located
+        )
       ),
-      directIssue: Math.max(0, numberFmrV3_(line.Qty_Not_Yet_Located)),
-      issueAvailable: Math.max(0, numberFmrV3_(line.Qty_Available)),
-      backorder: Math.max(
+
+    bag:
+      Math.max(
         0,
-        requested - confirmed - pending - confirmedBackorder
+        numberFmrV3_(
+          line.Qty_Available
+        ) +
+        numberFmrV3_(
+          line.Qty_Not_Yet_Located
+        )
+      ),
+
+    directIssue:
+      Math.max(
+        0,
+        numberFmrV3_(
+          line.Qty_Not_Yet_Located
+        )
+      ),
+
+    issueAvailable:
+      Math.max(
+        0,
+        numberFmrV3_(
+          line.Qty_Available
+        )
+      ),
+
+    backorder:
+      Math.max(
+        0,
+        requested -
+        confirmed -
+        pending -
+        confirmedBackorder
       )
-    },
-    activeBags: activeBags || [],
-    returnedBackorders: returnedBackorders || []
+  };
+
+  return {
+    fmrLineId:
+      normalizeFmrV3_(
+        line.FMR_Line_ID
+      ),
+
+    lineNumber:
+      numberFmrV3_(
+        line.Line_Number
+      ),
+
+    isoNumber:
+      normalizeFmrV3_(
+        line.ISO_Number
+      ),
+
+    isoSheet:
+      normalizeFmrV3_(
+        line.ISO_Sheet
+      ),
+
+    isoKey:
+      normalizeFmrV3_(
+        line.ISO_Key
+      ),
+
+    commodityCode:
+      normalizeFmrV3_(
+        line.Commodity_Code
+      ),
+
+    size:
+      normalizeFmrV3_(
+        line.Size
+      ),
+
+    description:
+      normalizeFmrV3_(
+        line.Material_Description
+      ),
+
+    uom:
+      normalizeFmrV3_(
+        line.UOM
+      ),
+
+    qtyRequested:
+      requested,
+
+    qtyConfirmedLocated:
+      confirmed,
+
+    qtyActiveBagged:
+      numberFmrV3_(
+        line.Qty_Active_Bagged
+      ),
+
+    qtyAvailable:
+      numberFmrV3_(
+        line.Qty_Available
+      ),
+
+    qtyIssued:
+      numberFmrV3_(
+        line.Qty_Issued
+      ),
+
+    qtyPendingBackorder:
+      pending,
+
+    qtyConfirmedBackorder:
+      confirmedBackorder,
+
+    qtyNotYetLocated:
+      numberFmrV3_(
+        line.Qty_Not_Yet_Located
+      ),
+
+    qtyRemainingRequirement:
+      numberFmrV3_(
+        line.Qty_Remaining_Requirement
+      ),
+
+    lineStatus:
+      normalizeFmrV3_(
+        line.Line_Status
+      ),
+
+    storageLocation:
+      normalizeFmrV3_(
+        line.Storage_Location
+      ),
+
+    /**
+     * Retained for compatibility with
+     * the current Field interface.
+     */
+    actionLimits:
+      actionLimits,
+
+    activeBags:
+      bags,
+
+    returnedBackorders:
+      returned,
+
+    /**
+     * Sprint 2 guided Field contract.
+     */
+    workflow:
+      buildFieldWorkflowFmrV3_(
+        line,
+        actionLimits,
+        bags,
+        returned
+      )
   };
 }
 
