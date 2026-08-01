@@ -443,6 +443,19 @@ function bagMaterialFmrV3_(user, line, request) {
       Secondary_Row_Number: bagHeaderRow,
       Active: FMR_V3.YES,
       Updated_At: now
+    },
+    {
+      Index_Key: operationalIndexKeyFmrV3_(
+        'BAGSTATUS',
+        'ACTIVE'
+      ),
+      Index_Type: 'BAGSTATUS',
+      Entity_ID: bagTagId,
+      Parent_ID: line.FMR_Line_ID,
+      Row_Number: bagHeaderRow,
+      Secondary_Row_Number: bagItemRow,
+      Active: FMR_V3.YES,
+      Updated_At: now
     }
   ]);
 
@@ -594,17 +607,32 @@ function issueFromBagFmrV3_(user, line, request) {
   );
 
   if (itemRemaining <= 0) {
-    updateRowObjectFmrV3_(
-      FMR_V3.SHEETS.OPERATIONAL_INDEX,
-      matchingEntry._rowNumber,
-      {Active: FMR_V3.NO, Updated_At: nowFmrV3_()}
-    );
+  updateRowObjectFmrV3_(
+    FMR_V3.SHEETS.OPERATIONAL_INDEX,
+    matchingEntry._rowNumber,
+    {
+      Active: FMR_V3.NO,
+      Updated_At: nowFmrV3_()
+    }
+  );
 
-    invalidateIndexKeyFmrV3_(
-      FMR_V3.SHEETS.OPERATIONAL_INDEX,
-      operationalIndexKeyFmrV3_('BAGLINE', line.FMR_Line_ID)
-    );
-  }
+  invalidateIndexKeyFmrV3_(
+    FMR_V3.SHEETS.OPERATIONAL_INDEX,
+    operationalIndexKeyFmrV3_(
+      'BAGLINE',
+      line.FMR_Line_ID
+    )
+  );
+
+  deactivateExactIndexRowsFmrV3_(
+    FMR_V3.SHEETS.OPERATIONAL_INDEX,
+    operationalIndexKeyFmrV3_(
+      'BAGSTATUS',
+      'ACTIVE'
+    ),
+    bagTagId
+  );
+}
 
   const state = lineStateFmrV3_(line);
   state.bagged -= quantity;
