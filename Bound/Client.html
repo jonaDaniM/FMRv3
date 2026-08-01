@@ -1,159 +1,258 @@
 <script>
-    (() => {
-      'use strict';
-    
-      const state = {
-        bootstrap: null,
-        fieldData: null,
-        activeAction: '',
-        activeCard: null,
-        activeMaterial: null,
-        editingStagingFmrId: '',
-        adminRegisterPage: 1,
-        adminRegisterPageSize: 25,
-        adminRegisterData: null,
-        busy: false
-      };
-    
-      const byId = id => document.getElementById(id);
-    
-      document.addEventListener('DOMContentLoaded', initializePortalV3_);
-    
-      function initializePortalV3_() {
-        activateRequestedViewV3_();
-        bindPortalEventsV3_();
-    
-        callServerV3_('getPortalBootstrapV3')
-          .then(bootstrap => {
-            state.bootstrap = bootstrap;
-    
-            byId('pageSubtitle').textContent =
-              `${bootstrap.user.name || bootstrap.user.email} · ` +
-              `${bootstrap.user.role} · FMRCore ${bootstrap.version}`;
-    
-            if (REQUESTED_VIEW === 'admin') {
-              refreshAdminV3_();
-            } else if (REQUESTED_VIEW === 'owner') {
-              refreshStagingV3_();
-            }
-          })
-          .catch(showErrorV3_);
-      }
-    
-      function activateRequestedViewV3_() {
-        ['field', 'admin', 'owner'].forEach(view => {
-          byId(`${view}View`).classList.toggle(
-            'hidden',
-            REQUESTED_VIEW !== view
-          );
-    
-          byId(`${view}Nav`).classList.toggle(
-            'active',
-            REQUESTED_VIEW === view
-          );
-        });
-      }
-    
-      function bindPortalEventsV3_() {
-        byId('searchButton').addEventListener('click', searchFieldV3_);
-        byId('searchQuery').addEventListener('keydown', event => {
-          if (event.key === 'Enter') searchFieldV3_();
-        });
-    
-        byId('adminRefreshButton').addEventListener('click', refreshAdminV3_);
-        byId('adminRegisterSearchButton').addEventListener('click', () => {
+  (() => {
+    'use strict';
+
+    const state = {
+      bootstrap: null,
+      fieldData: null,
+      activeAction: '',
+      activeCard: null,
+      activeMaterial: null,
+      editingStagingFmrId: '',
+      adminRegisterPage: 1,
+      adminRegisterPageSize: 25,
+      adminRegisterData: null,
+      busy: false
+    };
+
+    const byId = id => document.getElementById(id);
+
+    document.addEventListener('DOMContentLoaded', initializePortalV3_);
+
+    function initializePortalV3_() {
+      activateRequestedViewV3_();
+      bindPortalEventsV3_();
+
+      callServerV3_('getPortalBootstrapV3')
+        .then(bootstrap => {
+          state.bootstrap = bootstrap;
+
+          byId('pageSubtitle').textContent =
+            `${bootstrap.user.name || bootstrap.user.email} · ` +
+            `${bootstrap.user.role} · FMRCore ${bootstrap.version}`;
+
+          if (REQUESTED_VIEW === 'admin') {
+            refreshAdminV3_();
+          } else if (REQUESTED_VIEW === 'owner') {
+            refreshStagingV3_();
+          }
+        })
+        .catch(showErrorV3_);
+    }
+
+    function activateRequestedViewV3_() {
+      ['field', 'admin', 'owner'].forEach(view => {
+        byId(`${view}View`).classList.toggle(
+          'hidden',
+          REQUESTED_VIEW !== view
+        );
+
+        byId(`${view}Nav`).classList.toggle(
+          'active',
+          REQUESTED_VIEW === view
+        );
+      });
+    }
+
+    function bindPortalEventsV3_() {
+      byId('searchButton').addEventListener(
+        'click',
+        searchFieldV3_
+      );
+
+      byId('searchQuery').addEventListener(
+        'keydown',
+        event => {
+          if (event.key === 'Enter') {
+            searchFieldV3_();
+          }
+        }
+      );
+
+      byId('adminRefreshButton').addEventListener(
+        'click',
+        refreshAdminV3_
+      );
+
+      byId('adminRegisterSearchButton').addEventListener(
+        'click',
+        () => {
           state.adminRegisterPage = 1;
           refreshAdminRegisterV3_();
-        });
-        byId('adminRegisterResetButton').addEventListener('click', resetAdminRegisterV3_);
-        byId('adminRegisterQuery').addEventListener('keydown', event => {
+        }
+      );
+
+      byId('adminRegisterResetButton').addEventListener(
+        'click',
+        resetAdminRegisterV3_
+      );
+
+      byId('adminRegisterQuery').addEventListener(
+        'keydown',
+        event => {
           if (event.key === 'Enter') {
             state.adminRegisterPage = 1;
             refreshAdminRegisterV3_();
           }
-        });
-        byId('adminRegisterPreviousButton').addEventListener('click', () => {
+        }
+      );
+
+      byId('adminRegisterPreviousButton').addEventListener(
+        'click',
+        () => {
           if (state.adminRegisterPage > 1) {
             state.adminRegisterPage -= 1;
             refreshAdminRegisterV3_();
           }
-        });
-        byId('adminRegisterNextButton').addEventListener('click', () => {
-          const pagination = state.adminRegisterData?.pagination || {};
+        }
+      );
+
+      byId('adminRegisterNextButton').addEventListener(
+        'click',
+        () => {
+          const pagination =
+            state.adminRegisterData?.pagination || {};
+
           if (pagination.hasNext) {
             state.adminRegisterPage += 1;
             refreshAdminRegisterV3_();
           }
-        });
-        byId('adminFmrDetailCloseButton').addEventListener('click', closeAdminFmrDetailV3_);
-    
-        byId('saveStagingButton').addEventListener('click', saveStagingV3_);
-        byId('ownerClearButton').addEventListener('click', clearOwnerFormV3_);
-        byId('ownerRefreshButton').addEventListener('click', refreshStagingV3_);
-        byId('renumberButton').addEventListener('click', renumberPublishedFmrV3_);
-    
-        byId('modalClose').addEventListener('click', closeActionModalV3_);
-        byId('modalCancel').addEventListener('click', closeActionModalV3_);
-        byId('actionModal').addEventListener('click', event => {
-          if (event.target === byId('actionModal')) closeActionModalV3_();
-        });
-        byId('actionForm').addEventListener('submit', submitFieldActionV3_);
+        }
+      );
+
+      byId('adminFmrDetailCloseButton').addEventListener(
+        'click',
+        closeAdminFmrDetailV3_
+      );
+
+      byId('saveStagingButton').addEventListener(
+        'click',
+        saveStagingV3_
+      );
+
+      byId('ownerClearButton').addEventListener(
+        'click',
+        clearOwnerFormV3_
+      );
+
+      byId('ownerRefreshButton').addEventListener(
+        'click',
+        refreshStagingV3_
+      );
+
+      byId('renumberButton').addEventListener(
+        'click',
+        renumberPublishedFmrV3_
+      );
+
+      byId('modalClose').addEventListener(
+        'click',
+        closeActionModalV3_
+      );
+
+      byId('modalCancel').addEventListener(
+        'click',
+        closeActionModalV3_
+      );
+
+      byId('actionModal').addEventListener(
+        'click',
+        event => {
+          if (event.target === byId('actionModal')) {
+            closeActionModalV3_();
+          }
+        }
+      );
+
+      byId('actionForm').addEventListener(
+        'submit',
+        submitFieldActionV3_
+      );
+    }
+
+    async function searchFieldV3_() {
+      const query =
+        byId('searchQuery').value.trim();
+
+      const mode =
+        byId('searchMode').value;
+
+      if (!query) {
+        byId('fieldStatus').textContent =
+          'Enter an FMR number or a combined ISO and sheet.';
+        return;
       }
-    
-      async function searchFieldV3_() {
-        const query = byId('searchQuery').value.trim();
-        const mode = byId('searchMode').value;
-    
-        if (!query) {
-          byId('fieldStatus').textContent =
-            'Enter an FMR number or a combined ISO and sheet.';
-          return;
-        }
-    
-        hideAlertsV3_();
-        byId('fieldStatus').textContent = 'Loading indexed records…';
-        setBusyV3_(true);
-    
-        try {
-          const data = await callServerV3_('searchPortalV3', query, mode);
-          state.fieldData = data;
-          byId('fieldStatus').textContent =
-            `${data.resultCount} matching FMR(s) · ${data.generatedAt}`;
-          renderFieldResultsV3_(data.cards || []);
-        } catch (error) {
-          byId('fieldStatus').textContent = '';
-          showErrorV3_(error);
-        } finally {
-          setBusyV3_(false);
-        }
+
+      hideAlertsV3_();
+
+      byId('fieldStatus').textContent =
+        'Loading indexed records…';
+
+      setBusyV3_(true);
+
+      try {
+        const data =
+          await callServerV3_(
+            'searchPortalV3',
+            query,
+            mode
+          );
+
+        state.fieldData = data;
+
+        byId('fieldStatus').textContent =
+          `${data.resultCount} matching FMR(s) · ${data.generatedAt}`;
+
+        renderFieldResultsV3_(
+          data.cards || []
+        );
+      } catch (error) {
+        byId('fieldStatus').textContent = '';
+        showErrorV3_(error);
+      } finally {
+        setBusyV3_(false);
       }
-    
-      function renderFieldResultsV3_(cards) {
-        const container = byId('fieldResults');
-    
-        if (!cards.length) {
-          container.innerHTML =
-            '<section class="panel">No matching published FMR was found.</section>';
-          return;
-        }
-    
-        container.innerHTML = cards.map(card => `
+    }
+
+    function renderFieldResultsV3_(cards) {
+      const container =
+        byId('fieldResults');
+
+      if (!cards.length) {
+        container.innerHTML =
+          '<section class="panel">' +
+          'No matching published FMR was found.' +
+          '</section>';
+
+        return;
+      }
+
+      container.innerHTML =
+        cards.map(card => `
           <article class="fmr-card">
             <div class="section-heading">
               <div>
-                <h3>${escapeHtmlV3_(card.fmrNumber)}</h3>
+                <h3>
+                  ${escapeHtmlV3_(card.fmrNumber)}
+                </h3>
+
                 <div class="muted">
                   IWP ${escapeHtmlV3_(card.iwpNumber)} ·
                   ${escapeHtmlV3_(card.status)}
+
                   ${card.requestedBy
-                    ? ` · Requested by ${escapeHtmlV3_(card.requestedBy)}`
+                    ? ` · Requested by ${escapeHtmlV3_(
+                        card.requestedBy
+                      )}`
                     : ''}
                 </div>
               </div>
             </div>
-    
-            ${renderSummaryV3_(card.totals || {})}
-    
+
+            ${renderSummaryV3_(
+              card.totals || {}
+            )}
+
             <div class="table-wrap">
               <table>
                 <thead>
@@ -174,559 +273,1496 @@
                     <th>Actions</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   ${(card.materials || [])
-                    .map(material => renderMaterialRowV3_(material))
+                    .map(
+                      material =>
+                        renderMaterialRowV3_(
+                          material
+                        )
+                    )
                     .join('')}
                 </tbody>
               </table>
             </div>
           </article>
         `).join('');
-    
-        container
-          .querySelectorAll('[data-field-action]')
-          .forEach(button => {
-            button.addEventListener('click', () => {
-              const match = findMaterialV3_(button.dataset.lineId);
+
+      container
+        .querySelectorAll(
+          '[data-field-action]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              const match =
+                findMaterialV3_(
+                  button.dataset.lineId
+                );
+
               openActionModalV3_(
                 button.dataset.fieldAction,
                 match.card,
                 match.material
               );
-            });
-          });
-      }
-    
-      function renderSummaryV3_(totals) {
-        const values = [
-          ['Requested', totals.requested],
-          ['Located', totals.located],
-          ['Bagged', totals.bagged],
-          ['Available', totals.available],
-          ['Issued', totals.issued],
-          ['Pending B/O', totals.pendingBackorder],
-          ['Confirmed B/O', totals.confirmedBackorder],
-          ['Remaining', totals.remaining]
-        ];
-    
-        return `
-          <div class="summary-strip">
-            ${values.map(item => `
-              <div class="summary-cell">
-                <span class="label">${escapeHtmlV3_(item[0])}</span>
-                <span class="value">${formatQtyV3_(item[1])}</span>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-    
-      function renderMaterialRowV3_(material) {
-        const returned = (material.returnedBackorders || [])
-          .map(item => `Returned for review: ${escapeHtmlV3_(item.reason)}`)
+            }
+          );
+        });
+    }
+
+    function renderSummaryV3_(totals) {
+      const values = [
+        ['Requested', totals.requested],
+        ['Located', totals.located],
+        ['Bagged', totals.bagged],
+        ['Available', totals.available],
+        ['Issued', totals.issued],
+        [
+          'Pending B/O',
+          totals.pendingBackorder
+        ],
+        [
+          'Confirmed B/O',
+          totals.confirmedBackorder
+        ],
+        ['Remaining', totals.remaining]
+      ];
+
+      return `
+        <div class="summary-strip">
+          ${values.map(item => `
+            <div class="summary-cell">
+              <span class="label">
+                ${escapeHtmlV3_(item[0])}
+              </span>
+
+              <span class="value">
+                ${formatQtyV3_(item[1])}
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderMaterialRowV3_(
+      material
+    ) {
+      const returned =
+        (
+          material.returnedBackorders || []
+        )
+          .map(
+            item =>
+              `Returned for review: ${
+                escapeHtmlV3_(item.reason)
+              }`
+          )
           .join('<br>');
-    
-        return `
-          <tr>
-            <td>${escapeHtmlV3_(material.isoNumber)} | ${escapeHtmlV3_(material.isoSheet)}</td>
-            <td>${escapeHtmlV3_(material.commodityCode)}</td>
-            <td>${escapeHtmlV3_(material.size)}</td>
-            <td>
-              ${escapeHtmlV3_(material.description)}
-              ${returned ? `<div class="muted">${returned}</div>` : ''}
-            </td>
-            <td>${formatQtyV3_(material.qtyRequested)}</td>
-            <td>${formatQtyV3_(material.qtyConfirmedLocated)}</td>
-            <td>${formatQtyV3_(material.qtyActiveBagged)}</td>
-            <td>${formatQtyV3_(material.qtyAvailable)}</td>
-            <td>${formatQtyV3_(material.qtyIssued)}</td>
-            <td>${formatQtyV3_(material.qtyPendingBackorder)}</td>
-            <td>${formatQtyV3_(material.qtyConfirmedBackorder)}</td>
-            <td>${formatQtyV3_(material.qtyRemainingRequirement)}</td>
-            <td>${escapeHtmlV3_(material.lineStatus)}</td>
-            <td>${renderFieldActionsV3_(material)}</td>
-          </tr>
-        `;
+
+      return `
+        <tr>
+          <td>
+            ${escapeHtmlV3_(
+              material.isoNumber
+            )} |
+            ${escapeHtmlV3_(
+              material.isoSheet
+            )}
+          </td>
+
+          <td>
+            ${escapeHtmlV3_(
+              material.commodityCode
+            )}
+          </td>
+
+          <td>
+            ${escapeHtmlV3_(
+              material.size
+            )}
+          </td>
+
+          <td>
+            ${escapeHtmlV3_(
+              material.description
+            )}
+
+            ${returned
+              ? `
+                <div class="muted">
+                  ${returned}
+                </div>
+              `
+              : ''}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyRequested
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyConfirmedLocated
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyActiveBagged
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyAvailable
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyIssued
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyPendingBackorder
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyConfirmedBackorder
+            )}
+          </td>
+
+          <td>
+            ${formatQtyV3_(
+              material.qtyRemainingRequirement
+            )}
+          </td>
+
+          <td>
+            ${escapeHtmlV3_(
+              material.lineStatus
+            )}
+          </td>
+
+          <td>
+            ${renderFieldActionsV3_(
+              material
+            )}
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderFieldActionsV3_(
+      material
+    ) {
+      if (
+        !state.bootstrap ||
+        !state.bootstrap.user.canFieldTransact
+      ) {
+        return (
+          '<span class="muted">' +
+          'Read only' +
+          '</span>'
+        );
       }
-    
-      function renderFieldActionsV3_(material) {
-        if (!state.bootstrap || !state.bootstrap.user.canFieldTransact) {
-          return '<span class="muted">Read only</span>';
+
+      const limits =
+        material.actionLimits || {};
+
+      const buttons = [];
+
+      addActionButtonV3_(
+        buttons,
+        'CONFIRM_AVAILABLE',
+        'Confirm',
+        material.fmrLineId,
+        limits.confirmAvailable
+      );
+
+      addActionButtonV3_(
+        buttons,
+        'BAG',
+        'Bag & Tag',
+        material.fmrLineId,
+        limits.bag
+      );
+
+      addActionButtonV3_(
+        buttons,
+        'DIRECT_ISSUE',
+        'Locate & Issue',
+        material.fmrLineId,
+        limits.directIssue
+      );
+
+      addActionButtonV3_(
+        buttons,
+        'ISSUE_FROM_AVAILABLE',
+        'Issue Available',
+        material.fmrLineId,
+        limits.issueAvailable
+      );
+
+      const hasActiveBag =
+        (material.activeBags || [])
+          .some(
+            item =>
+              Number(
+                item.qtyRemaining || 0
+              ) > 0
+          );
+
+      if (hasActiveBag) {
+        addActionButtonV3_(
+          buttons,
+          'ISSUE_FROM_BAG',
+          'Issue From Bag',
+          material.fmrLineId,
+          1
+        );
+      }
+
+      addActionButtonV3_(
+        buttons,
+        'BACKORDER_REQUESTED',
+        'Backorder',
+        material.fmrLineId,
+        limits.backorder
+      );
+
+      return buttons.length
+        ? `
+          <div class="material-actions">
+            ${buttons.join('')}
+          </div>
+        `
+        : `
+          <span class="muted">
+            No action available
+          </span>
+        `;
+    }
+
+    function addActionButtonV3_(
+      target,
+      action,
+      label,
+      lineId,
+      maximum
+    ) {
+      if (
+        Number(maximum || 0) <= 0
+      ) {
+        return;
+      }
+
+      target.push(`
+        <button
+          type="button"
+          class="small"
+          data-field-action="${
+            escapeAttributeV3_(action)
+          }"
+          data-line-id="${
+            escapeAttributeV3_(lineId)
+          }">
+          ${escapeHtmlV3_(label)}
+        </button>
+      `);
+    }
+
+    function findMaterialV3_(lineId) {
+      for (
+        const card of
+        (state.fieldData?.cards || [])
+      ) {
+        const material =
+          (card.materials || [])
+            .find(
+              item =>
+                item.fmrLineId === lineId
+            );
+
+        if (material) {
+          return {
+            card,
+            material
+          };
         }
-    
-        const limits = material.actionLimits || {};
-        const buttons = [];
-    
-        addActionButtonV3_(buttons, 'CONFIRM_AVAILABLE', 'Confirm', material.fmrLineId, limits.confirmAvailable);
-        addActionButtonV3_(buttons, 'BAG', 'Bag & Tag', material.fmrLineId, limits.bag);
-        addActionButtonV3_(buttons, 'DIRECT_ISSUE', 'Locate & Issue', material.fmrLineId, limits.directIssue);
-        addActionButtonV3_(buttons, 'ISSUE_FROM_AVAILABLE', 'Issue Available', material.fmrLineId, limits.issueAvailable);
-    
-        if ((material.activeBags || []).some(item => Number(item.qtyRemaining || 0) > 0)) {
-          addActionButtonV3_(buttons, 'ISSUE_FROM_BAG', 'Issue From Bag', material.fmrLineId, 1);
-        }
-    
-        addActionButtonV3_(buttons, 'BACKORDER_REQUESTED', 'Backorder', material.fmrLineId, limits.backorder);
-    
-        return buttons.length
-          ? `<div class="material-actions">${buttons.join('')}</div>`
-          : '<span class="muted">No action available</span>';
       }
-    
-      function addActionButtonV3_(target, action, label, lineId, maximum) {
-        if (Number(maximum || 0) <= 0) return;
-    
-        target.push(`
-          <button
-            type="button"
-            class="small"
-            data-field-action="${escapeAttributeV3_(action)}"
-            data-line-id="${escapeAttributeV3_(lineId)}">
-            ${escapeHtmlV3_(label)}
-          </button>
-        `);
-      }
-    
-      function findMaterialV3_(lineId) {
-        for (const card of (state.fieldData?.cards || [])) {
-          const material = (card.materials || [])
-            .find(item => item.fmrLineId === lineId);
-    
-          if (material) return {card, material};
-        }
-    
-        throw new Error(`Material line not found: ${lineId}`);
-      }
-    
-      function openActionModalV3_(action, card, material) {
-        state.activeAction = action;
-        state.activeCard = card;
-        state.activeMaterial = material;
-    
-        byId('modalTitle').textContent = actionLabelV3_(action);
-        byId('modalContext').textContent =
-          `${card.fmrNumber} · ${material.isoKey} · ${material.commodityCode}`;
-        byId('modalFields').innerHTML = buildActionFieldsV3_(action, material);
-        byId('actionModal').classList.remove('hidden');
-      }
-    
-      function buildActionFieldsV3_(action, material) {
-        const quantity = `
-          <label>
-            Quantity
-            <input id="actionQuantity" type="number" min="0.000001" step="any" required>
-          </label>
-        `;
-    
-        const performedBy = `
-          <label>
-            Performed By
-            <input
-              id="actionPerformedBy"
-              value="${escapeAttributeV3_(state.bootstrap.user.name || state.bootstrap.user.email)}">
-          </label>
-        `;
-    
-        const notes = `
-          <label>
-            Notes
-            <input id="actionNotes">
-          </label>
-        `;
-    
-        if (action === 'CONFIRM_AVAILABLE' || action === 'BAG') {
-          return quantity + performedBy + `
+
+      throw new Error(
+        `Material line not found: ${lineId}`
+      );
+    }
+
+    function openActionModalV3_(
+      action,
+      card,
+      material
+    ) {
+      state.activeAction = action;
+      state.activeCard = card;
+      state.activeMaterial = material;
+
+      byId('modalTitle').textContent =
+        actionLabelV3_(action);
+
+      byId('modalContext').textContent =
+        `${card.fmrNumber} · ` +
+        `${material.isoKey} · ` +
+        `${material.commodityCode}`;
+
+      byId('modalFields').innerHTML =
+        buildActionFieldsV3_(
+          action,
+          material
+        );
+
+      byId('actionModal')
+        .classList
+        .remove('hidden');
+    }
+
+    function buildActionFieldsV3_(
+      action,
+      material
+    ) {
+      const quantity = `
+        <label>
+          Quantity
+
+          <input
+            id="actionQuantity"
+            type="number"
+            min="0.000001"
+            step="any"
+            required>
+        </label>
+      `;
+
+      const performedBy = `
+        <label>
+          Performed By
+
+          <input
+            id="actionPerformedBy"
+            value="${
+              escapeAttributeV3_(
+                state.bootstrap.user.name ||
+                state.bootstrap.user.email
+              )
+            }">
+        </label>
+      `;
+
+      const notes = `
+        <label>
+          Notes
+          <input id="actionNotes">
+        </label>
+      `;
+
+      if (
+        action ===
+          'CONFIRM_AVAILABLE' ||
+        action === 'BAG'
+      ) {
+        return (
+          quantity +
+          performedBy +
+          `
             <label>
               Storage Location
+
               <input
                 id="actionStorageLocation"
-                value="${escapeAttributeV3_(material.storageLocation || '')}"
-                ${action === 'BAG' ? 'required' : ''}>
+                value="${
+                  escapeAttributeV3_(
+                    material.storageLocation ||
+                    ''
+                  )
+                }"
+                ${
+                  action === 'BAG'
+                    ? 'required'
+                    : ''
+                }>
             </label>
-          ` + notes;
-        }
-    
-        if (action === 'DIRECT_ISSUE' || action === 'ISSUE_FROM_AVAILABLE') {
-          return quantity + performedBy + `
+          ` +
+          notes
+        );
+      }
+
+      if (
+        action === 'DIRECT_ISSUE' ||
+        action ===
+          'ISSUE_FROM_AVAILABLE'
+      ) {
+        return (
+          quantity +
+          performedBy +
+          `
             <label>
               Issued To
-              <input id="actionIssuedTo" required>
+
+              <input
+                id="actionIssuedTo"
+                required>
             </label>
-          ` + notes;
-        }
-    
-        if (action === 'ISSUE_FROM_BAG') {
-          return quantity + performedBy + `
+          ` +
+          notes
+        );
+      }
+
+      if (
+        action === 'ISSUE_FROM_BAG'
+      ) {
+        return (
+          quantity +
+          performedBy +
+          `
             <label>
               Bag Tag
-              <select id="actionBagTag" required>
-                ${(material.activeBags || []).map(bag => `
-                  <option value="${escapeAttributeV3_(bag.bagTagId)}">
-                    ${escapeHtmlV3_(bag.tagNumber)} ·
-                    ${formatQtyV3_(bag.qtyRemaining)} ${escapeHtmlV3_(bag.uom)}
-                  </option>
-                `).join('')}
+
+              <select
+                id="actionBagTag"
+                required>
+
+                ${
+                  (
+                    material.activeBags || []
+                  )
+                    .map(bag => `
+                      <option
+                        value="${
+                          escapeAttributeV3_(
+                            bag.bagTagId
+                          )
+                        }">
+
+                        ${
+                          escapeHtmlV3_(
+                            bag.tagNumber
+                          )
+                        } ·
+
+                        ${
+                          formatQtyV3_(
+                            bag.qtyRemaining
+                          )
+                        }
+
+                        ${
+                          escapeHtmlV3_(
+                            bag.uom
+                          )
+                        }
+                      </option>
+                    `)
+                    .join('')
+                }
               </select>
             </label>
+
             <label>
               Issued To
-              <input id="actionIssuedTo" required>
+
+              <input
+                id="actionIssuedTo"
+                required>
             </label>
-          ` + notes;
-        }
-    
-        const reasons = state.bootstrap.field.options.backorderReasons || [];
-    
-        return quantity + performedBy + `
+          ` +
+          notes
+        );
+      }
+
+      const reasons =
+        state.bootstrap
+          .field
+          .options
+          .backorderReasons || [];
+
+      return (
+        quantity +
+        performedBy +
+        `
           <label>
             Reason
-            <select id="actionReason" required>
-              ${reasons.map(reason => `
-                <option value="${escapeAttributeV3_(reason)}">
-                  ${escapeHtmlV3_(reason)}
-                </option>
-              `).join('')}
+
+            <select
+              id="actionReason"
+              required>
+
+              ${
+                reasons
+                  .map(reason => `
+                    <option
+                      value="${
+                        escapeAttributeV3_(
+                          reason
+                        )
+                      }">
+
+                      ${
+                        escapeHtmlV3_(
+                          reason
+                        )
+                      }
+                    </option>
+                  `)
+                  .join('')
+              }
             </select>
           </label>
-        ` + notes;
-      }
-    
-      async function submitFieldActionV3_(event) {
-        event.preventDefault();
-    
-        const request = {
-          action: state.activeAction,
-          fmrLineId: state.activeMaterial.fmrLineId,
-          quantity: numberValueV3_('actionQuantity'),
-          performedByName: valueOfV3_('actionPerformedBy'),
-          issuedToName: valueOfV3_('actionIssuedTo'),
-          storageLocation: valueOfV3_('actionStorageLocation'),
-          bagTagId: valueOfV3_('actionBagTag'),
-          reason: valueOfV3_('actionReason'),
-          notes: valueOfV3_('actionNotes')
-        };
-    
-        byId('modalSubmit').disabled = true;
-    
-        try {
-          const result = await callServerV3_('performFieldActionV3', request);
-          closeActionModalV3_();
-          showSuccessV3_(result.message);
-          await searchFieldV3_();
-        } catch (error) {
-          showErrorV3_(error);
-        } finally {
-          byId('modalSubmit').disabled = false;
-        }
-      }
-    
-      function closeActionModalV3_() {
-        byId('actionModal').classList.add('hidden');
-        state.activeAction = '';
-        state.activeCard = null;
-        state.activeMaterial = null;
-      }
-    
-      async function refreshAdminV3_() {
-        hideAlertsV3_();
-        byId('backorderQueue').innerHTML =
-          '<div class="muted">Loading backorder queue…</div>';
-        byId('adminFmrRegister').innerHTML =
-          '<div class="register-empty">Loading FMR register…</div>';
-        byId('adminRegisterStatusText').textContent =
-          'Loading dashboard and FMR register…';
-    
-        try {
-          const [dashboard, register] = await Promise.all([
-            callServerV3_('getAdminDashboardV3'),
-            callServerV3_('getAdminFmrRegisterV3', adminRegisterRequestV3_())
-          ]);
-    
-          renderKpisV3_(dashboard.kpis || {});
-          renderBackordersV3_(
-            dashboard.backorders || [],
-            dashboard.canReviewBackorders
+        ` +
+        notes
+      );
+    }
+
+    async function submitFieldActionV3_(
+      event
+    ) {
+      event.preventDefault();
+
+      const request = {
+        action:
+          state.activeAction,
+
+        fmrLineId:
+          state.activeMaterial.fmrLineId,
+
+        quantity:
+          numberValueV3_(
+            'actionQuantity'
+          ),
+
+        performedByName:
+          valueOfV3_(
+            'actionPerformedBy'
+          ),
+
+        issuedToName:
+          valueOfV3_(
+            'actionIssuedTo'
+          ),
+
+        storageLocation:
+          valueOfV3_(
+            'actionStorageLocation'
+          ),
+
+        bagTagId:
+          valueOfV3_(
+            'actionBagTag'
+          ),
+
+        reason:
+          valueOfV3_(
+            'actionReason'
+          ),
+
+        notes:
+          valueOfV3_(
+            'actionNotes'
+          )
+      };
+
+      byId('modalSubmit').disabled =
+        true;
+
+      try {
+        const result =
+          await callServerV3_(
+            'performFieldActionV3',
+            request
           );
-          renderAdminRegisterV3_(register);
-        } catch (error) {
-          showErrorV3_(error);
-        }
+
+        closeActionModalV3_();
+
+        showSuccessV3_(
+          result.message
+        );
+
+        await searchFieldV3_();
+      } catch (error) {
+        showErrorV3_(error);
+      } finally {
+        byId('modalSubmit').disabled =
+          false;
       }
-    
-      async function refreshAdminRegisterV3_() {
-        hideAlertsV3_();
-        byId('adminRegisterStatusText').textContent = 'Loading FMR register…';
-        byId('adminFmrRegister').innerHTML =
-          '<div class="register-empty">Loading indexed header summaries…</div>';
-    
-        try {
-          const data = await callServerV3_(
+    }
+
+    function closeActionModalV3_() {
+      byId('actionModal')
+        .classList
+        .add('hidden');
+
+      state.activeAction = '';
+      state.activeCard = null;
+      state.activeMaterial = null;
+    }
+
+    async function refreshAdminV3_() {
+      hideAlertsV3_();
+
+      byId('backorderQueue').innerHTML =
+        '<div class="muted">' +
+        'Loading backorder queue…' +
+        '</div>';
+
+      byId('activeBagQueue').innerHTML =
+        '<div class="muted">' +
+        'Loading Active Bag & Tags…' +
+        '</div>';
+
+      byId('adminFmrRegister').innerHTML =
+        '<div class="register-empty">' +
+        'Loading FMR register…' +
+        '</div>';
+
+      byId(
+        'adminRegisterStatusText'
+      ).textContent =
+        'Loading dashboard and FMR register…';
+
+      try {
+        const [
+          dashboard,
+          register
+        ] = await Promise.all([
+          callServerV3_(
+            'getAdminDashboardV3'
+          ),
+
+          callServerV3_(
+            'getAdminFmrRegisterV3',
+            adminRegisterRequestV3_()
+          )
+        ]);
+
+        const rail =
+          dashboard.operationalRail || {};
+
+        const backorderRail =
+          rail.backorders || {
+            requests:
+              dashboard.backorders || [],
+
+            canReview:
+              dashboard
+                .canReviewBackorders
+          };
+
+        const activeBagRail =
+          rail.activeBags || {
+            summary: {},
+
+            records:
+              dashboard.activeBags || []
+          };
+
+        renderKpisV3_(
+          dashboard.kpis || {}
+        );
+
+        renderBackordersV3_(
+          backorderRail.requests || [],
+          backorderRail.canReview
+        );
+
+        renderActiveBagsV3_(
+          activeBagRail.records || [],
+          activeBagRail.summary || {}
+        );
+
+        renderAdminRegisterV3_(
+          register
+        );
+      } catch (error) {
+        showErrorV3_(error);
+      }
+    }
+
+    async function refreshAdminRegisterV3_() {
+      hideAlertsV3_();
+
+      byId(
+        'adminRegisterStatusText'
+      ).textContent =
+        'Loading FMR register…';
+
+      byId('adminFmrRegister').innerHTML =
+        '<div class="register-empty">' +
+        'Loading indexed header summaries…' +
+        '</div>';
+
+      try {
+        const data =
+          await callServerV3_(
             'getAdminFmrRegisterV3',
             adminRegisterRequestV3_()
           );
-          renderAdminRegisterV3_(data);
-        } catch (error) {
-          showErrorV3_(error);
-        }
+
+        renderAdminRegisterV3_(
+          data
+        );
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      function adminRegisterRequestV3_() {
-        return {
-          query: valueOfV3_('adminRegisterQuery'),
-          queryType: valueOfV3_('adminRegisterQueryType') || 'AUTO',
-          status: valueOfV3_('adminRegisterStatus') || 'ALL',
-          priority: valueOfV3_('adminRegisterPriority') || 'ALL',
-          exceptionType: valueOfV3_('adminRegisterException') || 'ALL',
-          sortBy: valueOfV3_('adminRegisterSortBy') || 'LAST_ACTIVITY',
-          sortDirection: valueOfV3_('adminRegisterSortDirection') || 'DESC',
-          page: state.adminRegisterPage,
-          pageSize: state.adminRegisterPageSize
-        };
+    }
+
+    function adminRegisterRequestV3_() {
+      return {
+        query:
+          valueOfV3_(
+            'adminRegisterQuery'
+          ),
+
+        queryType:
+          valueOfV3_(
+            'adminRegisterQueryType'
+          ) || 'AUTO',
+
+        status:
+          valueOfV3_(
+            'adminRegisterStatus'
+          ) || 'ALL',
+
+        priority:
+          valueOfV3_(
+            'adminRegisterPriority'
+          ) || 'ALL',
+
+        exceptionType:
+          valueOfV3_(
+            'adminRegisterException'
+          ) || 'ALL',
+
+        sortBy:
+          valueOfV3_(
+            'adminRegisterSortBy'
+          ) || 'LAST_ACTIVITY',
+
+        sortDirection:
+          valueOfV3_(
+            'adminRegisterSortDirection'
+          ) || 'DESC',
+
+        page:
+          state.adminRegisterPage,
+
+        pageSize:
+          state.adminRegisterPageSize
+      };
+    }
+
+    function resetAdminRegisterV3_() {
+      state.adminRegisterPage = 1;
+
+      byId(
+        'adminRegisterQuery'
+      ).value = '';
+
+      byId(
+        'adminRegisterQueryType'
+      ).value = 'AUTO';
+
+      byId(
+        'adminRegisterStatus'
+      ).value = 'ALL';
+
+      byId(
+        'adminRegisterPriority'
+      ).value = 'ALL';
+
+      byId(
+        'adminRegisterException'
+      ).value = 'ALL';
+
+      byId(
+        'adminRegisterSortBy'
+      ).value = 'LAST_ACTIVITY';
+
+      byId(
+        'adminRegisterSortDirection'
+      ).value = 'DESC';
+
+      closeAdminFmrDetailV3_();
+      refreshAdminRegisterV3_();
+    }
+
+    function renderKpisV3_(kpis) {
+      const definitions = [
+        [
+          'Published FMRs',
+          kpis.publishedFmrs,
+          ''
+        ],
+        [
+          'Open FMRs',
+          kpis.openFmrs,
+          ''
+        ],
+        [
+          'Material Lines',
+          kpis.materialLines,
+          ''
+        ],
+        [
+          'Requested Qty',
+          kpis.requestedQty,
+          ''
+        ],
+        [
+          'Located Qty',
+          kpis.locatedQty,
+          ''
+        ],
+        [
+          'Available Qty',
+          kpis.availableQty,
+          'kpi-positive'
+        ],
+        [
+          'Reserved / Bagged Qty',
+          kpis.baggedQty,
+          ''
+        ],
+        [
+          'Issued Qty',
+          kpis.issuedQty,
+          'kpi-positive'
+        ],
+        [
+          'Remaining Qty',
+          kpis.remainingQty,
+          'kpi-attention'
+        ],
+        [
+          'Pending B/O Qty',
+          kpis.pendingBackorderQty,
+          'kpi-attention'
+        ],
+        [
+          'Confirmed B/O Qty',
+          kpis.confirmedBackorderQty,
+          'kpi-attention'
+        ],
+        [
+          'Returned Review Requests',
+          kpis.returnedReviewRequests,
+          'kpi-attention'
+        ],
+        [
+          'Active / Partial Tags',
+          kpis.activeTags,
+          ''
+        ],
+        [
+          'Fulfillment',
+          kpis.fulfillment,
+          'kpi-positive'
+        ]
+      ];
+
+      byId('kpiGrid').innerHTML =
+        definitions
+          .map(item => `
+            <div
+              class="kpi ${
+                escapeAttributeV3_(
+                  item[2]
+                )
+              }">
+
+              <span class="label">
+                ${
+                  escapeHtmlV3_(
+                    item[0]
+                  )
+                }
+              </span>
+
+              <span class="value">
+                ${
+                  escapeHtmlV3_(
+                    formatAdminKpiV3_(
+                      item[1],
+                      item[0]
+                    )
+                  )
+                }
+              </span>
+            </div>
+          `)
+          .join('');
+    }
+
+    function formatAdminKpiV3_(
+      value,
+      label
+    ) {
+      if (
+        label === 'Fulfillment'
+      ) {
+        return String(
+          value == null
+            ? '0%'
+            : value
+        );
       }
-    
-      function resetAdminRegisterV3_() {
-        state.adminRegisterPage = 1;
-        byId('adminRegisterQuery').value = '';
-        byId('adminRegisterQueryType').value = 'AUTO';
-        byId('adminRegisterStatus').value = 'ALL';
-        byId('adminRegisterPriority').value = 'ALL';
-        byId('adminRegisterException').value = 'ALL';
-        byId('adminRegisterSortBy').value = 'LAST_ACTIVITY';
-        byId('adminRegisterSortDirection').value = 'DESC';
-        closeAdminFmrDetailV3_();
-        refreshAdminRegisterV3_();
-      }
-    
-      function renderKpisV3_(kpis) {
-        const definitions = [
-          ['Published FMRs', kpis.publishedFmrs, ''],
-          ['Open FMRs', kpis.openFmrs, ''],
-          ['Material Lines', kpis.materialLines, ''],
-          ['Requested Qty', kpis.requestedQty, ''],
-          ['Located Qty', kpis.locatedQty, ''],
-          ['Available Qty', kpis.availableQty, 'kpi-positive'],
-          ['Reserved / Bagged Qty', kpis.baggedQty, ''],
-          ['Issued Qty', kpis.issuedQty, 'kpi-positive'],
-          ['Remaining Qty', kpis.remainingQty, 'kpi-attention'],
-          ['Pending B/O Qty', kpis.pendingBackorderQty, 'kpi-attention'],
-          ['Confirmed B/O Qty', kpis.confirmedBackorderQty, 'kpi-attention'],
-          ['Returned Review Requests', kpis.returnedReviewRequests, 'kpi-attention'],
-          ['Active / Partial Tags', kpis.activeTags, ''],
-          ['Fulfillment', kpis.fulfillment, 'kpi-positive']
-        ];
-    
-        byId('kpiGrid').innerHTML = definitions.map(item => `
-          <div class="kpi ${escapeAttributeV3_(item[2])}">
-            <span class="label">${escapeHtmlV3_(item[0])}</span>
-            <span class="value">${escapeHtmlV3_(formatAdminKpiV3_(item[1], item[0]))}</span>
-          </div>
-        `).join('');
-      }
-    
-      function formatAdminKpiV3_(value, label) {
-        if (label === 'Fulfillment') {
-          return String(value == null ? '0%' : value);
-        }
-    
-        const normalized = String(value == null ? '' : value)
+
+      const normalized =
+        String(
+          value == null
+            ? ''
+            : value
+        )
           .replace(/,/g, '')
           .trim();
-        const number = Number(normalized);
-    
-        return Number.isFinite(number)
-          ? formatQtyV3_(number)
-          : String(value == null ? '0' : value);
-      }
-    
-      function renderAdminRegisterV3_(data) {
-        state.adminRegisterData = data || {};
-        const records = data?.records || [];
-        const pagination = data?.pagination || {};
-        state.adminRegisterPage = Number(pagination.page || 1);
-    
-        applyAdminRegisterOptionsV3_(data?.filterOptions || {});
-    
-        byId('adminRegisterStatusText').textContent =
-          `${pagination.totalRecords || 0} FMR(s) · ` +
-          `${data?.generatedAt || ''}`;
-    
-        byId('adminRegisterPageText').textContent =
-          pagination.totalRecords
-            ? `Showing ${pagination.firstRecord}-${pagination.lastRecord} of ` +
-              `${pagination.totalRecords} · Page ${pagination.page} of ${pagination.totalPages}`
-            : 'No matching FMRs';
-    
-        byId('adminRegisterPreviousButton').disabled = !pagination.hasPrevious;
-        byId('adminRegisterNextButton').disabled = !pagination.hasNext;
-    
-        const container = byId('adminFmrRegister');
-    
-        if (!records.length) {
-          container.innerHTML =
-            '<div class="register-empty">No published FMR matches the selected filters.</div>';
-          return;
-        }
-    
-        container.innerHTML = `
-          <div class="register-meta">
-            <span>Header summaries only</span>
-            <span>Material lines load when Open is selected</span>
-            <span>Page size: ${escapeHtmlV3_(pagination.pageSize || state.adminRegisterPageSize)}</span>
-          </div>
-          <div class="table-wrap">
-            <table class="register-table">
-              <thead>
-                <tr>
-                  <th>FMR Number</th>
-                  <th>IWP</th>
-                  <th>Requested By</th>
-                  <th>Date Required</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Lines</th>
-                  <th>Requested</th>
-                  <th>Located</th>
-                  <th>Available</th>
-                  <th>Bagged</th>
-                  <th>Issued</th>
-                  <th>Pending B/O</th>
-                  <th>Confirmed B/O</th>
-                  <th>Remaining</th>
-                  <th>Fulfillment</th>
-                  <th>Last Activity</th>
-                  <th>Open</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${records.map(record => `
-                  <tr>
-                    <td class="fmr-cell">
-                      <strong>${escapeHtmlV3_(record.fmrNumber)}</strong>
-                      ${record.notes
-                        ? `<div class="muted">${escapeHtmlV3_(record.notes)}</div>`
-                        : ''}
-                    </td>
-                    <td>${escapeHtmlV3_(record.iwpNumber)}</td>
-                    <td>${escapeHtmlV3_(record.requestedBy)}</td>
-                    <td>${escapeHtmlV3_(record.dateRequired)}</td>
-                    <td>${escapeHtmlV3_(record.priority)}</td>
-                    <td>
-                      <span class="status-badge ${statusClassV3_(record.status)}">
-                        ${escapeHtmlV3_(record.status)}
-                      </span>
-                    </td>
-                    <td class="numeric">${formatQtyV3_(record.totalLines)}</td>
-                    <td class="numeric">${formatQtyV3_(record.requestedQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.locatedQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.availableQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.baggedQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.issuedQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.pendingBackorderQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.confirmedBackorderQty)}</td>
-                    <td class="numeric">${formatQtyV3_(record.remainingQty)}</td>
-                    <td class="numeric">${formatPercentV3_(record.fulfillmentPct)}</td>
-                    <td>${escapeHtmlV3_(record.lastActivityAt)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        class="small"
-                        data-admin-open-fmr="${escapeAttributeV3_(record.fmrNumber)}">
-                        Open
-                      </button>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-    
-        container
-          .querySelectorAll('[data-admin-open-fmr]')
-          .forEach(button => {
-            button.addEventListener('click', () => {
-              openAdminFmrDetailV3_(button.dataset.adminOpenFmr);
-            });
-          });
-      }
-    
-      function applyAdminRegisterOptionsV3_(filterOptions) {
-        replaceSelectOptionsV3_(
-          'adminRegisterStatus',
-          'All Statuses',
-          filterOptions.statuses || []
+
+      const number =
+        Number(normalized);
+
+      return Number.isFinite(number)
+        ? formatQtyV3_(number)
+        : String(
+            value == null
+              ? '0'
+              : value
+          );
+    }
+
+    function renderAdminRegisterV3_(
+      data
+    ) {
+      state.adminRegisterData =
+        data || {};
+
+      const records =
+        data?.records || [];
+
+      const pagination =
+        data?.pagination || {};
+
+      state.adminRegisterPage =
+        Number(
+          pagination.page || 1
         );
-        replaceSelectOptionsV3_(
-          'adminRegisterPriority',
-          'All Priorities',
-          filterOptions.priorities || []
-        );
+
+      applyAdminRegisterOptionsV3_(
+        data?.filterOptions || {}
+      );
+
+      byId(
+        'adminRegisterStatusText'
+      ).textContent =
+        `${pagination.totalRecords || 0} FMR(s) · ` +
+        `${data?.generatedAt || ''}`;
+
+      byId(
+        'adminRegisterPageText'
+      ).textContent =
+        pagination.totalRecords
+          ? (
+              `Showing ${
+                pagination.firstRecord
+              }-${
+                pagination.lastRecord
+              } of ${
+                pagination.totalRecords
+              } · Page ${
+                pagination.page
+              } of ${
+                pagination.totalPages
+              }`
+            )
+          : 'No matching FMRs';
+
+      byId(
+        'adminRegisterPreviousButton'
+      ).disabled =
+        !pagination.hasPrevious;
+
+      byId(
+        'adminRegisterNextButton'
+      ).disabled =
+        !pagination.hasNext;
+
+      const container =
+        byId('adminFmrRegister');
+
+      if (!records.length) {
+        container.innerHTML =
+          '<div class="register-empty">' +
+          'No published FMR matches the selected filters.' +
+          '</div>';
+
+        return;
       }
-    
-      function replaceSelectOptionsV3_(selectId, allLabel, values) {
-        const select = byId(selectId);
-        const current = select.value || 'ALL';
-        const normalizedCurrent = current.toUpperCase();
-    
-        select.innerHTML = `
-          <option value="ALL">${escapeHtmlV3_(allLabel)}</option>
-          ${(values || []).map(value => `
-            <option value="${escapeAttributeV3_(String(value).toUpperCase())}">
-              ${escapeHtmlV3_(value)}
-            </option>
-          `).join('')}
-        `;
-    
-        const optionExists = Array.from(select.options)
-          .some(option => option.value === normalizedCurrent);
-        select.value = optionExists ? normalizedCurrent : 'ALL';
-      }
-    
-      async function openAdminFmrDetailV3_(fmrNumber) {
-        hideAlertsV3_();
-        byId('adminFmrDetailPanel').classList.remove('hidden');
-        byId('adminFmrDetailTitle').textContent = fmrNumber;
-        byId('adminFmrDetailSubtitle').textContent = 'Loading indexed material lines…';
-        byId('adminFmrDetail').innerHTML =
-          '<div class="register-empty">Loading FMR detail…</div>';
-    
-        try {
-          const data = await callServerV3_('searchPortalV3', fmrNumber, 'FMR');
-    
-          if (!data.cards || data.cards.length !== 1) {
-            throw new Error(`Published FMR not found: ${fmrNumber}`);
-          }
-    
-          renderAdminFmrDetailV3_(data.cards[0]);
-          byId('adminFmrDetailPanel').scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        } catch (error) {
-          showErrorV3_(error);
-          closeAdminFmrDetailV3_();
+
+      container.innerHTML = `
+        <div class="register-meta">
+          <span>
+            Header summaries only
+          </span>
+
+          <span>
+            Material lines load when
+            Open is selected
+          </span>
+
+          <span>
+            Page size:
+            ${
+              escapeHtmlV3_(
+                pagination.pageSize ||
+                state.adminRegisterPageSize
+              )
+            }
+          </span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="register-table">
+            <thead>
+              <tr>
+                <th>FMR Number</th>
+                <th>IWP</th>
+                <th>Requested By</th>
+                <th>Date Required</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Lines</th>
+                <th>Requested</th>
+                <th>Located</th>
+                <th>Available</th>
+                <th>Bagged</th>
+                <th>Issued</th>
+                <th>Pending B/O</th>
+                <th>Confirmed B/O</th>
+                <th>Remaining</th>
+                <th>Fulfillment</th>
+                <th>Last Activity</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                records
+                  .map(record => `
+                    <tr>
+                      <td class="fmr-cell">
+                        <strong>
+                          ${
+                            escapeHtmlV3_(
+                              record.fmrNumber
+                            )
+                          }
+                        </strong>
+
+                        ${
+                          record.notes
+                            ? `
+                              <div class="muted">
+                                ${
+                                  escapeHtmlV3_(
+                                    record.notes
+                                  )
+                                }
+                              </div>
+                            `
+                            : ''
+                        }
+                      </td>
+
+                      <td>
+                        ${
+                          escapeHtmlV3_(
+                            record.iwpNumber
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        ${
+                          escapeHtmlV3_(
+                            record.requestedBy
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        ${
+                          escapeHtmlV3_(
+                            record.dateRequired
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        ${
+                          escapeHtmlV3_(
+                            record.priority
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        <span
+                          class="status-badge ${
+                            statusClassV3_(
+                              record.status
+                            )
+                          }">
+
+                          ${
+                            escapeHtmlV3_(
+                              record.status
+                            )
+                          }
+                        </span>
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.totalLines
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.requestedQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.locatedQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.availableQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.baggedQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.issuedQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record
+                              .pendingBackorderQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record
+                              .confirmedBackorderQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatQtyV3_(
+                            record.remainingQty
+                          )
+                        }
+                      </td>
+
+                      <td class="numeric">
+                        ${
+                          formatPercentV3_(
+                            record.fulfillmentPct
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        ${
+                          escapeHtmlV3_(
+                            record.lastActivityAt
+                          )
+                        }
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          class="small"
+                          data-admin-open-fmr="${
+                            escapeAttributeV3_(
+                              record.fmrNumber
+                            )
+                          }">
+
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  `)
+                  .join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container
+        .querySelectorAll(
+          '[data-admin-open-fmr]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              openAdminFmrDetailV3_(
+                button.dataset
+                  .adminOpenFmr
+              );
+            }
+          );
+        });
+    }
+
+    function applyAdminRegisterOptionsV3_(
+      filterOptions
+    ) {
+      replaceSelectOptionsV3_(
+        'adminRegisterStatus',
+        'All Statuses',
+        filterOptions.statuses || []
+      );
+
+      replaceSelectOptionsV3_(
+        'adminRegisterPriority',
+        'All Priorities',
+        filterOptions.priorities || []
+      );
+    }
+
+    function replaceSelectOptionsV3_(
+      selectId,
+      allLabel,
+      values
+    ) {
+      const select =
+        byId(selectId);
+
+      const current =
+        select.value || 'ALL';
+
+      const normalizedCurrent =
+        current.toUpperCase();
+
+      select.innerHTML = `
+        <option value="ALL">
+          ${escapeHtmlV3_(allLabel)}
+        </option>
+
+        ${
+          (values || [])
+            .map(value => `
+              <option
+                value="${
+                  escapeAttributeV3_(
+                    String(value)
+                      .toUpperCase()
+                  )
+                }">
+
+                ${
+                  escapeHtmlV3_(
+                    value
+                  )
+                }
+              </option>
+            `)
+            .join('')
         }
+      `;
+
+      const optionExists =
+        Array.from(select.options)
+          .some(
+            option =>
+              option.value ===
+              normalizedCurrent
+          );
+
+      select.value =
+        optionExists
+          ? normalizedCurrent
+          : 'ALL';
+    }
+
+    async function openAdminFmrDetailV3_(
+      fmrNumber
+    ) {
+      hideAlertsV3_();
+
+      byId(
+        'adminFmrDetailPanel'
+      )
+        .classList
+        .remove('hidden');
+
+      byId(
+        'adminFmrDetailTitle'
+      ).textContent =
+        fmrNumber;
+
+      byId(
+        'adminFmrDetailSubtitle'
+      ).textContent =
+        'Loading indexed material lines…';
+
+      byId(
+        'adminFmrDetail'
+      ).innerHTML =
+        '<div class="register-empty">' +
+        'Loading FMR detail…' +
+        '</div>';
+
+      try {
+        const data =
+          await callServerV3_(
+            'searchPortalV3',
+            fmrNumber,
+            'FMR'
+          );
+
+        if (
+          !data.cards ||
+          data.cards.length !== 1
+        ) {
+          throw new Error(
+            `Published FMR not found: ${fmrNumber}`
+          );
+        }
+
+        renderAdminFmrDetailV3_(
+          data.cards[0]
+        );
+
+        byId(
+          'adminFmrDetailPanel'
+        ).scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      } catch (error) {
+        showErrorV3_(error);
+        closeAdminFmrDetailV3_();
       }
-    
-      function renderAdminFmrDetailV3_(card) {
-        byId('adminFmrDetailTitle').textContent = card.fmrNumber;
-        byId('adminFmrDetailSubtitle').textContent =
-          `IWP ${card.iwpNumber || '—'} · ${card.status || '—'}`;
-    
-        byId('adminFmrDetail').innerHTML = `
+    }
+
+    function renderAdminFmrDetailV3_(
+      card
+    ) {
+      byId(
+        'adminFmrDetailTitle'
+      ).textContent =
+        card.fmrNumber;
+
+      byId(
+        'adminFmrDetailSubtitle'
+      ).textContent =
+        `IWP ${
+          card.iwpNumber || '—'
+        } · ${
+          card.status || '—'
+        }`;
+
+      byId('adminFmrDetail')
+        .innerHTML = `
           <div class="admin-detail-meta">
-            ${renderAdminMetaCellV3_('Requested By', card.requestedBy || '—')}
-            ${renderAdminMetaCellV3_('Date Required', card.dateRequired || '—')}
-            ${renderAdminMetaCellV3_('Priority', card.priority || '—')}
-            ${renderAdminMetaCellV3_('Status', card.status || '—')}
-            ${renderAdminMetaCellV3_('Notes', card.notes || '—')}
+            ${
+              renderAdminMetaCellV3_(
+                'Requested By',
+                card.requestedBy || '—'
+              )
+            }
+
+            ${
+              renderAdminMetaCellV3_(
+                'Date Required',
+                card.dateRequired || '—'
+              )
+            }
+
+            ${
+              renderAdminMetaCellV3_(
+                'Priority',
+                card.priority || '—'
+              )
+            }
+
+            ${
+              renderAdminMetaCellV3_(
+                'Status',
+                card.status || '—'
+              )
+            }
+
+            ${
+              renderAdminMetaCellV3_(
+                'Notes',
+                card.notes || '—'
+              )
+            }
           </div>
-    
-          ${renderSummaryV3_(card.totals || {})}
-    
+
+          ${
+            renderSummaryV3_(
+              card.totals || {}
+            )
+          }
+
           <div class="table-wrap">
-            <table class="admin-detail-table">
+            <table
+              class="admin-detail-table">
+
               <thead>
                 <tr>
                   <th>ISO</th>
@@ -745,353 +1781,1196 @@
                   <th>Storage / Tags</th>
                 </tr>
               </thead>
+
               <tbody>
-                ${(card.materials || []).map(material => `
-                  <tr>
-                    <td>${escapeHtmlV3_(material.isoKey)}</td>
-                    <td>${escapeHtmlV3_(material.commodityCode)}</td>
-                    <td>${escapeHtmlV3_(material.size)}</td>
-                    <td>
-                      ${escapeHtmlV3_(material.description)}
-                      ${(material.returnedBackorders || []).map(item => `
-                        <div class="muted">
-                          Returned for review: ${escapeHtmlV3_(item.reason)}
-                        </div>
-                      `).join('')}
-                    </td>
-                    <td class="numeric">${formatQtyV3_(material.qtyRequested)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyConfirmedLocated)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyActiveBagged)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyAvailable)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyIssued)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyPendingBackorder)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyConfirmedBackorder)}</td>
-                    <td class="numeric">${formatQtyV3_(material.qtyRemainingRequirement)}</td>
-                    <td>${escapeHtmlV3_(material.lineStatus)}</td>
-                    <td>
-                      ${escapeHtmlV3_(material.storageLocation || '—')}
-                      ${(material.activeBags || []).map(bag => `
-                        <div class="muted">
-                          ${escapeHtmlV3_(bag.tagNumber)} ·
-                          ${formatQtyV3_(bag.qtyRemaining)} ${escapeHtmlV3_(bag.uom)}
-                        </div>
-                      `).join('')}
-                    </td>
-                  </tr>
-                `).join('')}
+                ${
+                  (card.materials || [])
+                    .map(material => `
+                      <tr>
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material.isoKey
+                            )
+                          }
+                        </td>
+
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material
+                                .commodityCode
+                            )
+                          }
+                        </td>
+
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material.size
+                            )
+                          }
+                        </td>
+
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material
+                                .description
+                            )
+                          }
+
+                          ${
+                            (
+                              material
+                                .returnedBackorders ||
+                              []
+                            )
+                              .map(item => `
+                                <div
+                                  class="muted">
+
+                                  Returned for review:
+                                  ${
+                                    escapeHtmlV3_(
+                                      item.reason
+                                    )
+                                  }
+                                </div>
+                              `)
+                              .join('')
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyRequested
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyConfirmedLocated
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyActiveBagged
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyAvailable
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyIssued
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyPendingBackorder
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyConfirmedBackorder
+                            )
+                          }
+                        </td>
+
+                        <td class="numeric">
+                          ${
+                            formatQtyV3_(
+                              material
+                                .qtyRemainingRequirement
+                            )
+                          }
+                        </td>
+
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material
+                                .lineStatus
+                            )
+                          }
+                        </td>
+
+                        <td>
+                          ${
+                            escapeHtmlV3_(
+                              material
+                                .storageLocation ||
+                              '—'
+                            )
+                          }
+
+                          ${
+                            (
+                              material
+                                .activeBags ||
+                              []
+                            )
+                              .map(bag => `
+                                <div
+                                  class="muted">
+
+                                  ${
+                                    escapeHtmlV3_(
+                                      bag.tagNumber
+                                    )
+                                  } ·
+
+                                  ${
+                                    formatQtyV3_(
+                                      bag.qtyRemaining
+                                    )
+                                  }
+
+                                  ${
+                                    escapeHtmlV3_(
+                                      bag.uom
+                                    )
+                                  }
+                                </div>
+                              `)
+                              .join('')
+                          }
+                        </td>
+                      </tr>
+                    `)
+                    .join('')
+                }
               </tbody>
             </table>
           </div>
         `;
+    }
+
+    function renderAdminMetaCellV3_(
+      label,
+      value
+    ) {
+      return `
+        <div>
+          <span class="label">
+            ${escapeHtmlV3_(label)}
+          </span>
+
+          <span class="value">
+            ${escapeHtmlV3_(value)}
+          </span>
+        </div>
+      `;
+    }
+
+    function closeAdminFmrDetailV3_() {
+      byId(
+        'adminFmrDetailPanel'
+      )
+        .classList
+        .add('hidden');
+
+      byId(
+        'adminFmrDetail'
+      ).innerHTML = '';
+
+      byId(
+        'adminFmrDetailTitle'
+      ).textContent =
+        'FMR Detail';
+
+      byId(
+        'adminFmrDetailSubtitle'
+      ).textContent = '';
+    }
+
+    function statusClassV3_(status) {
+      const value =
+        String(status || '')
+          .toLowerCase();
+
+      if (value === 'issued') {
+        return 'status-issued';
       }
-    
-      function renderAdminMetaCellV3_(label, value) {
-        return `
-          <div>
-            <span class="label">${escapeHtmlV3_(label)}</span>
-            <span class="value">${escapeHtmlV3_(value)}</span>
-          </div>
-        `;
+
+      if (value === 'located') {
+        return 'status-located';
       }
-    
-      function closeAdminFmrDetailV3_() {
-        byId('adminFmrDetailPanel').classList.add('hidden');
-        byId('adminFmrDetail').innerHTML = '';
-        byId('adminFmrDetailTitle').textContent = 'FMR Detail';
-        byId('adminFmrDetailSubtitle').textContent = '';
+
+      if (
+        value.includes('partial')
+      ) {
+        return 'status-partial';
       }
-    
-      function statusClassV3_(status) {
-        const value = String(status || '').toLowerCase();
-    
-        if (value === 'issued') return 'status-issued';
-        if (value === 'located') return 'status-located';
-        if (value.includes('partial')) return 'status-partial';
-        if (value.includes('sourcing') || value.includes('backorder')) {
-          return 'status-sourcing';
-        }
-        if (value.includes('hold')) return 'status-hold';
-        if (value.includes('cancel')) return 'status-cancelled';
-        return '';
+
+      if (
+        value.includes('sourcing') ||
+        value.includes('backorder')
+      ) {
+        return 'status-sourcing';
       }
-    
-      function formatPercentV3_(value) {
-        const number = Number(value || 0);
-        return `${(number * 100).toFixed(1)}%`;
+
+      if (
+        value.includes('hold')
+      ) {
+        return 'status-hold';
       }
-    
-      function renderBackordersV3_(requests, canReview) {
-        const container = byId('backorderQueue');
-    
-        if (!requests.length) {
-          container.innerHTML =
-            '<div class="muted">No backorders are awaiting Admin review.</div>';
-          return;
-        }
-    
-        container.innerHTML = requests.map(request => `
+
+      if (
+        value.includes('cancel')
+      ) {
+        return 'status-cancelled';
+      }
+
+      return '';
+    }
+
+    function formatPercentV3_(value) {
+      const number =
+        Number(value || 0);
+
+      return `${
+        (number * 100).toFixed(1)
+      }%`;
+    }
+
+    function renderBackordersV3_(
+      requests,
+      canReview
+    ) {
+      const container =
+        byId('backorderQueue');
+
+      if (!requests.length) {
+        container.innerHTML =
+          '<div class="muted">' +
+          'No backorders are awaiting Admin review.' +
+          '</div>';
+
+        return;
+      }
+
+      container.innerHTML =
+        requests.map(request => `
           <article class="queue-item">
             <div class="queue-title">
-              ${escapeHtmlV3_(request.fmrNumber)} ·
-              ${escapeHtmlV3_(request.commodityCode)}
+              ${
+                escapeHtmlV3_(
+                  request.fmrNumber
+                )
+              } ·
+
+              ${
+                escapeHtmlV3_(
+                  request.commodityCode
+                )
+              }
             </div>
+
             <div class="queue-meta">
-              ISO ${escapeHtmlV3_(request.isoKey)} ·
-              Pending ${formatQtyV3_(request.qtyPending)} of
-              ${formatQtyV3_(request.qtyRequested)}<br>
-              ${escapeHtmlV3_(request.reason)}<br>
-              Reported by ${escapeHtmlV3_(request.reportedBy)} ·
-              ${escapeHtmlV3_(request.reportedAt)}
-              ${request.fieldNotes ? `<br>${escapeHtmlV3_(request.fieldNotes)}` : ''}
+              ISO
+              ${
+                escapeHtmlV3_(
+                  request.isoKey
+                )
+              } ·
+
+              Pending
+              ${
+                formatQtyV3_(
+                  request.qtyPending
+                )
+              }
+
+              of
+
+              ${
+                formatQtyV3_(
+                  request.qtyRequested
+                )
+              }
+
+              <br>
+
+              ${
+                escapeHtmlV3_(
+                  request.reason
+                )
+              }
+
+              <br>
+
+              Reported by
+
+              ${
+                escapeHtmlV3_(
+                  request.reportedBy
+                )
+              } ·
+
+              ${
+                escapeHtmlV3_(
+                  request.reportedAt
+                )
+              }
+
+              ${
+                request.fieldNotes
+                  ? `
+                    <br>
+                    ${
+                      escapeHtmlV3_(
+                        request.fieldNotes
+                      )
+                    }
+                  `
+                  : ''
+              }
             </div>
-            ${canReview ? `
-              <div class="queue-actions">
-                <button
-                  class="small"
-                  data-backorder-decision="CONFIRM"
-                  data-request-id="${escapeAttributeV3_(request.requestId)}"
-                  data-pending="${escapeAttributeV3_(request.qtyPending)}">
-                  Confirm
-                </button>
-                <button
-                  class="small danger"
-                  data-backorder-decision="REJECT"
-                  data-request-id="${escapeAttributeV3_(request.requestId)}">
-                  Reject
-                </button>
-                <button
-                  class="small warning"
-                  data-backorder-decision="RETURN"
-                  data-request-id="${escapeAttributeV3_(request.requestId)}">
-                  Return for Review
-                </button>
-              </div>
-            ` : '<div class="muted">Read-only queue.</div>'}
+
+            ${
+              canReview
+                ? `
+                  <div class="queue-actions">
+                    <button
+                      class="small"
+                      data-backorder-decision="CONFIRM"
+                      data-request-id="${
+                        escapeAttributeV3_(
+                          request.requestId
+                        )
+                      }"
+                      data-pending="${
+                        escapeAttributeV3_(
+                          request.qtyPending
+                        )
+                      }">
+
+                      Confirm
+                    </button>
+
+                    <button
+                      class="small danger"
+                      data-backorder-decision="REJECT"
+                      data-request-id="${
+                        escapeAttributeV3_(
+                          request.requestId
+                        )
+                      }">
+
+                      Reject
+                    </button>
+
+                    <button
+                      class="small warning"
+                      data-backorder-decision="RETURN"
+                      data-request-id="${
+                        escapeAttributeV3_(
+                          request.requestId
+                        )
+                      }">
+
+                      Return for Review
+                    </button>
+                  </div>
+                `
+                : `
+                  <div class="muted">
+                    Read-only queue.
+                  </div>
+                `
+            }
           </article>
         `).join('');
-    
-        container
-          .querySelectorAll('[data-backorder-decision]')
-          .forEach(button => {
-            button.addEventListener('click', () => {
+
+      container
+        .querySelectorAll(
+          '[data-backorder-decision]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
               submitBackorderDecisionV3_(
                 button.dataset.requestId,
-                button.dataset.backorderDecision,
-                Number(button.dataset.pending || 0)
+                button.dataset
+                  .backorderDecision,
+                Number(
+                  button.dataset.pending ||
+                  0
+                )
               );
-            });
-          });
+            }
+          );
+        });
+    }
+
+    function renderActiveBagsV3_(
+      records,
+      summary
+    ) {
+      const container =
+        byId('activeBagQueue');
+
+      const activeTags =
+        Number(
+          summary.activeTags || 0
+        );
+
+      const activeItems =
+        Number(
+          summary.activeItems ||
+          records.length ||
+          0
+        );
+
+      if (!records.length) {
+        container.innerHTML = `
+          <div class="rail-summary">
+            <span>
+              0 active tags
+            </span>
+
+            <span>
+              0 active items
+            </span>
+          </div>
+
+          <div class="muted">
+            No material is currently
+            reserved under an active
+            Bag &amp; Tag.
+          </div>
+        `;
+
+        return;
       }
-    
-      async function submitBackorderDecisionV3_(requestId, decision, maximum) {
-        let quantity = 0;
-    
-        if (decision === 'CONFIRM') {
-          const response = window.prompt(
+
+      container.innerHTML = `
+        <div class="rail-summary">
+          <span>
+            ${
+              escapeHtmlV3_(
+                activeTags
+              )
+            }
+
+            active tag${
+              activeTags === 1
+                ? ''
+                : 's'
+            }
+          </span>
+
+          <span>
+            ${
+              escapeHtmlV3_(
+                activeItems
+              )
+            }
+
+            active item${
+              activeItems === 1
+                ? ''
+                : 's'
+            }
+          </span>
+        </div>
+
+        ${
+          records.map(record => `
+            <article
+              class="active-bag-item"
+              data-active-bag-tag="${
+                escapeAttributeV3_(
+                  record.tagNumber
+                )
+              }">
+
+              <div
+                class="active-bag-heading">
+
+                <div>
+                  <div class="queue-title">
+                    ${
+                      escapeHtmlV3_(
+                        record.tagNumber
+                      )
+                    }
+                  </div>
+
+                  <div
+                    class="active-bag-fmr">
+
+                    ${
+                      escapeHtmlV3_(
+                        record.fmrNumber
+                      )
+                    }
+                  </div>
+                </div>
+
+                <span
+                  class="readiness-badge ${
+                    record.readiness ===
+                      'PARTIALLY_ISSUED'
+                      ? 'readiness-partial'
+                      : 'readiness-ready'
+                  }">
+
+                  ${
+                    escapeHtmlV3_(
+                      record
+                        .readinessLabel ||
+                      record.readiness
+                    )
+                  }
+                </span>
+              </div>
+
+              <div class="queue-meta">
+                <strong>
+                  ${
+                    escapeHtmlV3_(
+                      record.commodityCode
+                    )
+                  }
+                </strong>
+
+                ${
+                  record.size
+                    ? `
+                      ·
+                      ${
+                        escapeHtmlV3_(
+                          record.size
+                        )
+                      }
+                    `
+                    : ''
+                }
+
+                <br>
+
+                ${
+                  escapeHtmlV3_(
+                    record
+                      .materialDescription
+                  )
+                }
+
+                <div
+                  class="active-bag-details">
+
+                  <div>
+                    <span class="label">
+                      ISO
+                    </span>
+
+                    <span>
+                      ${
+                        escapeHtmlV3_(
+                          record.isoKey
+                        )
+                      }
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="label">
+                      Location
+                    </span>
+
+                    <span>
+                      ${
+                        escapeHtmlV3_(
+                          record
+                            .storageLocation ||
+                          'Not recorded'
+                        )
+                      }
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="label">
+                      Bagged
+                    </span>
+
+                    <span>
+                      ${
+                        formatQtyV3_(
+                          record.qtyBagged
+                        )
+                      }
+
+                      ${
+                        escapeHtmlV3_(
+                          record.uom
+                        )
+                      }
+                    </span>
+                  </div>
+
+                  <div>
+                    <span class="label">
+                      Issued
+                    </span>
+
+                    <span>
+                      ${
+                        formatQtyV3_(
+                          record.qtyIssued
+                        )
+                      }
+
+                      ${
+                        escapeHtmlV3_(
+                          record.uom
+                        )
+                      }
+                    </span>
+                  </div>
+
+                  <div
+                    class="active-bag-remaining">
+
+                    <span class="label">
+                      Remaining
+                    </span>
+
+                    <span>
+                      ${
+                        formatQtyV3_(
+                          record.qtyRemaining
+                        )
+                      }
+
+                      ${
+                        escapeHtmlV3_(
+                          record.uom
+                        )
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  class="active-bag-audit">
+
+                  Bagged by
+
+                  ${
+                    escapeHtmlV3_(
+                      record.baggedBy ||
+                      'Unknown'
+                    )
+                  }
+
+                  ${
+                    record.baggedAt
+                      ? `
+                        ·
+                        ${
+                          escapeHtmlV3_(
+                            record.baggedAt
+                          )
+                        }
+                      `
+                      : ''
+                  }
+                </div>
+
+                ${
+                  record.notes
+                    ? `
+                      <div
+                        class="active-bag-notes">
+
+                        ${
+                          escapeHtmlV3_(
+                            record.notes
+                          )
+                        }
+                      </div>
+                    `
+                    : ''
+                }
+              </div>
+            </article>
+          `).join('')
+        }
+      `;
+    }
+
+    async function submitBackorderDecisionV3_(
+      requestId,
+      decision,
+      maximum
+    ) {
+      let quantity = 0;
+
+      if (decision === 'CONFIRM') {
+        const response =
+          window.prompt(
             `Quantity to confirm, maximum ${maximum}:`,
             String(maximum)
           );
-    
-          if (response == null) return;
-    
-          quantity = Number(response);
-    
-          if (!Number.isFinite(quantity) || quantity <= 0 || quantity > maximum) {
-            showErrorV3_(`Enter a quantity between 0 and ${maximum}.`);
-            return;
-          }
+
+        if (response == null) {
+          return;
         }
-    
-        const notes = window.prompt(
+
+        quantity =
+          Number(response);
+
+        if (
+          !Number.isFinite(quantity) ||
+          quantity <= 0 ||
+          quantity > maximum
+        ) {
+          showErrorV3_(
+            `Enter a quantity between 0 and ${maximum}.`
+          );
+
+          return;
+        }
+      }
+
+      const notes =
+        window.prompt(
           decision === 'RETURN'
-            ? 'Explain what the Field team should review:'
+            ? (
+                'Explain what the Field ' +
+                'team should review:'
+              )
             : 'Admin notes:',
           ''
         );
-    
-        if (decision === 'RETURN' && (!notes || !notes.trim())) {
-          showErrorV3_('A return-for-review reason is required.');
-          return;
-        }
-    
-        try {
-          await callServerV3_('reviewBackorderV3', {
+
+      if (
+        decision === 'RETURN' &&
+        (
+          !notes ||
+          !notes.trim()
+        )
+      ) {
+        showErrorV3_(
+          'A return-for-review reason is required.'
+        );
+
+        return;
+      }
+
+      try {
+        await callServerV3_(
+          'reviewBackorderV3',
+          {
             requestId,
             decision,
             quantity,
             notes: notes || ''
-          });
-    
-          showSuccessV3_(`Backorder ${decision.toLowerCase()} completed.`);
-          await refreshAdminV3_();
-        } catch (error) {
-          showErrorV3_(error);
-        }
+          }
+        );
+
+        showSuccessV3_(
+          `Backorder ${
+            decision.toLowerCase()
+          } completed.`
+        );
+
+        await refreshAdminV3_();
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      function parseOwnerLinesV3_() {
-        const text = byId('ownerLines').value.trim();
-    
-        if (!text) return [];
-    
-        return text
-          .split(/\r?\n/)
-          .filter(Boolean)
-          .map((line, index) => {
-            const delimiter = line.includes('\t') ? '\t' : ',';
-            const parts = line.split(delimiter).map(value => value.trim());
-    
-            if (
-              index === 0 &&
-              /ISO/i.test(parts[0] || '') &&
-              /SHEET/i.test(parts[1] || '')
-            ) {
-              return null;
-            }
-    
-            return {
-              isoNumber: parts[0] || '',
-              isoSheet: parts[1] || '',
-              commodityCode: parts[2] || '',
-              size: parts[3] || '',
-              description: parts[4] || '',
-              qtyRequested: Number(parts[5] || 0),
-              uom: parts[6] || '',
-              storageLocation: parts[7] || '',
-              notes: parts[8] || ''
-            };
-          })
-          .filter(Boolean);
+    }
+
+    function parseOwnerLinesV3_() {
+      const text =
+        byId('ownerLines')
+          .value
+          .trim();
+
+      if (!text) {
+        return [];
       }
-    
-      async function saveStagingV3_() {
-        const payload = {
-          stagingFmrId: state.editingStagingFmrId,
-          officialFmrNumber: byId('ownerFmrNumber').value.trim(),
-          iwpNumber: byId('ownerIwpNumber').value.trim(),
-          requestedBy: byId('ownerRequestedBy').value.trim(),
-          dateRequired: byId('ownerDateRequired').value,
-          priority: byId('ownerPriority').value.trim(),
-          notes: byId('ownerNotes').value.trim(),
-          lines: parseOwnerLinesV3_()
-        };
-    
-        hideAlertsV3_();
-    
-        try {
-          const result = await callServerV3_('saveStagingV3', payload);
-    
-          showSuccessV3_(
-            result.valid
-              ? 'Staging record saved.'
-              : `Saved with validation errors: ${result.validationErrors.join(' | ')}`
+
+      return text
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map((line, index) => {
+          const delimiter =
+            line.includes('\t')
+              ? '\t'
+              : ',';
+
+          const parts =
+            line
+              .split(delimiter)
+              .map(
+                value =>
+                  value.trim()
+              );
+
+          if (
+            index === 0 &&
+            /ISO/i.test(
+              parts[0] || ''
+            ) &&
+            /SHEET/i.test(
+              parts[1] || ''
+            )
+          ) {
+            return null;
+          }
+
+          return {
+            isoNumber:
+              parts[0] || '',
+
+            isoSheet:
+              parts[1] || '',
+
+            commodityCode:
+              parts[2] || '',
+
+            size:
+              parts[3] || '',
+
+            description:
+              parts[4] || '',
+
+            qtyRequested:
+              Number(
+                parts[5] || 0
+              ),
+
+            uom:
+              parts[6] || '',
+
+            storageLocation:
+              parts[7] || '',
+
+            notes:
+              parts[8] || ''
+          };
+        })
+        .filter(Boolean);
+    }
+
+    async function saveStagingV3_() {
+      const payload = {
+        stagingFmrId:
+          state.editingStagingFmrId,
+
+        officialFmrNumber:
+          byId('ownerFmrNumber')
+            .value
+            .trim(),
+
+        iwpNumber:
+          byId('ownerIwpNumber')
+            .value
+            .trim(),
+
+        requestedBy:
+          byId('ownerRequestedBy')
+            .value
+            .trim(),
+
+        dateRequired:
+          byId('ownerDateRequired')
+            .value,
+
+        priority:
+          byId('ownerPriority')
+            .value
+            .trim(),
+
+        notes:
+          byId('ownerNotes')
+            .value
+            .trim(),
+
+        lines:
+          parseOwnerLinesV3_()
+      };
+
+      hideAlertsV3_();
+
+      try {
+        const result =
+          await callServerV3_(
+            'saveStagingV3',
+            payload
           );
-    
-          clearOwnerFormV3_();
-          await refreshStagingV3_();
-        } catch (error) {
-          showErrorV3_(error);
-        }
+
+        showSuccessV3_(
+          result.valid
+            ? 'Staging record saved.'
+            : (
+                'Saved with validation errors: ' +
+                result.validationErrors
+                  .join(' | ')
+              )
+        );
+
+        clearOwnerFormV3_();
+        await refreshStagingV3_();
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      function clearOwnerFormV3_() {
-        state.editingStagingFmrId = '';
-        byId('ownerEditStatus').textContent = '';
-        byId('saveStagingButton').textContent = 'Save Staging';
-    
-        [
-          'ownerFmrNumber',
-          'ownerIwpNumber',
-          'ownerRequestedBy',
-          'ownerDateRequired',
-          'ownerPriority',
-          'ownerNotes',
-          'ownerLines'
-        ].forEach(id => {
-          byId(id).value = '';
-        });
+    }
+
+    function clearOwnerFormV3_() {
+      state.editingStagingFmrId = '';
+
+      byId(
+        'ownerEditStatus'
+      ).textContent = '';
+
+      byId(
+        'saveStagingButton'
+      ).textContent =
+        'Save Staging';
+
+      [
+        'ownerFmrNumber',
+        'ownerIwpNumber',
+        'ownerRequestedBy',
+        'ownerDateRequired',
+        'ownerPriority',
+        'ownerNotes',
+        'ownerLines'
+      ].forEach(id => {
+        byId(id).value = '';
+      });
+    }
+
+    async function refreshStagingV3_() {
+      byId('stagingList').innerHTML =
+        '<div class="muted">' +
+        'Loading staging records…' +
+        '</div>';
+
+      try {
+        const items =
+          await callServerV3_(
+            'getStagingListV3',
+            100
+          );
+
+        renderStagingV3_(
+          items || []
+        );
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      async function refreshStagingV3_() {
-        byId('stagingList').innerHTML =
-          '<div class="muted">Loading staging records…</div>';
-    
-        try {
-          const items = await callServerV3_('getStagingListV3', 100);
-          renderStagingV3_(items || []);
-        } catch (error) {
-          showErrorV3_(error);
-        }
+    }
+
+    function renderStagingV3_(items) {
+      const container =
+        byId('stagingList');
+
+      if (!items.length) {
+        container.innerHTML =
+          '<div class="muted">' +
+          'No unpublished staging records.' +
+          '</div>';
+
+        return;
       }
-    
-      function renderStagingV3_(items) {
-        const container = byId('stagingList');
-    
-        if (!items.length) {
-          container.innerHTML =
-            '<div class="muted">No unpublished staging records.</div>';
-          return;
-        }
-    
-        container.innerHTML = items.map(item => `
+
+      container.innerHTML =
+        items.map(item => `
           <article class="queue-item">
             <div class="queue-title">
-              ${escapeHtmlV3_(item.officialFmrNumber || item.stagingFmrId)}
+              ${
+                escapeHtmlV3_(
+                  item.officialFmrNumber ||
+                  item.stagingFmrId
+                )
+              }
             </div>
+
             <div class="queue-meta">
-              IWP ${escapeHtmlV3_(item.iwpNumber)} ·
-              ${escapeHtmlV3_(item.status)} ·
-              ${escapeHtmlV3_(item.updatedAt)}
-              ${item.validationErrors
-                ? `<br>${escapeHtmlV3_(item.validationErrors)}`
-                : ''}
+              IWP
+              ${
+                escapeHtmlV3_(
+                  item.iwpNumber
+                )
+              } ·
+
+              ${
+                escapeHtmlV3_(
+                  item.status
+                )
+              } ·
+
+              ${
+                escapeHtmlV3_(
+                  item.updatedAt
+                )
+              }
+
+              ${
+                item.validationErrors
+                  ? `
+                    <br>
+                    ${
+                      escapeHtmlV3_(
+                        item.validationErrors
+                      )
+                    }
+                  `
+                  : ''
+              }
             </div>
+
             <div class="queue-actions">
               <button
                 class="small secondary"
-                data-edit-staging="${escapeAttributeV3_(item.stagingFmrId)}">
+                data-edit-staging="${
+                  escapeAttributeV3_(
+                    item.stagingFmrId
+                  )
+                }">
+
                 Edit
               </button>
+
               <button
                 class="small"
-                data-publish-staging="${escapeAttributeV3_(item.stagingFmrId)}"
-                ${item.validationErrors ? 'disabled' : ''}>
+                data-publish-staging="${
+                  escapeAttributeV3_(
+                    item.stagingFmrId
+                  )
+                }"
+                ${
+                  item.validationErrors
+                    ? 'disabled'
+                    : ''
+                }>
+
                 Publish
               </button>
             </div>
           </article>
         `).join('');
-    
-        container
-          .querySelectorAll('[data-edit-staging]')
-          .forEach(button => {
-            button.addEventListener('click', () => {
-              loadStagingForEditV3_(button.dataset.editStaging);
-            });
-          });
-    
-        container
-          .querySelectorAll('[data-publish-staging]')
-          .forEach(button => {
-            button.addEventListener('click', () => {
-              publishStagingV3_(button.dataset.publishStaging);
-            });
-          });
-      }
-    
-      async function loadStagingForEditV3_(stagingFmrId) {
-        try {
-          const staged = await callServerV3_('getStagedFmrV3', stagingFmrId);
-          const header = staged.header || {};
-    
-          state.editingStagingFmrId = header.stagingFmrId || stagingFmrId;
-          byId('ownerFmrNumber').value = header.officialFmrNumber || '';
-          byId('ownerIwpNumber').value = header.iwpNumber || '';
-          byId('ownerRequestedBy').value = header.requestedBy || '';
-          byId('ownerDateRequired').value = header.dateRequired || '';
-          byId('ownerPriority').value = header.priority || '';
-          byId('ownerNotes').value = header.notes || '';
-          byId('ownerLines').value = (staged.lines || [])
+
+      container
+        .querySelectorAll(
+          '[data-edit-staging]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              loadStagingForEditV3_(
+                button.dataset
+                  .editStaging
+              );
+            }
+          );
+        });
+
+      container
+        .querySelectorAll(
+          '[data-publish-staging]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              publishStagingV3_(
+                button.dataset
+                  .publishStaging
+              );
+            }
+          );
+        });
+    }
+
+    async function loadStagingForEditV3_(
+      stagingFmrId
+    ) {
+      try {
+        const staged =
+          await callServerV3_(
+            'getStagedFmrV3',
+            stagingFmrId
+          );
+
+        const header =
+          staged.header || {};
+
+        state.editingStagingFmrId =
+          header.stagingFmrId ||
+          stagingFmrId;
+
+        byId(
+          'ownerFmrNumber'
+        ).value =
+          header.officialFmrNumber ||
+          '';
+
+        byId(
+          'ownerIwpNumber'
+        ).value =
+          header.iwpNumber || '';
+
+        byId(
+          'ownerRequestedBy'
+        ).value =
+          header.requestedBy || '';
+
+        byId(
+          'ownerDateRequired'
+        ).value =
+          header.dateRequired || '';
+
+        byId(
+          'ownerPriority'
+        ).value =
+          header.priority || '';
+
+        byId(
+          'ownerNotes'
+        ).value =
+          header.notes || '';
+
+        byId(
+          'ownerLines'
+        ).value =
+          (staged.lines || [])
             .map(line => [
               line.isoNumber,
               line.isoSheet,
@@ -1102,142 +2981,300 @@
               line.uom,
               line.storageLocation,
               line.notes
-            ].map(value => value == null ? '' : String(value)).join('\t'))
+            ]
+              .map(
+                value =>
+                  value == null
+                    ? ''
+                    : String(value)
+              )
+              .join('\t')
+            )
             .join('\n');
-    
-          byId('ownerEditStatus').textContent =
-            `Editing ${state.editingStagingFmrId}`;
-          byId('saveStagingButton').textContent = 'Update Staging';
-          window.scrollTo({top: 0, behavior: 'smooth'});
-        } catch (error) {
-          showErrorV3_(error);
-        }
+
+        byId(
+          'ownerEditStatus'
+        ).textContent =
+          `Editing ${
+            state.editingStagingFmrId
+          }`;
+
+        byId(
+          'saveStagingButton'
+        ).textContent =
+          'Update Staging';
+
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      async function renumberPublishedFmrV3_() {
-        const currentFmrNumber = byId('renumberCurrentFmr').value.trim();
-        const newFmrNumber = byId('renumberNewFmr').value.trim();
-        const reason = byId('renumberReason').value.trim();
-    
-        if (!currentFmrNumber || !newFmrNumber || !reason) {
-          showErrorV3_('Current FMR Number, New FMR Number, and Reason are required.');
-          return;
-        }
-    
-        if (!window.confirm(
-          `Renumber ${currentFmrNumber} to ${newFmrNumber}?`
-        )) {
-          return;
-        }
-    
-        try {
-          const result = await callServerV3_(
+    }
+
+    async function renumberPublishedFmrV3_() {
+      const currentFmrNumber =
+        byId(
+          'renumberCurrentFmr'
+        )
+          .value
+          .trim();
+
+      const newFmrNumber =
+        byId(
+          'renumberNewFmr'
+        )
+          .value
+          .trim();
+
+      const reason =
+        byId(
+          'renumberReason'
+        )
+          .value
+          .trim();
+
+      if (
+        !currentFmrNumber ||
+        !newFmrNumber ||
+        !reason
+      ) {
+        showErrorV3_(
+          'Current FMR Number, New FMR Number, and Reason are required.'
+        );
+
+        return;
+      }
+
+      if (
+        !window.confirm(
+          `Renumber ${
+            currentFmrNumber
+          } to ${
+            newFmrNumber
+          }?`
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const result =
+          await callServerV3_(
             'renumberPublishedFmrByNumberV3',
             currentFmrNumber,
             newFmrNumber,
             reason
           );
-    
-          showSuccessV3_(
-            `Renumbered ${result.oldFmrNumber} to ${result.newFmrNumber}.`
+
+        showSuccessV3_(
+          `Renumbered ${
+            result.oldFmrNumber
+          } to ${
+            result.newFmrNumber
+          }.`
+        );
+
+        [
+          'renumberCurrentFmr',
+          'renumberNewFmr',
+          'renumberReason'
+        ].forEach(id => {
+          byId(id).value = '';
+        });
+      } catch (error) {
+        showErrorV3_(error);
+      }
+    }
+
+    async function publishStagingV3_(
+      stagingFmrId
+    ) {
+      if (
+        !window.confirm(
+          'Publish this FMR to the operational database?'
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const result =
+          await callServerV3_(
+            'publishStagedFmrV3',
+            stagingFmrId
           );
-    
-          ['renumberCurrentFmr', 'renumberNewFmr', 'renumberReason']
-            .forEach(id => { byId(id).value = ''; });
-        } catch (error) {
-          showErrorV3_(error);
-        }
+
+        showSuccessV3_(
+          result.message
+        );
+
+        await refreshStagingV3_();
+      } catch (error) {
+        showErrorV3_(error);
       }
-    
-      async function publishStagingV3_(stagingFmrId) {
-        if (!window.confirm('Publish this FMR to the operational database?')) {
-          return;
-        }
-    
-        try {
-          const result = await callServerV3_('publishStagedFmrV3', stagingFmrId);
-          showSuccessV3_(result.message);
-          await refreshStagingV3_();
-        } catch (error) {
-          showErrorV3_(error);
-        }
-      }
-    
-      function actionLabelV3_(action) {
-        const labels = {
-          CONFIRM_AVAILABLE: 'Confirm Available',
-          BAG: 'Bag & Tag',
-          DIRECT_ISSUE: 'Locate & Issue',
-          ISSUE_FROM_AVAILABLE: 'Issue Available',
-          ISSUE_FROM_BAG: 'Issue From Bag',
-          BACKORDER_REQUESTED: 'Submit Backorder'
-        };
-    
-        return labels[action] || action;
-      }
-    
-      function setBusyV3_(busy) {
-        state.busy = Boolean(busy);
-        byId('searchButton').disabled = state.busy;
-      }
-    
-      function numberValueV3_(id) {
-        const element = byId(id);
-        return element ? Number(element.value || 0) : 0;
-      }
-    
-      function valueOfV3_(id) {
-        const element = byId(id);
-        return element ? element.value.trim() : '';
-      }
-    
-      function formatQtyV3_(value) {
-        const number = Number(value || 0);
-        return Number.isInteger(number) ? String(number) : number.toFixed(2);
-      }
-    
-      function escapeHtmlV3_(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-      }
-    
-      function escapeAttributeV3_(value) {
-        return escapeHtmlV3_(value);
-      }
-    
-      function hideAlertsV3_() {
-        byId('globalError').classList.add('hidden');
-        byId('globalSuccess').classList.add('hidden');
-      }
-    
-      function showErrorV3_(error) {
-        const message = error && error.message
+    }
+
+    function actionLabelV3_(action) {
+      const labels = {
+        CONFIRM_AVAILABLE:
+          'Confirm Available',
+
+        BAG:
+          'Bag & Tag',
+
+        DIRECT_ISSUE:
+          'Locate & Issue',
+
+        ISSUE_FROM_AVAILABLE:
+          'Issue Available',
+
+        ISSUE_FROM_BAG:
+          'Issue From Bag',
+
+        BACKORDER_REQUESTED:
+          'Submit Backorder'
+      };
+
+      return labels[action] || action;
+    }
+
+    function setBusyV3_(busy) {
+      state.busy =
+        Boolean(busy);
+
+      byId(
+        'searchButton'
+      ).disabled =
+        state.busy;
+    }
+
+    function numberValueV3_(id) {
+      const element =
+        byId(id);
+
+      return element
+        ? Number(
+            element.value || 0
+          )
+        : 0;
+    }
+
+    function valueOfV3_(id) {
+      const element =
+        byId(id);
+
+      return element
+        ? element.value.trim()
+        : '';
+    }
+
+    function formatQtyV3_(value) {
+      const number =
+        Number(value || 0);
+
+      return Number.isInteger(number)
+        ? String(number)
+        : number.toFixed(2);
+    }
+
+    function escapeHtmlV3_(value) {
+      return String(
+        value == null
+          ? ''
+          : value
+      )
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttributeV3_(value) {
+      return escapeHtmlV3_(value);
+    }
+
+    function hideAlertsV3_() {
+      byId(
+        'globalError'
+      )
+        .classList
+        .add('hidden');
+
+      byId(
+        'globalSuccess'
+      )
+        .classList
+        .add('hidden');
+    }
+
+    function showErrorV3_(error) {
+      const message =
+        error && error.message
           ? error.message
           : String(error);
-    
-        byId('globalError').textContent = message;
-        byId('globalError').classList.remove('hidden');
-        byId('globalSuccess').classList.add('hidden');
-      }
-    
-      function showSuccessV3_(message) {
-        byId('globalSuccess').textContent = String(message || 'Completed.');
-        byId('globalSuccess').classList.remove('hidden');
-        byId('globalError').classList.add('hidden');
-      }
-    
-      function callServerV3_(functionName, ...args) {
-        return new Promise((resolve, reject) => {
-          const runner = google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject);
-    
-          runner[functionName](...args);
-        });
-      }
-    })();
-    </script>
+
+      byId(
+        'globalError'
+      ).textContent =
+        message;
+
+      byId(
+        'globalError'
+      )
+        .classList
+        .remove('hidden');
+
+      byId(
+        'globalSuccess'
+      )
+        .classList
+        .add('hidden');
+    }
+
+    function showSuccessV3_(message) {
+      byId(
+        'globalSuccess'
+      ).textContent =
+        String(
+          message || 'Completed.'
+        );
+
+      byId(
+        'globalSuccess'
+      )
+        .classList
+        .remove('hidden');
+
+      byId(
+        'globalError'
+      )
+        .classList
+        .add('hidden');
+    }
+
+    function callServerV3_(
+      functionName,
+      ...args
+    ) {
+      return new Promise(
+        (resolve, reject) => {
+          const runner =
+            google.script.run
+              .withSuccessHandler(
+                resolve
+              )
+              .withFailureHandler(
+                reject
+              );
+
+          runner[functionName](
+            ...args
+          );
+        }
+      );
+    }
+  })();
+</script>
