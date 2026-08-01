@@ -191,6 +191,130 @@ function isCompatibleFmrV3Alpha_(
   );
 }
 
+
+function validBoundActiveBagRecordV3_(
+  record
+) {
+  const source =
+    record || {};
+
+  const readiness =
+    String(
+      source.readiness || ''
+    ).trim();
+
+  const status =
+    String(
+      source.status || ''
+    ).trim()
+      .toUpperCase();
+
+  const bagged =
+    Number(
+      source.qtyBagged || 0
+    );
+
+  const issued =
+    Number(
+      source.qtyIssued || 0
+    );
+
+  const remaining =
+    Number(
+      source.qtyRemaining || 0
+    );
+
+  return (
+    Boolean(
+      source.bagTagId
+    ) &&
+    Boolean(
+      source.bagTagItemId
+    ) &&
+    Boolean(
+      source.tagNumber
+    ) &&
+    Boolean(
+      source.fmrNumber
+    ) &&
+    Boolean(
+      source.fmrLineId
+    ) &&
+    Boolean(
+      source.commodityCode
+    ) &&
+    Boolean(
+      source.materialDescription
+    ) &&
+    Number.isFinite(
+      bagged
+    ) &&
+    Number.isFinite(
+      issued
+    ) &&
+    Number.isFinite(
+      remaining
+    ) &&
+    bagged > 0 &&
+    issued >= 0 &&
+    remaining > 0 &&
+    Math.abs(
+      bagged -
+      issued -
+      remaining
+    ) < 0.000001 &&
+    [
+      'READY_FOR_FIELD',
+      'PARTIALLY_ISSUED'
+    ].includes(
+      readiness
+    ) &&
+    [
+      'ACTIVE',
+      'PARTIALLY ISSUED'
+    ].includes(
+      status
+    )
+  );
+}
+
+function uniqueBoundActiveBagRecordsV3_(
+  records
+) {
+  const seen = {};
+
+  return (
+    (records || [])
+      .every(
+        function (
+          record
+        ) {
+          const key =
+            String(
+              record.bagTagId || ''
+            ) +
+            '|' +
+            String(
+              record.bagTagItemId || ''
+            );
+
+          if (
+            !key ||
+            key === '|' ||
+            seen[key]
+          ) {
+            return false;
+          }
+
+          seen[key] =
+            true;
+
+          return true;
+        }
+      )
+  );
+}
+
 function verifyBoundAdminActiveBagsV3() {
   const started =
     Date.now();
@@ -204,13 +328,52 @@ function verifyBoundAdminActiveBagsV3() {
       readiness: 'ALL',
       sortOrder: 'OLDEST_FIRST',
       page: 1,
-      pageSize: 10
+      pageSize: 50
     });
 
+  const summary =
+    result &&
+    result.summary
+      ? result.summary
+      : {};
+
+  const pagination =
+    result &&
+    result.pagination
+      ? result.pagination
+      : {};
+
+  const records =
+    result &&
+    Array.isArray(
+      result.records
+    )
+      ? result.records
+      : [];
+
+  const expectedReturned =
+    Math.min(
+      Number(
+        pagination.pageSize || 0
+      ),
+      Number(
+        pagination.totalRecords || 0
+      )
+    );
+
+  const recordsValid =
+    records.every(
+      validBoundActiveBagRecordV3_
+    );
+
+  const recordsUnique =
+    uniqueBoundActiveBagRecordsV3_(
+      records
+    );
+
   const firstRecord =
-    result.records &&
-    result.records.length
-      ? result.records[0]
+    records.length
+      ? records[0]
       : null;
 
   const output = {
@@ -225,11 +388,26 @@ function verifyBoundAdminActiveBagsV3() {
       Array.isArray(
         result.records
       ) &&
-      result.summary.activeTags === 1 &&
-      result.records.length === 1 &&
-      Boolean(firstRecord) &&
-      firstRecord.tagNumber ===
-        'BT-2026-00001',
+      Number(
+        summary.activeTags || 0
+      ) >= 1 &&
+      Number(
+        summary.activeItems || 0
+      ) >=
+        Number(
+          summary.activeTags || 0
+        ) &&
+      Number(
+        summary.matchingItems || 0
+      ) ===
+        Number(
+          pagination.totalRecords || 0
+        ) &&
+      records.length ===
+        expectedReturned &&
+      records.length > 0 &&
+      recordsValid &&
+      recordsUnique,
 
     readOnly: true,
 
@@ -240,13 +418,28 @@ function verifyBoundAdminActiveBagsV3() {
       coreVersion,
 
     activeTags:
-      result.summary.activeTags,
+      Number(
+        summary.activeTags || 0
+      ),
 
     activeItems:
-      result.summary.activeItems,
+      Number(
+        summary.activeItems || 0
+      ),
+
+    matchingItems:
+      Number(
+        summary.matchingItems || 0
+      ),
 
     returnedRecords:
-      result.records.length,
+      records.length,
+
+    recordsValid:
+      recordsValid,
+
+    recordsUnique:
+      recordsUnique,
 
     firstTag:
       firstRecord
@@ -257,6 +450,14 @@ function verifyBoundAdminActiveBagsV3() {
       firstRecord
         ? firstRecord.readiness
         : '',
+
+    firstRemaining:
+      firstRecord
+        ? Number(
+            firstRecord.qtyRemaining ||
+            0
+          )
+        : 0,
 
     authenticatedUser:
       result.user
@@ -281,6 +482,7 @@ function verifyBoundAdminActiveBagsV3() {
   return output;
 }
 
+
 function verifyBoundAdminOperationalRailV3() {
   const started =
     Date.now();
@@ -292,17 +494,37 @@ function verifyBoundAdminOperationalRailV3() {
     getAdminDashboardV3();
 
   const rail =
-    result.operationalRail;
+    result &&
+    result.operationalRail
+      ? result.operationalRail
+      : {};
 
   const activeBags =
-    rail.activeBags;
+    rail.activeBags || {};
 
   const backorders =
-    rail.backorders;
+    rail.backorders || {};
+
+  const records =
+    Array.isArray(
+      activeBags.records
+    )
+      ? activeBags.records
+      : [];
+
+  const recordsValid =
+    records.every(
+      validBoundActiveBagRecordV3_
+    );
+
+  const recordsUnique =
+    uniqueBoundActiveBagRecordsV3_(
+      records
+    );
 
   const firstActiveBag =
-    activeBags.records.length
-      ? activeBags.records[0]
+    records.length
+      ? records[0]
       : null;
 
   const output = {
@@ -311,18 +533,35 @@ function verifyBoundAdminOperationalRailV3() {
         coreVersion,
         4
       ) &&
+      Boolean(result) &&
       Boolean(result.kpis) &&
+      Boolean(
+        result.operationalRail
+      ) &&
       Array.isArray(
         backorders.requests
+      ) &&
+      Number(
+        backorders.count || 0
+      ) ===
+        backorders.requests.length &&
+      Boolean(
+        activeBags.summary
       ) &&
       Array.isArray(
         activeBags.records
       ) &&
-      activeBags.summary.activeTags === 1 &&
-      activeBags.records.length === 1 &&
-      Boolean(firstActiveBag) &&
-      firstActiveBag.tagNumber ===
-        'BT-2026-00001',
+      Number(
+        activeBags.summary
+          .activeTags || 0
+      ) >= 1 &&
+      Number(
+        activeBags.summary
+          .activeItems || 0
+      ) >= records.length &&
+      records.length > 0 &&
+      recordsValid &&
+      recordsUnique,
 
     readOnly: true,
 
@@ -333,16 +572,34 @@ function verifyBoundAdminOperationalRailV3() {
       coreVersion,
 
     backorderCount:
-      backorders.count,
+      Number(
+        backorders.count || 0
+      ),
 
     activeTags:
-      activeBags.summary.activeTags,
+      Number(
+        activeBags.summary
+          ? activeBags.summary
+              .activeTags || 0
+          : 0
+      ),
 
     activeItems:
-      activeBags.summary.activeItems,
+      Number(
+        activeBags.summary
+          ? activeBags.summary
+              .activeItems || 0
+          : 0
+      ),
 
     returnedActiveBags:
-      activeBags.records.length,
+      records.length,
+
+    recordsValid:
+      recordsValid,
+
+    recordsUnique:
+      recordsUnique,
 
     firstTag:
       firstActiveBag
@@ -354,7 +611,17 @@ function verifyBoundAdminOperationalRailV3() {
         ? firstActiveBag.readiness
         : '',
 
+    firstRemaining:
+      firstActiveBag
+        ? Number(
+            firstActiveBag
+              .qtyRemaining ||
+            0
+          )
+        : 0,
+
     authenticatedUser:
+      result &&
       result.user
         ? result.user.email
         : ''
@@ -376,6 +643,7 @@ function verifyBoundAdminOperationalRailV3() {
 
   return output;
 }
+
 
 function verifyBoundFieldWorkflowContractV3() {
   const started =
