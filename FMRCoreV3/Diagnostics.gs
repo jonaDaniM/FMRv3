@@ -394,3 +394,61 @@ function runFmrV3BootstrapPerformanceDiagnostic() {
 
   return output;
 }
+function runFmrV3AdminActiveBagQueueDiagnostic() {
+  setFmrV3DatabaseContext_(
+    FMR_V3.DEFAULT_DATABASE_ID
+  );
+
+  const started = Date.now();
+
+  const result =
+    getAdminActiveBagQueueFmrV3_(
+      'jonathanmura05@gmail.com',
+      {
+        query: '',
+        readiness: 'ALL',
+        sortOrder: 'OLDEST_FIRST',
+        page: 1,
+        pageSize: 10
+      }
+    );
+
+  const output = {
+    passed:
+      Boolean(result) &&
+      Boolean(result.summary) &&
+      Array.isArray(result.records) &&
+      result.summary.activeTags > 0 &&
+      result.records.length > 0,
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    indexedEntries:
+      result.summary.indexedEntries,
+    activeTags:
+      result.summary.activeTags,
+    activeItems:
+      result.summary.activeItems,
+    returnedRecords:
+      result.records.length,
+    firstTag:
+      result.records.length
+        ? result.records[0].tagNumber
+        : '',
+    firstReadiness:
+      result.records.length
+        ? result.records[0].readiness
+        : ''
+  };
+
+  console.log(
+    JSON.stringify(output, null, 2)
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Admin Active Bag queue diagnostic failed.'
+    );
+  }
+
+  return output;
+}
