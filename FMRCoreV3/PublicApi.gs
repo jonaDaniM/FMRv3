@@ -32,6 +32,19 @@ function getFmrV3AdminRegister(databaseId, userEmail, request) {
   return getAdminFmrRegisterFmrV3_(userEmail, request || {});
 }
 
+function getFmrV3AdminActiveBags(
+  databaseId,
+  userEmail,
+  request
+) {
+  setFmrV3DatabaseContext_(databaseId);
+
+  return getAdminActiveBagQueueFmrV3_(
+    userEmail,
+    request || {}
+  );
+}
+
 function reviewFmrV3Backorder(databaseId, userEmail, request) {
   setFmrV3DatabaseContext_(databaseId);
   return reviewBackorderFmrV3_(userEmail, request || {});

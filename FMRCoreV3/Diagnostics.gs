@@ -452,3 +452,69 @@ function runFmrV3AdminActiveBagQueueDiagnostic() {
 
   return output;
 }
+
+function runFmrV3AdminActiveBagPublicApiDiagnostic() {
+  const started = Date.now();
+
+  const result = getFmrV3AdminActiveBags(
+    FMR_V3.DEFAULT_DATABASE_ID,
+    'jonathanmura05@gmail.com',
+    {
+      query: '',
+      readiness: 'ALL',
+      sortOrder: 'OLDEST_FIRST',
+      page: 1,
+      pageSize: 10
+    }
+  );
+
+  const firstRecord =
+    result.records && result.records.length
+      ? result.records[0]
+      : null;
+
+  const output = {
+    passed:
+      Boolean(result) &&
+      Boolean(result.summary) &&
+      Boolean(result.pagination) &&
+      Array.isArray(result.records) &&
+      result.summary.activeTags === 1 &&
+      result.records.length === 1 &&
+      Boolean(firstRecord) &&
+      firstRecord.tagNumber ===
+        'BT-2026-00001',
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    activeTags:
+      result.summary.activeTags,
+    activeItems:
+      result.summary.activeItems,
+    returnedRecords:
+      result.records.length,
+    firstTag:
+      firstRecord
+        ? firstRecord.tagNumber
+        : '',
+    firstReadiness:
+      firstRecord
+        ? firstRecord.readiness
+        : '',
+    page:
+      result.pagination.page,
+    totalRecords:
+      result.pagination.totalRecords
+  };
+
+  console.log(
+    JSON.stringify(output, null, 2)
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Admin Active Bag public API diagnostic failed.'
+    );
+  }
+
+  return output;
+}
