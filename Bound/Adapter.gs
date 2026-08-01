@@ -135,6 +135,8 @@ function renumberPublishedFmrByNumberV3(
   );
 }
 
+
+
 function verifyBoundAdminActiveBagsV3() {
   const started = Date.now();
 
@@ -156,7 +158,7 @@ function verifyBoundAdminActiveBagsV3() {
 
   const output = {
     passed:
-      coreVersion === '3.0.0-alpha.3' &&
+      coreVersion === '3.0.0-alpha.5' &&
       Boolean(result) &&
       Boolean(result.summary) &&
       Boolean(result.pagination) &&
@@ -201,6 +203,7 @@ function verifyBoundAdminActiveBagsV3() {
 
   return output;
 }
+
 function verifyBoundAdminOperationalRailV3() {
   const started = Date.now();
 
@@ -227,7 +230,7 @@ function verifyBoundAdminOperationalRailV3() {
   const output = {
     passed:
       coreVersion ===
-        '3.0.0-alpha.4' &&
+        '3.0.0-alpha.5' &&
       Boolean(result.kpis) &&
       Array.isArray(
         backorders.requests
@@ -280,6 +283,234 @@ function verifyBoundAdminOperationalRailV3() {
   if (!output.passed) {
     throw new Error(
       'Bound Admin operational-rail integration failed.'
+    );
+  }
+
+  return output;
+}
+
+function isCompatibleFmrV3Alpha_(
+  version,
+  minimumAlpha
+) {
+  const match =
+    /^3\.0\.0-alpha\.(\d+)$/
+      .exec(
+        String(version || '').trim()
+      );
+
+  return (
+    Boolean(match) &&
+    Number(match[1]) >=
+      Number(minimumAlpha || 0)
+  );
+}
+
+function verifyBoundFieldWorkflowContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const result =
+    searchPortalV3(
+      'V3-ACCEPT-0001',
+      'FMR'
+    );
+
+  const materials =
+    (result.cards || [])
+      .reduce(
+        function (all, card) {
+          return all.concat(
+            card.materials || []
+          );
+        },
+        []
+      );
+
+  const missingWorkflow =
+    materials.filter(
+      function (material) {
+        return (
+          !material.workflow ||
+          !Array.isArray(
+            material.workflow.actions
+          )
+        );
+      }
+    );
+
+  const invalidActions = [];
+
+  materials.forEach(
+    function (material) {
+      const actions =
+        material.workflow &&
+        Array.isArray(
+          material.workflow.actions
+        )
+          ? material.workflow.actions
+          : [];
+
+      actions.forEach(
+        function (action) {
+          if (
+            !action.action ||
+            !action.label ||
+            !action.group ||
+            !Array.isArray(
+              action.requiredFields
+            ) ||
+            !Array.isArray(
+              action.optionalFields
+            ) ||
+            Number(
+              action.maxQuantity || 0
+            ) <= 0
+          ) {
+            invalidActions.push({
+              fmrLineId:
+                material.fmrLineId,
+
+              action:
+                action.action || ''
+            });
+          }
+        }
+      );
+    }
+  );
+
+  const materialWithBag =
+    materials.find(
+      function (material) {
+        return (
+          Array.isArray(
+            material.activeBags
+          ) &&
+          material.activeBags.length > 0
+        );
+      }
+    );
+
+  const issueFromBagAction =
+    materialWithBag &&
+    materialWithBag.workflow
+      ? materialWithBag
+          .workflow
+          .actions
+          .find(
+            function (action) {
+              return (
+                action.action ===
+                'ISSUE_FROM_BAG'
+              );
+            }
+          )
+      : null;
+
+  const firstBagSource =
+    issueFromBagAction &&
+    Array.isArray(
+      issueFromBagAction.sources
+    ) &&
+    issueFromBagAction.sources.length
+      ? issueFromBagAction.sources[0]
+      : null;
+
+  const requiredFields =
+    issueFromBagAction
+      ? issueFromBagAction
+          .requiredFields || []
+      : [];
+
+  const requiredFieldContract =
+    [
+      'quantity',
+      'bagTagId',
+      'issuedToName',
+      'performedByName'
+    ].every(
+      function (fieldName) {
+        return requiredFields.includes(
+          fieldName
+        );
+      }
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        5
+      ) &&
+      result.resultCount > 0 &&
+      materials.length > 0 &&
+      missingWorkflow.length === 0 &&
+      invalidActions.length === 0 &&
+      Boolean(materialWithBag) &&
+      Boolean(issueFromBagAction) &&
+      Boolean(firstBagSource) &&
+      requiredFieldContract,
+
+    readOnly: true,
+
+    elapsedMs:
+      Date.now() - started,
+
+    coreVersion:
+      coreVersion,
+
+    authenticatedUser:
+      result.user
+        ? result.user.email
+        : '',
+
+    resultCount:
+      result.resultCount,
+
+    materialLineCount:
+      materials.length,
+
+    missingWorkflowCount:
+      missingWorkflow.length,
+
+    invalidActionCount:
+      invalidActions.length,
+
+    activeBagLine:
+      materialWithBag
+        ? materialWithBag.fmrLineId
+        : '',
+
+    firstBagTag:
+      firstBagSource
+        ? firstBagSource.tagNumber
+        : '',
+
+    issueFromBagMaximum:
+      issueFromBagAction
+        ? issueFromBagAction
+            .maxQuantity
+        : 0,
+
+    issueFromBagRequiredFields:
+      requiredFields
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Field workflow contract integration failed.'
     );
   }
 
