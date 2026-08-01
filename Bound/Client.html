@@ -229,52 +229,88 @@
       }
 
       container.innerHTML =
-        cards.map(card => `
-          <article class="fmr-card field-fmr-card">
-            <div class="section-heading field-fmr-heading">
-              <div>
-                <h3>
-                  ${escapeHtmlV3_(card.fmrNumber)}
-                </h3>
+        cards.map(card => {
+          const materials =
+            card.materials || [];
 
-                <div class="muted">
-                  IWP ${escapeHtmlV3_(card.iwpNumber)} ·
-                  ${escapeHtmlV3_(card.status)}
+          return `
+            <article
+              class="fmr-card field-fmr-card"
+              data-field-fmr-card>
 
-                  ${card.requestedBy
-                    ? ` · Requested by ${escapeHtmlV3_(
-                        card.requestedBy
-                      )}`
-                    : ''}
+              <div class="section-heading field-fmr-heading">
+                <div>
+                  <h3>
+                    ${escapeHtmlV3_(card.fmrNumber)}
+                  </h3>
+
+                  <div class="muted">
+                    IWP ${escapeHtmlV3_(card.iwpNumber)} ·
+                    ${escapeHtmlV3_(card.status)}
+
+                    ${card.requestedBy
+                      ? ` · Requested by ${escapeHtmlV3_(
+                          card.requestedBy
+                        )}`
+                      : ''}
+                  </div>
+                </div>
+
+                <div class="field-fmr-tools">
+                  <label class="field-material-filter">
+                    <span>Filter materials</span>
+
+                    <input
+                      type="search"
+                      data-field-material-filter
+                      placeholder="Description, code, ISO or tag"
+                      autocomplete="off">
+                  </label>
+
+                  <div
+                    class="field-fmr-line-count"
+                    data-field-visible-count
+                    data-total-lines="${
+                      escapeAttributeV3_(
+                        materials.length
+                      )
+                    }">
+
+                    ${materials.length}
+                    material line${
+                      materials.length === 1
+                        ? ''
+                        : 's'
+                    }
+                  </div>
                 </div>
               </div>
 
-              <div class="field-fmr-line-count">
-                ${(card.materials || []).length}
-                material line${
-                  (card.materials || []).length === 1
-                    ? ''
-                    : 's'
-                }
+              ${renderSummaryV3_(
+                card.totals || {}
+              )}
+
+              <div class="field-material-list">
+                ${materials
+                  .map(
+                    material =>
+                      renderFieldMaterialCardV3_(
+                        material
+                      )
+                  )
+                  .join('')}
               </div>
-            </div>
 
-            ${renderSummaryV3_(
-              card.totals || {}
-            )}
+              <div
+                class="field-material-filter-empty"
+                data-field-filter-empty
+                hidden>
 
-            <div class="field-material-list">
-              ${(card.materials || [])
-                .map(
-                  material =>
-                    renderFieldMaterialCardV3_(
-                      material
-                    )
-                )
-                .join('')}
-            </div>
-          </article>
-        `).join('');
+                No material lines match this filter.
+              </div>
+            </article>
+          `;
+        }).join('');
 
       container
         .querySelectorAll(
@@ -304,6 +340,194 @@
             }
           );
         });
+
+      container
+        .querySelectorAll(
+          '[data-field-line-toggle]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              toggleFieldLineV3_(
+                button
+              );
+            }
+          );
+        });
+
+      container
+        .querySelectorAll(
+          '[data-field-material-filter]'
+        )
+        .forEach(input => {
+          input.addEventListener(
+            'input',
+            () => {
+              applyFieldMaterialFilterV3_(
+                input
+              );
+            }
+          );
+        });
+    }
+
+    function toggleFieldLineV3_(
+      button
+    ) {
+      const card =
+        button.closest(
+          '[data-field-line-id]'
+        );
+
+      if (!card) {
+        return;
+      }
+
+      const expanded =
+        card.querySelector(
+          '[data-field-line-expanded]'
+        );
+
+      if (!expanded) {
+        return;
+      }
+
+      const willExpand =
+        expanded.hasAttribute(
+          'hidden'
+        );
+
+      if (willExpand) {
+        expanded.removeAttribute(
+          'hidden'
+        );
+      } else {
+        expanded.setAttribute(
+          'hidden',
+          ''
+        );
+      }
+
+      card.classList.toggle(
+        'is-expanded',
+        willExpand
+      );
+
+      button.setAttribute(
+        'aria-expanded',
+        String(willExpand)
+      );
+
+      const label =
+        button.querySelector(
+          '[data-field-toggle-label]'
+        );
+
+      if (label) {
+        label.textContent =
+          willExpand
+            ? (
+                button.dataset.expandedLabel ||
+                'Hide details'
+              )
+            : (
+                button.dataset.collapsedLabel ||
+                'Details'
+              );
+      }
+    }
+
+    function applyFieldMaterialFilterV3_(
+      input
+    ) {
+      const card =
+        input.closest(
+          '[data-field-fmr-card]'
+        );
+
+      if (!card) {
+        return;
+      }
+
+      const query =
+        String(
+          input.value || ''
+        )
+          .trim()
+          .toLowerCase();
+
+      const lines =
+        Array.from(
+          card.querySelectorAll(
+            '[data-field-line-id]'
+          )
+        );
+
+      let visibleCount = 0;
+
+      lines.forEach(line => {
+        const searchable =
+          String(
+            line.dataset
+              .fieldSearchText ||
+            ''
+          ).toLowerCase();
+
+        const visible =
+          !query ||
+          searchable.includes(
+            query
+          );
+
+        line.hidden =
+          !visible;
+
+        if (visible) {
+          visibleCount += 1;
+        }
+      });
+
+      const count =
+        card.querySelector(
+          '[data-field-visible-count]'
+        );
+
+      if (count) {
+        const total =
+          Number(
+            count.dataset.totalLines ||
+            lines.length
+          );
+
+        count.textContent =
+          query
+            ? (
+                `${visibleCount} of ${total} ` +
+                `material line${
+                  total === 1
+                    ? ''
+                    : 's'
+                }`
+              )
+            : (
+                `${total} material line${
+                  total === 1
+                    ? ''
+                    : 's'
+                }`
+              );
+      }
+
+      const empty =
+        card.querySelector(
+          '[data-field-filter-empty]'
+        );
+
+      if (empty) {
+        empty.hidden =
+          visibleCount > 0;
+      }
     }
 
     function renderSummaryV3_(totals) {
@@ -355,7 +579,37 @@
       const activeBags =
         material.activeBags || [];
 
-      const quantities = [
+      const actionCount =
+        Number(
+          workflow.availableActionCount ||
+          (workflow.actions || []).length ||
+          0
+        );
+
+      const primaryQuantities = [
+        [
+          'Remaining',
+          material.qtyRemainingRequirement,
+          'field-primary-remaining'
+        ],
+        [
+          'Available',
+          material.qtyAvailable,
+          'field-primary-available'
+        ],
+        [
+          'Reserved',
+          material.qtyActiveBagged,
+          'field-primary-reserved'
+        ],
+        [
+          'Issued',
+          material.qtyIssued,
+          'field-primary-issued'
+        ]
+      ];
+
+      const detailQuantities = [
         [
           'Requested',
           material.qtyRequested,
@@ -365,21 +619,6 @@
           'Located',
           material.qtyConfirmedLocated,
           ''
-        ],
-        [
-          'Available',
-          material.qtyAvailable,
-          'field-qty-positive'
-        ],
-        [
-          'Reserved',
-          material.qtyActiveBagged,
-          'field-qty-reserved'
-        ],
-        [
-          'Issued',
-          material.qtyIssued,
-          'field-qty-positive'
         ],
         [
           'Not Located',
@@ -392,11 +631,41 @@
           'field-qty-attention'
         ],
         [
-          'Remaining',
-          material.qtyRemainingRequirement,
-          'field-qty-remaining'
+          'Confirmed B/O',
+          material.qtyConfirmedBackorder,
+          'field-qty-attention'
         ]
       ];
+
+      const description =
+        material.description ||
+        material.commodityCode ||
+        'Material line';
+
+      const collapsedLabel =
+        actionCount > 0
+          ? (
+              `Actions (${actionCount})`
+            )
+          : 'Details';
+
+      const searchText = [
+        material.description,
+        material.commodityCode,
+        material.size,
+        material.isoKey,
+        material.lineNumber,
+        material.lineStatus,
+        material.storageLocation
+      ].concat(
+        activeBags.map(
+          bag =>
+            [
+              bag.tagNumber,
+              bag.storageLocation
+            ].join(' ')
+        )
+      ).filter(Boolean).join(' ');
 
       return `
         <article
@@ -409,10 +678,15 @@
             escapeAttributeV3_(
               material.fmrLineId
             )
+          }"
+          data-field-search-text="${
+            escapeAttributeV3_(
+              searchText
+            )
           }">
 
-          <div class="field-line-header">
-            <div>
+          <div class="field-line-compact">
+            <div class="field-line-identity">
               <div class="field-line-kicker">
                 Line ${
                   escapeHtmlV3_(
@@ -425,18 +699,29 @@
                 }
               </div>
 
-              <h4 class="field-line-title">
+              <h4 class="field-line-description-title">
                 ${
                   escapeHtmlV3_(
-                    material.commodityCode
+                    description
                   )
                 }
+              </h4>
+
+              <div class="field-line-chip-row">
+                <span class="field-line-chip field-line-code-chip">
+                  ${
+                    escapeHtmlV3_(
+                      material.commodityCode ||
+                      'No commodity code'
+                    )
+                  }
+                </span>
 
                 ${
                   material.size
                     ? `
-                      <span>
-                        · ${
+                      <span class="field-line-chip">
+                        Size ${
                           escapeHtmlV3_(
                             material.size
                           )
@@ -445,221 +730,277 @@
                     `
                     : ''
                 }
-              </h4>
 
-              <p class="field-line-description">
                 ${
-                  escapeHtmlV3_(
-                    material.description
-                  )
+                  activeBags.length
+                    ? `
+                      <span class="field-line-chip field-line-tag-chip">
+                        ${
+                          activeBags.length
+                        }
+                        active tag${
+                          activeBags.length === 1
+                            ? ''
+                            : 's'
+                        }
+                      </span>
+                    `
+                    : ''
                 }
-              </p>
+              </div>
             </div>
 
-            <span
-              class="status-badge ${
-                statusClassV3_(
-                  material.lineStatus
-                )
-              }">
+            <div class="field-line-primary-quantities">
+              ${primaryQuantities.map(item => `
+                <div
+                  class="field-primary-qty ${
+                    escapeAttributeV3_(
+                      item[2]
+                    )
+                  }">
 
-              ${
-                escapeHtmlV3_(
-                  material.lineStatus
-                )
-              }
-            </span>
+                  <span>
+                    ${
+                      escapeHtmlV3_(
+                        item[0]
+                      )
+                    }
+                  </span>
+
+                  <strong>
+                    ${
+                      formatQtyV3_(
+                        item[1]
+                      )
+                    }
+
+                    <small>
+                      ${
+                        escapeHtmlV3_(
+                          material.uom
+                        )
+                      }
+                    </small>
+                  </strong>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="field-line-compact-side">
+              <span
+                class="status-badge ${
+                  statusClassV3_(
+                    material.lineStatus
+                  )
+                }">
+
+                ${
+                  escapeHtmlV3_(
+                    material.lineStatus
+                  )
+                }
+              </span>
+
+              <button
+                type="button"
+                class="field-line-toggle"
+                data-field-line-toggle
+                data-collapsed-label="${
+                  escapeAttributeV3_(
+                    collapsedLabel
+                  )
+                }"
+                data-expanded-label="Hide details"
+                aria-expanded="false">
+
+                <span data-field-toggle-label>
+                  ${
+                    escapeHtmlV3_(
+                      collapsedLabel
+                    )
+                  }
+                </span>
+
+                <span
+                  class="field-line-toggle-chevron"
+                  aria-hidden="true">
+
+                  ▾
+                </span>
+              </button>
+            </div>
           </div>
 
           <div
-            class="field-workflow-banner ${
+            class="field-workflow-compact ${
               workflowPhaseClassV3_(
                 workflow.phase
               )
             }">
 
-            <div>
-              <span class="field-workflow-label">
-                Recommended next step
-              </span>
+            <span class="field-workflow-compact-label">
+              Next
+            </span>
 
-              <strong>
-                ${
-                  escapeHtmlV3_(
-                    workflow.headline ||
-                    'Review the material line.'
-                  )
-                }
-              </strong>
-            </div>
-
-            <span class="field-workflow-count">
+            <strong>
               ${
                 escapeHtmlV3_(
-                  workflow.availableActionCount ||
-                  (workflow.actions || []).length ||
-                  0
+                  workflow.headline ||
+                  'Review the material line.'
                 )
               }
-
-              action${
-                Number(
-                  workflow.availableActionCount ||
-                  (workflow.actions || []).length ||
-                  0
-                ) === 1
-                  ? ''
-                  : 's'
-              }
-            </span>
+            </strong>
           </div>
 
-          ${
-            returnedReviews.length
-              ? `
-                <div class="field-review-alert">
-                  <strong>
-                    Field review required
-                  </strong>
+          <div
+            class="field-line-expanded"
+            data-field-line-expanded
+            hidden>
 
-                  ${returnedReviews.map(item => `
-                    <div>
-                      ${
-                        escapeHtmlV3_(
-                          item.reason ||
-                          item.returnedReviewReason ||
-                          'Admin returned this request for review.'
-                        )
-                      }
-                    </div>
-                  `).join('')}
-                </div>
-              `
-              : ''
-          }
+            ${
+              returnedReviews.length
+                ? `
+                  <div class="field-review-alert">
+                    <strong>
+                      Field review required
+                    </strong>
 
-          <div class="field-line-quantity-grid">
-            ${quantities.map(item => `
-              <div
-                class="field-qty-cell ${
-                  escapeAttributeV3_(
-                    item[2]
-                  )
-                }">
-
-                <span>
-                  ${
-                    escapeHtmlV3_(
-                      item[0]
-                    )
-                  }
-                </span>
-
-                <strong>
-                  ${
-                    formatQtyV3_(
-                      item[1]
-                    )
-                  }
-
-                  <small>
-                    ${
-                      escapeHtmlV3_(
-                        material.uom
-                      )
-                    }
-                  </small>
-                </strong>
-              </div>
-            `).join('')}
-          </div>
-
-          <div class="field-line-meta">
-            <div>
-              <span>Storage</span>
-              <strong>
-                ${
-                  escapeHtmlV3_(
-                    material.storageLocation ||
-                    'Not recorded'
-                  )
-                }
-              </strong>
-            </div>
-
-            <div>
-              <span>Confirmed B/O</span>
-              <strong>
-                ${
-                  formatQtyV3_(
-                    material.qtyConfirmedBackorder
-                  )
-                }
-                ${
-                  escapeHtmlV3_(
-                    material.uom
-                  )
-                }
-              </strong>
-            </div>
-          </div>
-
-          ${
-            activeBags.length
-              ? `
-                <div class="field-active-bags">
-                  <div class="field-subsection-title">
-                    Active Bag &amp; Tags
-                  </div>
-
-                  <div class="field-bag-chip-list">
-                    ${activeBags.map(bag => `
-                      <div class="field-bag-chip">
-                        <strong>
-                          ${
-                            escapeHtmlV3_(
-                              bag.tagNumber
-                            )
-                          }
-                        </strong>
-
-                        <span>
-                          ${
-                            formatQtyV3_(
-                              bag.qtyRemaining
-                            )
-                          }
-                          ${
-                            escapeHtmlV3_(
-                              bag.uom
-                            )
-                          }
-                          remaining
-                        </span>
-
-                        <span>
-                          ${
-                            escapeHtmlV3_(
-                              bag.storageLocation ||
-                              'Location not recorded'
-                            )
-                          }
-                        </span>
+                    ${returnedReviews.map(item => `
+                      <div>
+                        ${
+                          escapeHtmlV3_(
+                            item.reason ||
+                            item.returnedReviewReason ||
+                            'Admin returned this request for review.'
+                          )
+                        }
                       </div>
                     `).join('')}
                   </div>
-                </div>
-              `
-              : ''
-          }
-
-          <div class="field-line-actions">
-            ${
-              renderFieldActionsV3_(
-                material,
-                workflow
-              )
+                `
+                : ''
             }
+
+            <div class="field-line-detail-grid">
+              ${detailQuantities.map(item => `
+                <div
+                  class="field-qty-cell ${
+                    escapeAttributeV3_(
+                      item[2]
+                    )
+                  }">
+
+                  <span>
+                    ${
+                      escapeHtmlV3_(
+                        item[0]
+                      )
+                    }
+                  </span>
+
+                  <strong>
+                    ${
+                      formatQtyV3_(
+                        item[1]
+                      )
+                    }
+
+                    <small>
+                      ${
+                        escapeHtmlV3_(
+                          material.uom
+                        )
+                      }
+                    </small>
+                  </strong>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="field-line-meta">
+              <div>
+                <span>Storage</span>
+
+                <strong>
+                  ${
+                    escapeHtmlV3_(
+                      material.storageLocation ||
+                      'Not recorded'
+                    )
+                  }
+                </strong>
+              </div>
+
+              <div>
+                <span>Line identifier</span>
+
+                <strong>
+                  ${
+                    escapeHtmlV3_(
+                      material.fmrLineId
+                    )
+                  }
+                </strong>
+              </div>
+            </div>
+
+            ${
+              activeBags.length
+                ? `
+                  <div class="field-active-bags">
+                    <div class="field-subsection-title">
+                      Active Bag &amp; Tags
+                    </div>
+
+                    <div class="field-bag-chip-list">
+                      ${activeBags.map(bag => `
+                        <div class="field-bag-chip">
+                          <strong>
+                            ${
+                              escapeHtmlV3_(
+                                bag.tagNumber
+                              )
+                            }
+                          </strong>
+
+                          <span>
+                            ${
+                              formatQtyV3_(
+                                bag.qtyRemaining
+                              )
+                            }
+                            ${
+                              escapeHtmlV3_(
+                                bag.uom
+                              )
+                            }
+                            remaining
+                          </span>
+
+                          <span>
+                            ${
+                              escapeHtmlV3_(
+                                bag.storageLocation ||
+                                'Location not recorded'
+                              )
+                            }
+                          </span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `
+                : ''
+            }
+
+            <div class="field-line-actions">
+              ${
+                renderFieldActionsV3_(
+                  material,
+                  workflow
+                )
+              }
+            </div>
           </div>
         </article>
       `;

@@ -1,497 +1,936 @@
 <style>
-    .field-fmr-card {
-      overflow: visible;
-    }
-  
-    .field-fmr-heading {
-      align-items: center;
-    }
-  
-    .field-fmr-line-count {
-      flex: 0 0 auto;
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--light);
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-  
-    .field-material-list {
-      display: grid;
-      gap: 14px;
-      margin-top: 16px;
-    }
-  
-    .field-line-card {
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-left: 5px solid #667085;
-      border-radius: 12px;
-      background: white;
-      box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
-    }
-  
-    .field-line-card.field-phase-complete {
-      border-left-color: var(--success);
-    }
-  
-    .field-line-card.field-phase-issue-reserved,
-    .field-line-card.field-phase-issue-or-reserve-available {
-      border-left-color: var(--blue);
-    }
-  
-    .field-line-card.field-phase-field-review-required,
-    .field-line-card.field-phase-locate-or-exception {
-      border-left-color: var(--warning);
-    }
-  
-    .field-line-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 14px;
-      padding: 16px 16px 12px;
-    }
-  
-    .field-line-kicker {
-      margin-bottom: 5px;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-  
-    .field-line-title {
-      margin: 0;
-      color: var(--text);
-      font-size: 18px;
-      line-height: 1.25;
-    }
-  
-    .field-line-title span {
-      color: var(--muted);
-      font-weight: 700;
-    }
-  
-    .field-line-description {
-      max-width: 760px;
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-  
-    .field-workflow-banner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin: 0 16px 14px;
-      padding: 11px 12px;
-      border: 1px solid #d0d5dd;
-      border-radius: 9px;
-      background: #f8fafc;
-    }
-  
-    .field-workflow-banner.field-phase-complete {
-      border-color: #a6f4c5;
-      background: #ecfdf3;
-    }
-  
-    .field-workflow-banner.field-phase-issue-reserved,
-    .field-workflow-banner.field-phase-issue-or-reserve-available {
-      border-color: #b2ddff;
-      background: #eff8ff;
-    }
-  
-    .field-workflow-banner.field-phase-field-review-required,
-    .field-workflow-banner.field-phase-locate-or-exception {
-      border-color: #fedf89;
-      background: #fffaeb;
-    }
-  
-    .field-workflow-label {
-      display: block;
-      margin-bottom: 2px;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-  
-    .field-workflow-banner strong {
-      display: block;
-      color: var(--text);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-  
-    .field-workflow-count {
-      flex: 0 0 auto;
-      padding: 5px 8px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.8);
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-  
-    .field-review-alert {
-      margin: 0 16px 14px;
-      padding: 10px 12px;
-      border: 1px solid #fdb022;
-      border-radius: 8px;
-      background: #fffaeb;
-      color: #7a2e0e;
-      font-size: 11px;
-      line-height: 1.45;
-    }
-  
-    .field-review-alert strong {
-      display: block;
-      margin-bottom: 3px;
-    }
-  
+  .field-fmr-card {
+    overflow: visible;
+  }
+
+  .field-fmr-heading {
+    align-items: center;
+  }
+
+  .field-fmr-line-count {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--light);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .field-material-list {
+    display: grid;
+    gap: 14px;
+    margin-top: 16px;
+  }
+
+  .field-line-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-left: 5px solid #667085;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
+  }
+
+  .field-line-card.field-phase-complete {
+    border-left-color: var(--success);
+  }
+
+  .field-line-card.field-phase-issue-reserved,
+  .field-line-card.field-phase-issue-or-reserve-available {
+    border-left-color: var(--blue);
+  }
+
+  .field-line-card.field-phase-field-review-required,
+  .field-line-card.field-phase-locate-or-exception {
+    border-left-color: var(--warning);
+  }
+
+  .field-line-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 16px 12px;
+  }
+
+  .field-line-kicker {
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field-line-title {
+    margin: 0;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .field-line-title span {
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .field-line-description {
+    max-width: 760px;
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .field-workflow-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 0 16px 14px;
+    padding: 11px 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 9px;
+    background: #f8fafc;
+  }
+
+  .field-workflow-banner.field-phase-complete {
+    border-color: #a6f4c5;
+    background: #ecfdf3;
+  }
+
+  .field-workflow-banner.field-phase-issue-reserved,
+  .field-workflow-banner.field-phase-issue-or-reserve-available {
+    border-color: #b2ddff;
+    background: #eff8ff;
+  }
+
+  .field-workflow-banner.field-phase-field-review-required,
+  .field-workflow-banner.field-phase-locate-or-exception {
+    border-color: #fedf89;
+    background: #fffaeb;
+  }
+
+  .field-workflow-label {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field-workflow-banner strong {
+    display: block;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .field-workflow-count {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .field-review-alert {
+    margin: 0 16px 14px;
+    padding: 10px 12px;
+    border: 1px solid #fdb022;
+    border-radius: 8px;
+    background: #fffaeb;
+    color: #7a2e0e;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .field-review-alert strong {
+    display: block;
+    margin-bottom: 3px;
+  }
+
+  .field-line-quantity-grid {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(82px, 1fr));
+    gap: 8px;
+    padding: 0 16px 14px;
+  }
+
+  .field-qty-cell {
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--light);
+  }
+
+  .field-qty-cell > span {
+    display: block;
+    margin-bottom: 3px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .field-qty-cell strong {
+    display: block;
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  .field-qty-cell small {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .field-qty-positive {
+    border-color: #a6f4c5;
+    background: #ecfdf3;
+  }
+
+  .field-qty-reserved {
+    border-color: #b2ddff;
+    background: #eff8ff;
+  }
+
+  .field-qty-attention,
+  .field-qty-remaining {
+    border-color: #fedf89;
+    background: #fffaeb;
+  }
+
+  .field-line-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 0 16px 14px;
+  }
+
+  .field-line-meta > div {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+  }
+
+  .field-line-meta span {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .field-line-meta strong {
+    display: block;
+    color: var(--text);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .field-active-bags {
+    margin: 0 16px 14px;
+    padding: 11px;
+    border: 1px solid #b2ddff;
+    border-radius: 9px;
+    background: #f5fbff;
+  }
+
+  .field-subsection-title {
+    margin-bottom: 8px;
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .field-bag-chip-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 7px;
+  }
+
+  .field-bag-chip {
+    padding: 8px 9px;
+    border: 1px solid #d1e9ff;
+    border-radius: 7px;
+    background: white;
+  }
+
+  .field-bag-chip strong,
+  .field-bag-chip span {
+    display: block;
+  }
+
+  .field-bag-chip strong {
+    color: var(--text);
+    font-size: 11px;
+  }
+
+  .field-bag-chip span {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  .field-line-actions {
+    padding: 14px 16px 16px;
+    border-top: 1px solid var(--border);
+    background: #fcfcfd;
+  }
+
+  .field-action-groups {
+    display: grid;
+    gap: 11px;
+  }
+
+  .field-action-group {
+    display: grid;
+    gap: 7px;
+  }
+
+  .field-action-group-title {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .field-workflow-action {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 140px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    text-align: left;
+  }
+
+  .field-workflow-action span {
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .field-workflow-action small {
+    margin-top: 2px;
+    opacity: 0.82;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .field-action-group[data-action-group="ISSUE"]
+    .field-workflow-action {
+    background: var(--blue);
+  }
+
+  .field-action-group[data-action-group="RESERVE"]
+    .field-workflow-action {
+    background: #475467;
+  }
+
+  .field-action-group[data-action-group="LOCATE"]
+    .field-workflow-action {
+    background: #027a48;
+  }
+
+  .field-action-group[data-action-group="EXCEPTION"]
+    .field-workflow-action {
+    background: #b54708;
+  }
+
+  .field-no-actions {
+    padding: 9px 10px;
+    border: 1px dashed var(--border);
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .workflow-modal-guide {
+    margin-bottom: 14px;
+    padding: 11px 12px;
+    border: 1px solid #b2ddff;
+    border-radius: 9px;
+    background: #eff8ff;
+  }
+
+  .workflow-modal-guide-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .workflow-modal-guide-heading strong {
+    color: var(--text);
+    font-size: 11px;
+  }
+
+  .workflow-modal-guide p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .workflow-group-badge {
+    display: inline-flex;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #1570ef;
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .workflow-group-badge[data-workflow-group="RESERVE"] {
+    background: #475467;
+  }
+
+  .workflow-group-badge[data-workflow-group="LOCATE"] {
+    background: #027a48;
+  }
+
+  .workflow-group-badge[data-workflow-group="EXCEPTION"] {
+    background: #b54708;
+  }
+
+  .workflow-field-hint {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  #actionForm textarea {
+    width: 100%;
+    resize: vertical;
+  }
+
+  @media (max-width: 1200px) {
     .field-line-quantity-grid {
+      grid-template-columns: repeat(4, minmax(100px, 1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .field-fmr-heading,
+    .field-line-header,
+    .field-workflow-banner,
+    .workflow-modal-guide-heading {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .field-fmr-line-count,
+    .field-workflow-count {
+      align-self: flex-start;
+    }
+
+    .field-line-quantity-grid {
+      grid-template-columns: repeat(2, minmax(110px, 1fr));
+    }
+
+    .field-line-meta {
+      grid-template-columns: 1fr;
+    }
+
+    .field-action-buttons {
       display: grid;
-      grid-template-columns: repeat(8, minmax(82px, 1fr));
-      gap: 8px;
-      padding: 0 16px 14px;
+      grid-template-columns: 1fr;
     }
-  
-    .field-qty-cell {
-      min-width: 0;
-      padding: 9px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--light);
+
+    .field-workflow-action {
+      width: 100%;
     }
-  
-    .field-qty-cell > span {
-      display: block;
-      margin-bottom: 3px;
-      overflow: hidden;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 800;
-      text-overflow: ellipsis;
-      text-transform: uppercase;
-      white-space: nowrap;
+  }
+
+  @media (max-width: 430px) {
+    .field-line-header,
+    .field-line-quantity-grid,
+    .field-line-meta,
+    .field-line-actions {
+      padding-left: 12px;
+      padding-right: 12px;
     }
-  
-    .field-qty-cell strong {
-      display: block;
-      color: var(--text);
+
+    .field-workflow-banner,
+    .field-review-alert,
+    .field-active-bags {
+      margin-left: 12px;
+      margin-right: 12px;
+    }
+
+    .field-line-quantity-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Sprint 2D compact Field material layout */
+  .field-fmr-heading {
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .field-fmr-tools {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 10px;
+    min-width: min(100%, 390px);
+  }
+
+  .field-material-filter {
+    display: grid;
+    flex: 1 1 250px;
+    gap: 4px;
+    min-width: 180px;
+  }
+
+  .field-material-filter > span {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .field-material-filter input {
+    width: 100%;
+    min-height: 36px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .field-material-filter input:focus {
+    border-color: var(--blue);
+    outline: 2px solid rgba(21, 112, 239, 0.12);
+    outline-offset: 1px;
+  }
+
+  .field-material-list {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .field-material-filter-empty {
+    margin-top: 12px;
+    padding: 18px;
+    border: 1px dashed var(--border);
+    border-radius: 9px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .field-line-card {
+    border-left-width: 4px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.05);
+  }
+
+  .field-line-card[hidden] {
+    display: none;
+  }
+
+  .field-line-card.is-expanded {
+    box-shadow: 0 7px 22px rgba(16, 24, 40, 0.09);
+  }
+
+  .field-line-compact {
+    display: grid;
+    grid-template-columns:
+      minmax(260px, 1.7fr)
+      minmax(360px, 1.25fr)
+      auto;
+    align-items: center;
+    gap: 14px;
+    padding: 11px 12px 9px;
+  }
+
+  .field-line-identity {
+    min-width: 0;
+  }
+
+  .field-line-kicker {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .field-line-description-title {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .field-line-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .field-line-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 3px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--light);
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .field-line-code-chip {
+    border-color: #d1e9ff;
+    background: #eff8ff;
+    color: #175cd3;
+  }
+
+  .field-line-tag-chip {
+    border-color: #a6f4c5;
+    background: #ecfdf3;
+    color: #027a48;
+  }
+
+  .field-line-primary-quantities {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(66px, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fcfcfd;
+  }
+
+  .field-primary-qty {
+    min-width: 0;
+    padding: 7px 8px;
+    border-right: 1px solid var(--border);
+  }
+
+  .field-primary-qty:last-child {
+    border-right: 0;
+  }
+
+  .field-primary-qty > span {
+    display: block;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .field-primary-qty strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  .field-primary-qty small {
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 800;
+  }
+
+  .field-primary-remaining {
+    background: #fffaeb;
+  }
+
+  .field-primary-available,
+  .field-primary-issued {
+    background: #f6fef9;
+  }
+
+  .field-primary-reserved {
+    background: #eff8ff;
+  }
+
+  .field-line-compact-side {
+    display: grid;
+    justify-items: end;
+    gap: 7px;
+  }
+
+  .field-line-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 104px;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    color: var(--text);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .field-line-toggle:hover {
+    border-color: #98a2b3;
+    background: var(--light);
+  }
+
+  .field-line-toggle-chevron {
+    display: inline-block;
+    font-size: 12px;
+    transition: transform 150ms ease;
+  }
+
+  .field-line-toggle[aria-expanded="true"]
+    .field-line-toggle-chevron {
+    transform: rotate(180deg);
+  }
+
+  .field-workflow-compact {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 31px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    background: #f8fafc;
+  }
+
+  .field-workflow-compact.field-phase-complete {
+    background: #ecfdf3;
+  }
+
+  .field-workflow-compact.field-phase-issue-reserved,
+  .field-workflow-compact.field-phase-issue-or-reserve-available {
+    background: #eff8ff;
+  }
+
+  .field-workflow-compact.field-phase-field-review-required,
+  .field-workflow-compact.field-phase-locate-or-exception {
+    background: #fffaeb;
+  }
+
+  .field-workflow-compact-label {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .field-workflow-compact strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 10px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .field-line-expanded {
+    border-top: 1px solid var(--border);
+    background: white;
+  }
+
+  .field-line-expanded[hidden] {
+    display: none;
+  }
+
+  .field-review-alert {
+    margin-top: 12px;
+  }
+
+  .field-line-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(92px, 1fr));
+    gap: 7px;
+    padding: 12px 16px;
+  }
+
+  .field-line-detail-grid .field-qty-cell {
+    padding: 8px;
+  }
+
+  .field-line-meta {
+    padding-bottom: 12px;
+  }
+
+  .field-active-bags {
+    margin-bottom: 12px;
+  }
+
+  .field-line-actions {
+    padding-top: 12px;
+  }
+
+  @media (max-width: 1080px) {
+    .field-line-compact {
+      grid-template-columns:
+        minmax(220px, 1.5fr)
+        minmax(310px, 1.1fr)
+        auto;
+    }
+
+    .field-line-description-title {
       font-size: 15px;
     }
-  
-    .field-qty-cell small {
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 800;
+  }
+
+  @media (max-width: 860px) {
+    .field-fmr-heading {
+      align-items: stretch;
     }
-  
-    .field-qty-positive {
-      border-color: #a6f4c5;
-      background: #ecfdf3;
-    }
-  
-    .field-qty-reserved {
-      border-color: #b2ddff;
-      background: #eff8ff;
-    }
-  
-    .field-qty-attention,
-    .field-qty-remaining {
-      border-color: #fedf89;
-      background: #fffaeb;
-    }
-  
-    .field-line-meta {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      padding: 0 16px 14px;
-    }
-  
-    .field-line-meta > div {
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: white;
-    }
-  
-    .field-line-meta span {
-      display: block;
-      margin-bottom: 2px;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-  
-    .field-line-meta strong {
-      display: block;
-      color: var(--text);
-      font-size: 11px;
-      overflow-wrap: anywhere;
-    }
-  
-    .field-active-bags {
-      margin: 0 16px 14px;
-      padding: 11px;
-      border: 1px solid #b2ddff;
-      border-radius: 9px;
-      background: #f5fbff;
-    }
-  
-    .field-subsection-title {
-      margin-bottom: 8px;
-      color: var(--text);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-  
-    .field-bag-chip-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 7px;
-    }
-  
-    .field-bag-chip {
-      padding: 8px 9px;
-      border: 1px solid #d1e9ff;
-      border-radius: 7px;
-      background: white;
-    }
-  
-    .field-bag-chip strong,
-    .field-bag-chip span {
-      display: block;
-    }
-  
-    .field-bag-chip strong {
-      color: var(--text);
-      font-size: 11px;
-    }
-  
-    .field-bag-chip span {
-      margin-top: 2px;
-      color: var(--muted);
-      font-size: 9px;
-      line-height: 1.35;
-    }
-  
-    .field-line-actions {
-      padding: 14px 16px 16px;
-      border-top: 1px solid var(--border);
-      background: #fcfcfd;
-    }
-  
-    .field-action-groups {
-      display: grid;
-      gap: 11px;
-    }
-  
-    .field-action-group {
-      display: grid;
-      gap: 7px;
-    }
-  
-    .field-action-group-title {
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-  
-    .field-action-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-  
-    .field-workflow-action {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-start;
-      min-width: 140px;
-      padding: 9px 11px;
-      border-radius: 8px;
-      text-align: left;
-    }
-  
-    .field-workflow-action span {
-      font-size: 11px;
-      font-weight: 800;
-    }
-  
-    .field-workflow-action small {
-      margin-top: 2px;
-      opacity: 0.82;
-      font-size: 9px;
-      font-weight: 700;
-    }
-  
-    .field-action-group[data-action-group="ISSUE"]
-      .field-workflow-action {
-      background: var(--blue);
-    }
-  
-    .field-action-group[data-action-group="RESERVE"]
-      .field-workflow-action {
-      background: #475467;
-    }
-  
-    .field-action-group[data-action-group="LOCATE"]
-      .field-workflow-action {
-      background: #027a48;
-    }
-  
-    .field-action-group[data-action-group="EXCEPTION"]
-      .field-workflow-action {
-      background: #b54708;
-    }
-  
-    .field-no-actions {
-      padding: 9px 10px;
-      border: 1px dashed var(--border);
-      border-radius: 7px;
-      color: var(--muted);
-      font-size: 11px;
-    }
-  
-    .workflow-modal-guide {
-      margin-bottom: 14px;
-      padding: 11px 12px;
-      border: 1px solid #b2ddff;
-      border-radius: 9px;
-      background: #eff8ff;
-    }
-  
-    .workflow-modal-guide-heading {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-  
-    .workflow-modal-guide-heading strong {
-      color: var(--text);
-      font-size: 11px;
-    }
-  
-    .workflow-modal-guide p {
-      margin: 8px 0 0;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.45;
-    }
-  
-    .workflow-group-badge {
-      display: inline-flex;
-      padding: 4px 7px;
-      border-radius: 999px;
-      background: #1570ef;
-      color: white;
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-  
-    .workflow-group-badge[data-workflow-group="RESERVE"] {
-      background: #475467;
-    }
-  
-    .workflow-group-badge[data-workflow-group="LOCATE"] {
-      background: #027a48;
-    }
-  
-    .workflow-group-badge[data-workflow-group="EXCEPTION"] {
-      background: #b54708;
-    }
-  
-    .workflow-field-hint {
-      display: block;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 600;
-      line-height: 1.35;
-    }
-  
-    #actionForm textarea {
+
+    .field-fmr-tools {
+      justify-content: flex-start;
       width: 100%;
-      resize: vertical;
+      min-width: 0;
     }
-  
-    @media (max-width: 1200px) {
-      .field-line-quantity-grid {
-        grid-template-columns: repeat(4, minmax(100px, 1fr));
-      }
+
+    .field-line-compact {
+      grid-template-columns: 1fr auto;
     }
-  
-    @media (max-width: 760px) {
-      .field-fmr-heading,
-      .field-line-header,
-      .field-workflow-banner,
-      .workflow-modal-guide-heading {
-        align-items: stretch;
-        flex-direction: column;
-      }
-  
-      .field-fmr-line-count,
-      .field-workflow-count {
-        align-self: flex-start;
-      }
-  
-      .field-line-quantity-grid {
-        grid-template-columns: repeat(2, minmax(110px, 1fr));
-      }
-  
-      .field-line-meta {
-        grid-template-columns: 1fr;
-      }
-  
-      .field-action-buttons {
-        display: grid;
-        grid-template-columns: 1fr;
-      }
-  
-      .field-workflow-action {
-        width: 100%;
-      }
+
+    .field-line-primary-quantities {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
-  
-    @media (max-width: 430px) {
-      .field-line-header,
-      .field-line-quantity-grid,
-      .field-line-meta,
-      .field-line-actions {
-        padding-left: 12px;
-        padding-right: 12px;
-      }
-  
-      .field-workflow-banner,
-      .field-review-alert,
-      .field-active-bags {
-        margin-left: 12px;
-        margin-right: 12px;
-      }
-  
-      .field-line-quantity-grid {
-        grid-template-columns: 1fr 1fr;
-      }
+
+    .field-line-compact-side {
+      grid-column: 2;
+      grid-row: 1;
     }
-  </style>
-  
+
+    .field-line-detail-grid {
+      grid-template-columns:
+        repeat(3, minmax(100px, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .field-fmr-tools {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .field-material-filter {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .field-fmr-line-count {
+      align-self: flex-start;
+    }
+
+    .field-line-compact {
+      grid-template-columns: 1fr;
+      gap: 9px;
+      padding: 10px;
+    }
+
+    .field-line-compact-side {
+      display: flex;
+      grid-column: 1;
+      grid-row: auto;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .field-line-primary-quantities {
+      grid-column: 1;
+      grid-row: auto;
+    }
+
+    .field-line-description-title {
+      overflow: visible;
+      white-space: normal;
+    }
+
+    .field-workflow-compact strong {
+      white-space: normal;
+    }
+
+    .field-line-detail-grid {
+      grid-template-columns:
+        repeat(2, minmax(100px, 1fr));
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .field-line-meta,
+    .field-line-actions {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .field-review-alert,
+    .field-active-bags {
+      margin-left: 10px;
+      margin-right: 10px;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .field-line-primary-quantities {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .field-primary-qty:nth-child(2) {
+      border-right: 0;
+    }
+
+    .field-primary-qty:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--border);
+    }
+  }
+
+</style>
