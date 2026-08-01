@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+  <?!= includeFmrV3_('Styles'); ?>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>FMR Operations v3</h1>
+        <p id="pageSubtitle">Loading protected services…</p>
+      </div>
+
+      <nav>
+        <a href="<?= webAppUrl ?>?view=field" target="_top" id="fieldNav">
+          Field
+        </a>
+        <a href="<?= webAppUrl ?>?view=admin" target="_top" id="adminNav">
+          Admin
+        </a>
+        <a href="<?= webAppUrl ?>?view=owner" target="_top" id="ownerNav">
+          Owner
+        </a>
+      </nav>
+    </header>
+
+    <div id="globalError" class="alert error hidden"></div>
+    <div id="globalSuccess" class="alert success hidden"></div>
+
+    <section id="fieldView" class="hidden">
+      <section class="panel">
+        <h2>Field Search</h2>
+        <p>Search by official FMR number or combined ISO and sheet.</p>
+
+        <div class="search-grid">
+          <select id="searchMode">
+            <option value="AUTO">Auto detect</option>
+            <option value="FMR">FMR Number</option>
+            <option value="ISO">ISO + Sheet</option>
+          </select>
+
+          <input
+            id="searchQuery"
+            autocomplete="off"
+            placeholder="FMR-2026-00001 or FG-70912_001|3">
+
+          <button id="searchButton" type="button">Search</button>
+        </div>
+
+        <div id="fieldStatus" class="status"></div>
+      </section>
+
+      <section id="fieldResults"></section>
+    </section>
+
+    <section id="adminView" class="hidden">
+      <section id="kpiGrid" class="kpi-grid"></section>
+
+      <section class="panel admin-register-panel">
+        <div class="section-heading">
+          <div>
+            <h2>All Published FMRs</h2>
+            <p>
+              Review every published FMR without loading all material lines.
+              Open one record to retrieve its indexed material details.
+            </p>
+          </div>
+          <button id="adminRefreshButton" type="button">Refresh All</button>
+        </div>
+
+        <div class="admin-filter-grid">
+          <label>
+            Search Type
+            <select id="adminRegisterQueryType">
+              <option value="AUTO">Auto Detect</option>
+              <option value="FMR">FMR Number</option>
+              <option value="ISO">ISO + Sheet</option>
+              <option value="IWP">IWP / Text</option>
+            </select>
+          </label>
+
+          <label class="admin-filter-search">
+            Search
+            <input
+              id="adminRegisterQuery"
+              autocomplete="off"
+              placeholder="FMR number, ISO|sheet, IWP, requester, or notes">
+          </label>
+
+          <label>
+            Status
+            <select id="adminRegisterStatus">
+              <option value="ALL">All Statuses</option>
+            </select>
+          </label>
+
+          <label>
+            Priority
+            <select id="adminRegisterPriority">
+              <option value="ALL">All Priorities</option>
+            </select>
+          </label>
+
+          <label>
+            Operational Filter
+            <select id="adminRegisterException">
+              <option value="ALL">All FMRs</option>
+              <option value="HAS_REMAINING">Has Remaining Requirement</option>
+              <option value="NOT_FULLY_LOCATED">Not Fully Located</option>
+              <option value="HAS_AVAILABLE">Has Available Material</option>
+              <option value="HAS_BAGGED">Has Reserved / Bagged Material</option>
+              <option value="PENDING_BACKORDER">Has Pending Backorder</option>
+              <option value="CONFIRMED_BACKORDER">Has Confirmed Backorder</option>
+            </select>
+          </label>
+
+          <label>
+            Sort By
+            <select id="adminRegisterSortBy">
+              <option value="LAST_ACTIVITY">Last Activity</option>
+              <option value="DATE_REQUIRED">Date Required</option>
+              <option value="FMR_NUMBER">FMR Number</option>
+              <option value="REMAINING">Remaining Quantity</option>
+              <option value="FULFILLMENT">Fulfillment</option>
+              <option value="REQUESTED">Requested Quantity</option>
+            </select>
+          </label>
+
+          <label>
+            Direction
+            <select id="adminRegisterSortDirection">
+              <option value="DESC">Descending</option>
+              <option value="ASC">Ascending</option>
+            </select>
+          </label>
+
+          <div class="admin-filter-actions">
+            <button id="adminRegisterSearchButton" type="button">Apply</button>
+            <button
+              id="adminRegisterResetButton"
+              type="button"
+              class="secondary">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div id="adminRegisterStatusText" class="status"></div>
+        <div id="adminFmrRegister"></div>
+
+        <div class="pagination">
+          <button
+            id="adminRegisterPreviousButton"
+            type="button"
+            class="secondary">
+            Previous
+          </button>
+          <span id="adminRegisterPageText" class="register-page-text"></span>
+          <button
+            id="adminRegisterNextButton"
+            type="button"
+            class="secondary">
+            Next
+          </button>
+        </div>
+      </section>
+
+      <section id="adminFmrDetailPanel" class="panel hidden admin-detail-panel">
+        <div class="section-heading">
+          <div>
+            <h2 id="adminFmrDetailTitle">FMR Detail</h2>
+            <p id="adminFmrDetailSubtitle"></p>
+          </div>
+          <button
+            id="adminFmrDetailCloseButton"
+            type="button"
+            class="secondary">
+            Close Detail
+          </button>
+        </div>
+        <div id="adminFmrDetail"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Backorders Awaiting Review</h2>
+            <p>
+              Confirm, reject, or return a request when material
+              availability may have changed.
+            </p>
+          </div>
+        </div>
+
+        <div id="backorderQueue"></div>
+      </section>
+    </section>
+
+    <section id="ownerView" class="hidden">
+      <section class="panel">
+        <h2>Owner Intake</h2>
+        <p>
+          Stage the final reviewed FMR. Publication requires the official
+          number assigned by Material Management.
+        </p>
+
+        <div class="owner-grid">
+          <label>
+            Official FMR Number
+            <input id="ownerFmrNumber" autocomplete="off">
+          </label>
+          <label>
+            IWP Number
+            <input id="ownerIwpNumber" autocomplete="off">
+          </label>
+          <label>
+            Requested By
+            <input id="ownerRequestedBy" autocomplete="off">
+          </label>
+          <label>
+            Date Required
+            <input id="ownerDateRequired" type="date">
+          </label>
+          <label>
+            Priority
+            <input id="ownerPriority" autocomplete="off">
+          </label>
+          <label class="wide">
+            Notes
+            <input id="ownerNotes" autocomplete="off">
+          </label>
+        </div>
+
+        <label>
+          Material lines — tab-separated or comma-separated
+          <textarea
+            id="ownerLines"
+            rows="12"
+            placeholder="ISO Number&#9;ISO Sheet&#9;Commodity Code&#9;Size&#9;Description&#9;Quantity&#9;UOM&#9;Storage Location&#9;Notes"></textarea>
+        </label>
+
+        <div class="button-row">
+          <button id="saveStagingButton" type="button">Save Staging</button>
+          <button id="ownerClearButton" type="button" class="secondary">
+            Clear Form
+          </button>
+          <button id="ownerRefreshButton" type="button" class="secondary">
+            Refresh Staging
+          </button>
+          <span id="ownerEditStatus" class="status"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Unpublished Staging</h2>
+        <div id="stagingList"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Renumber Published FMR</h2>
+        <p>Use the current official number. The service updates all duplicated display references and records an audit entry.</p>
+        <div class="owner-grid">
+          <label>
+            Current FMR Number
+            <input id="renumberCurrentFmr" autocomplete="off">
+          </label>
+          <label>
+            New FMR Number
+            <input id="renumberNewFmr" autocomplete="off">
+          </label>
+          <label>
+            Reason
+            <input id="renumberReason" autocomplete="off">
+          </label>
+        </div>
+        <button id="renumberButton" type="button">Renumber FMR</button>
+      </section>
+    </section>
+  </main>
+
+  <div id="actionModal" class="modal hidden">
+    <div class="modal-card">
+      <button id="modalClose" class="icon-button" type="button">×</button>
+      <h2 id="modalTitle">Field Action</h2>
+      <p id="modalContext"></p>
+
+      <form id="actionForm">
+        <div id="modalFields"></div>
+        <div class="button-row">
+          <button id="modalSubmit" type="submit">Submit</button>
+          <button id="modalCancel" type="button" class="secondary">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const REQUESTED_VIEW = <?!= JSON.stringify(requestedView) ?>;
+  </script>
+
+  <?!= includeFmrV3_('Client'); ?>
+</body>
+</html>
