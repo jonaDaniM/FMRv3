@@ -201,3 +201,87 @@ function verifyBoundAdminActiveBagsV3() {
 
   return output;
 }
+function verifyBoundAdminOperationalRailV3() {
+  const started = Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const result =
+    getAdminDashboardV3();
+
+  const rail =
+    result.operationalRail;
+
+  const activeBags =
+    rail.activeBags;
+
+  const backorders =
+    rail.backorders;
+
+  const firstActiveBag =
+    activeBags.records.length
+      ? activeBags.records[0]
+      : null;
+
+  const output = {
+    passed:
+      coreVersion ===
+        '3.0.0-alpha.4' &&
+      Boolean(result.kpis) &&
+      Array.isArray(
+        backorders.requests
+      ) &&
+      Array.isArray(
+        activeBags.records
+      ) &&
+      activeBags.summary.activeTags === 1 &&
+      activeBags.records.length === 1 &&
+      Boolean(firstActiveBag) &&
+      firstActiveBag.tagNumber ===
+        'BT-2026-00001',
+
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    coreVersion: coreVersion,
+
+    backorderCount:
+      backorders.count,
+
+    activeTags:
+      activeBags.summary.activeTags,
+
+    activeItems:
+      activeBags.summary.activeItems,
+
+    returnedActiveBags:
+      activeBags.records.length,
+
+    firstTag:
+      firstActiveBag
+        ? firstActiveBag.tagNumber
+        : '',
+
+    firstReadiness:
+      firstActiveBag
+        ? firstActiveBag.readiness
+        : '',
+
+    authenticatedUser:
+      result.user
+        ? result.user.email
+        : ''
+  };
+
+  console.log(
+    JSON.stringify(output, null, 2)
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Admin operational-rail integration failed.'
+    );
+  }
+
+  return output;
+}
