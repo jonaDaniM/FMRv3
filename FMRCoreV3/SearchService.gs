@@ -443,24 +443,9 @@ function serializeLineForPortalFmrV3_(
   activeBags,
   returnedBackorders
 ) {
-  const requested =
-    numberFmrV3_(
-      line.Qty_Requested
-    );
-
-  const confirmed =
-    numberFmrV3_(
-      line.Qty_Confirmed_Located
-    );
-
-  const pending =
-    numberFmrV3_(
-      line.Qty_Pending_Backorder
-    );
-
-  const confirmedBackorder =
-    numberFmrV3_(
-      line.Qty_Confirmed_Backorder
+  const state =
+    lineStateFmrV3_(
+      line
     );
 
   const bags =
@@ -469,51 +454,10 @@ function serializeLineForPortalFmrV3_(
   const returned =
     returnedBackorders || [];
 
-  const actionLimits = {
-    confirmAvailable:
-      Math.max(
-        0,
-        numberFmrV3_(
-          line.Qty_Not_Yet_Located
-        )
-      ),
-
-    bag:
-      Math.max(
-        0,
-        numberFmrV3_(
-          line.Qty_Available
-        ) +
-        numberFmrV3_(
-          line.Qty_Not_Yet_Located
-        )
-      ),
-
-    directIssue:
-      Math.max(
-        0,
-        numberFmrV3_(
-          line.Qty_Not_Yet_Located
-        )
-      ),
-
-    issueAvailable:
-      Math.max(
-        0,
-        numberFmrV3_(
-          line.Qty_Available
-        )
-      ),
-
-    backorder:
-      Math.max(
-        0,
-        requested -
-        confirmed -
-        pending -
-        confirmedBackorder
-      )
-  };
+  const actionLimits =
+    fieldActionLimitsFromStateFmrV3_(
+      state
+    );
 
   return {
     fmrLineId:
@@ -562,41 +506,31 @@ function serializeLineForPortalFmrV3_(
       ),
 
     qtyRequested:
-      requested,
+      state.requested,
 
     qtyConfirmedLocated:
-      confirmed,
+      state.confirmed,
 
     qtyActiveBagged:
-      numberFmrV3_(
-        line.Qty_Active_Bagged
-      ),
+      state.bagged,
 
     qtyAvailable:
-      numberFmrV3_(
-        line.Qty_Available
-      ),
+      state.available,
 
     qtyIssued:
-      numberFmrV3_(
-        line.Qty_Issued
-      ),
+      state.issued,
 
     qtyPendingBackorder:
-      pending,
+      state.pendingBackorder,
 
     qtyConfirmedBackorder:
-      confirmedBackorder,
+      state.confirmedBackorder,
 
     qtyNotYetLocated:
-      numberFmrV3_(
-        line.Qty_Not_Yet_Located
-      ),
+      state.notYetLocated,
 
     qtyRemainingRequirement:
-      numberFmrV3_(
-        line.Qty_Remaining_Requirement
-      ),
+      state.remaining,
 
     lineStatus:
       normalizeFmrV3_(
@@ -622,7 +556,7 @@ function serializeLineForPortalFmrV3_(
       returned,
 
     /**
-     * Sprint 2 guided Field contract.
+     * Guided Field contract.
      */
     workflow:
       buildFieldWorkflowFmrV3_(

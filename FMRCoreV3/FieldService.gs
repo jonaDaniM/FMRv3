@@ -180,29 +180,91 @@ function performFieldActionFmrV3_(userEmail, request) {
   }
 }
 
-function confirmAvailableFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(
-    request.quantity,
-    'Confirmed quantity'
-  );
-  const state = lineStateFmrV3_(line);
 
-  if (quantity > state.notYetLocated) {
-    throw new Error(`Only ${state.notYetLocated} can be newly confirmed.`);
+
+
+
+function confirmAvailableFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Confirmed quantity'
+    );
+
+  const state =
+    lineStateFmrV3_(
+      line
+    );
+
+  const maximum =
+    fieldLocatableQuantityFmrV3_(
+      state
+    );
+
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' can be newly confirmed while pending backorders remain locked.'
+    );
   }
 
-  state.confirmed += quantity;
-  state.available += quantity;
-  state.notYetLocated -= quantity;
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
 
-  const correlationId = uuidFmrV3_('CORR');
+  const transitionPlan =
+    planLocationBackorderTransitionsFmrV3_(
+      line,
+      state,
+      quantity
+    );
 
-  appendTransactionFmrV3_(line, 'CONFIRM_AVAILABLE', quantity, user, {
-    correlationId: correlationId,
-    performedByName: request.performedByName,
-    storageLocation: request.storageLocation,
-    notes: request.notes
-  });
+  state.confirmed +=
+    quantity;
+
+  state.available +=
+    quantity;
+
+  state.notYetLocated -=
+    quantity;
+
+  applyLocationBackorderTransitionsFmrV3_(
+    line,
+    state,
+    transitionPlan,
+    user,
+    correlationId,
+    'CONFIRM_AVAILABLE'
+  );
+
+  appendTransactionFmrV3_(
+    line,
+    'CONFIRM_AVAILABLE',
+    quantity,
+    user,
+    {
+      correlationId:
+        correlationId,
+
+      performedByName:
+        request.performedByName,
+
+      storageLocation:
+        request.storageLocation,
+
+      notes:
+        request.notes
+    }
+  );
 
   return finishLineActionFmrV3_(
     user,
@@ -211,48 +273,138 @@ function confirmAvailableFmrV3_(user, line, request) {
     'CONFIRM_AVAILABLE',
     correlationId,
     {
-      quantity: quantity,
-      message: `${quantity} ${line.UOM} confirmed available.`
+      quantity:
+        quantity,
+
+      confirmedBackorderFulfilled:
+        transitionPlan
+          .confirmedConsumed,
+
+      returnedReviewResolved:
+        transitionPlan
+          .returnedResolved,
+
+      message:
+        quantity +
+        ' ' +
+        line.UOM +
+        ' confirmed available.'
     },
     {
-      Storage_Location: normalizeFmrV3_(
-        request.storageLocation || line.Storage_Location
-      )
+      Storage_Location:
+        normalizeFmrV3_(
+          request
+            .storageLocation ||
+          line.Storage_Location
+        )
     }
   );
 }
 
-function directIssueFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(
-    request.quantity,
-    'Issue quantity'
-  );
-  const issuedTo = normalizeFmrV3_(request.issuedToName);
+function directIssueFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Issue quantity'
+    );
 
-  if (!issuedTo) throw new Error('Issued To is required.');
+  const issuedTo =
+    normalizeFmrV3_(
+      request.issuedToName
+    );
 
-  const state = lineStateFmrV3_(line);
-
-  if (quantity > state.notYetLocated) {
+  if (!issuedTo) {
     throw new Error(
-      `Only ${state.notYetLocated} can be located and issued directly.`
+      'Issued To is required.'
     );
   }
 
-  state.confirmed += quantity;
-  state.issued += quantity;
-  state.notYetLocated -= quantity;
-  state.remaining -= quantity;
+  const state =
+    lineStateFmrV3_(
+      line
+    );
 
-  const correlationId = uuidFmrV3_('CORR');
+  const maximum =
+    Math.min(
+      fieldLocatableQuantityFmrV3_(
+        state
+      ),
+      Math.max(
+        0,
+        state.remaining
+      )
+    );
 
-  appendTransactionFmrV3_(line, 'DIRECT_ISSUE', quantity, user, {
-    correlationId: correlationId,
-    issuedToName: issuedTo,
-    performedByName: request.performedByName,
-    storageLocation: request.storageLocation,
-    notes: request.notes
-  });
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' can be located and issued directly.'
+    );
+  }
+
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
+
+  const transitionPlan =
+    planLocationBackorderTransitionsFmrV3_(
+      line,
+      state,
+      quantity
+    );
+
+  state.confirmed +=
+    quantity;
+
+  state.issued +=
+    quantity;
+
+  state.notYetLocated -=
+    quantity;
+
+  state.remaining -=
+    quantity;
+
+  applyLocationBackorderTransitionsFmrV3_(
+    line,
+    state,
+    transitionPlan,
+    user,
+    correlationId,
+    'DIRECT_ISSUE'
+  );
+
+  appendTransactionFmrV3_(
+    line,
+    'DIRECT_ISSUE',
+    quantity,
+    user,
+    {
+      correlationId:
+        correlationId,
+
+      issuedToName:
+        issuedTo,
+
+      performedByName:
+        request.performedByName,
+
+      storageLocation:
+        request.storageLocation,
+
+      notes:
+        request.notes
+    }
+  );
 
   return finishLineActionFmrV3_(
     user,
@@ -261,40 +413,114 @@ function directIssueFmrV3_(user, line, request) {
     'DIRECT_ISSUE',
     correlationId,
     {
-      quantity: quantity,
-      issuedTo: issuedTo,
-      message: `${quantity} ${line.UOM} located and issued to ${issuedTo}.`
+      quantity:
+        quantity,
+
+      issuedTo:
+        issuedTo,
+
+      confirmedBackorderFulfilled:
+        transitionPlan
+          .confirmedConsumed,
+
+      returnedReviewResolved:
+        transitionPlan
+          .returnedResolved,
+
+      message:
+        quantity +
+        ' ' +
+        line.UOM +
+        ' located and issued to ' +
+        issuedTo +
+        '.'
     }
   );
 }
 
-function issueAvailableFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(
-    request.quantity,
-    'Issue quantity'
-  );
-  const issuedTo = normalizeFmrV3_(request.issuedToName);
+function issueAvailableFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Issue quantity'
+    );
 
-  if (!issuedTo) throw new Error('Issued To is required.');
+  const issuedTo =
+    normalizeFmrV3_(
+      request.issuedToName
+    );
 
-  const state = lineStateFmrV3_(line);
-
-  if (quantity > state.available) {
-    throw new Error(`Only ${state.available} is available to issue.`);
+  if (!issuedTo) {
+    throw new Error(
+      'Issued To is required.'
+    );
   }
 
-  state.available -= quantity;
-  state.issued += quantity;
-  state.remaining -= quantity;
+  const state =
+    lineStateFmrV3_(
+      line
+    );
 
-  const correlationId = uuidFmrV3_('CORR');
+  const maximum =
+    Math.min(
+      Math.max(
+        0,
+        state.available
+      ),
+      Math.max(
+        0,
+        state.remaining
+      )
+    );
 
-  appendTransactionFmrV3_(line, 'ISSUE_FROM_AVAILABLE', quantity, user, {
-    correlationId: correlationId,
-    issuedToName: issuedTo,
-    performedByName: request.performedByName,
-    notes: request.notes
-  });
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' is available within the remaining requirement.'
+    );
+  }
+
+  state.available -=
+    quantity;
+
+  state.issued +=
+    quantity;
+
+  state.remaining -=
+    quantity;
+
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
+
+  appendTransactionFmrV3_(
+    line,
+    'ISSUE_FROM_AVAILABLE',
+    quantity,
+    user,
+    {
+      correlationId:
+        correlationId,
+
+      issuedToName:
+        issuedTo,
+
+      performedByName:
+        request.performedByName,
+
+      notes:
+        request.notes
+    }
+  );
 
   return finishLineActionFmrV3_(
     user,
@@ -303,9 +529,19 @@ function issueAvailableFmrV3_(user, line, request) {
     'ISSUE_FROM_AVAILABLE',
     correlationId,
     {
-      quantity: quantity,
-      issuedTo: issuedTo,
-      message: `${quantity} ${line.UOM} issued to ${issuedTo}.`
+      quantity:
+        quantity,
+
+      issuedTo:
+        issuedTo,
+
+      message:
+        quantity +
+        ' ' +
+        line.UOM +
+        ' issued to ' +
+        issuedTo +
+        '.'
     }
   );
 }
@@ -341,131 +577,346 @@ function nextTagNumberFmrV3_() {
   return tagNumber;
 }
 
-function bagMaterialFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(request.quantity, 'Bag quantity');
-  const state = lineStateFmrV3_(line);
-  const maximum = state.available + state.notYetLocated;
 
-  if (quantity > maximum) {
-    throw new Error(`Only ${maximum} can be reserved for this item.`);
+
+
+
+function bagMaterialFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Bag quantity'
+    );
+
+  const state =
+    lineStateFmrV3_(
+      line
+    );
+
+  const maximum =
+    fieldReservableQuantityFmrV3_(
+      state
+    );
+
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' can be reserved while pending backorders remain locked.'
+    );
   }
 
-  const storageLocation = normalizeFmrV3_(
-    request.storageLocation || line.Storage_Location
-  );
+  const storageLocation =
+    normalizeFmrV3_(
+      request.storageLocation ||
+      line.Storage_Location
+    );
 
-  if (!storageLocation) throw new Error('Storage Location is required.');
-
-  const newlyLocated = Math.max(0, quantity - state.available);
-  state.confirmed += newlyLocated;
-  state.available += newlyLocated;
-  state.available -= quantity;
-  state.bagged += quantity;
-  state.notYetLocated -= newlyLocated;
-
-  const correlationId = uuidFmrV3_('CORR');
-
-  if (newlyLocated > 0) {
-    appendTransactionFmrV3_(line, 'CONFIRM_AVAILABLE', newlyLocated, user, {
-      correlationId: correlationId,
-      performedByName: request.performedByName,
-      storageLocation: storageLocation,
-      notes: 'Located during Bag & Tag.'
-    });
+  if (
+    !storageLocation
+  ) {
+    throw new Error(
+      'Storage Location is required.'
+    );
   }
 
-  const bagTagId = uuidFmrV3_('BAG');
-  const tagNumber = nextTagNumberFmrV3_();
-  const now = nowFmrV3_();
+  const newlyLocated =
+    Math.max(
+      0,
+      quantity -
+      state.available
+    );
 
-  const bagHeaderRow = appendObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_HEADERS,
-    {
-      Bag_Tag_ID: bagTagId,
-      Tag_Number: tagNumber,
-      FMR_ID: line.FMR_ID,
-      FMR_Number: line.FMR_Number,
-      ISO_Key: line.ISO_Key,
-      Storage_Location: storageLocation,
-      Bagged_By_Name: normalizeFmrV3_(
-        request.performedByName || user.name
-      ),
-      Authenticated_Email: user.email,
-      Bagged_At: now,
-      Status: 'Active',
-      Notes: normalizeFmrV3_(request.notes),
-      Updated_At: now
-    }
-  );
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
 
-  const bagItemId = uuidFmrV3_('BAGITEM');
+  const transitionPlan =
+    planLocationBackorderTransitionsFmrV3_(
+      line,
+      state,
+      newlyLocated
+    );
 
-  const bagItemRow = appendObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_ITEMS,
-    {
-      Bag_Tag_Item_ID: bagItemId,
-      Bag_Tag_ID: bagTagId,
-      Tag_Number: tagNumber,
-      FMR_Line_ID: line.FMR_Line_ID,
-      Commodity_Code: line.Commodity_Code,
-      Size: line.Size,
-      Material_Description: line.Material_Description,
-      Qty_Bagged: quantity,
-      Qty_Issued_From_Bag: 0,
-      Qty_Remaining_In_Bag: quantity,
-      UOM: line.UOM,
-      Status: 'Active',
-      Created_At: now,
-      Updated_At: now
-    }
-  );
+  state.confirmed +=
+    newlyLocated;
+
+  state.available +=
+    newlyLocated;
+
+  state.available -=
+    quantity;
+
+  state.bagged +=
+    quantity;
+
+  state.notYetLocated -=
+    newlyLocated;
+
+  if (
+    newlyLocated > 0
+  ) {
+    appendTransactionFmrV3_(
+      line,
+      'CONFIRM_AVAILABLE',
+      newlyLocated,
+      user,
+      {
+        correlationId:
+          correlationId,
+
+        performedByName:
+          request.performedByName,
+
+        storageLocation:
+          storageLocation,
+
+        notes:
+          'Located during Bag & Tag.'
+      }
+    );
+  }
+
+  const bagTagId =
+    uuidFmrV3_(
+      'BAG'
+    );
+
+  const tagNumber =
+    nextTagNumberFmrV3_();
+
+  const now =
+    nowFmrV3_();
+
+  const bagHeaderRow =
+    appendObjectFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_HEADERS,
+      {
+        Bag_Tag_ID:
+          bagTagId,
+
+        Tag_Number:
+          tagNumber,
+
+        FMR_ID:
+          line.FMR_ID,
+
+        FMR_Number:
+          line.FMR_Number,
+
+        ISO_Key:
+          line.ISO_Key,
+
+        Storage_Location:
+          storageLocation,
+
+        Bagged_By_Name:
+          normalizeFmrV3_(
+            request
+              .performedByName ||
+            user.name
+          ),
+
+        Authenticated_Email:
+          user.email,
+
+        Bagged_At:
+          now,
+
+        Status:
+          'Active',
+
+        Notes:
+          normalizeFmrV3_(
+            request.notes
+          ),
+
+        Updated_At:
+          now
+      }
+    );
+
+  const bagItemId =
+    uuidFmrV3_(
+      'BAGITEM'
+    );
+
+  const bagItemRow =
+    appendObjectFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_ITEMS,
+      {
+        Bag_Tag_Item_ID:
+          bagItemId,
+
+        Bag_Tag_ID:
+          bagTagId,
+
+        Tag_Number:
+          tagNumber,
+
+        FMR_Line_ID:
+          line.FMR_Line_ID,
+
+        Commodity_Code:
+          line.Commodity_Code,
+
+        Size:
+          line.Size,
+
+        Material_Description:
+          line.Material_Description,
+
+        Qty_Bagged:
+          quantity,
+
+        Qty_Issued_From_Bag:
+          0,
+
+        Qty_Remaining_In_Bag:
+          quantity,
+
+        UOM:
+          line.UOM,
+
+        Status:
+          'Active',
+
+        Created_At:
+          now,
+
+        Updated_At:
+          now
+      }
+    );
 
   appendOperationalIndexEntriesFmrV3_([
     {
-      Index_Key: operationalIndexKeyFmrV3_('BAG', bagTagId),
-      Index_Type: 'BAG',
-      Entity_ID: bagTagId,
-      Parent_ID: line.FMR_Line_ID,
-      Row_Number: bagHeaderRow,
-      Secondary_Row_Number: bagItemRow,
-      Active: FMR_V3.YES,
-      Updated_At: now
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BAG',
+          bagTagId
+        ),
+
+      Index_Type:
+        'BAG',
+
+      Entity_ID:
+        bagTagId,
+
+      Parent_ID:
+        line.FMR_Line_ID,
+
+      Row_Number:
+        bagHeaderRow,
+
+      Secondary_Row_Number:
+        bagItemRow,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     },
     {
-      Index_Key: operationalIndexKeyFmrV3_(
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BAGLINE',
+          line.FMR_Line_ID
+        ),
+
+      Index_Type:
         'BAGLINE',
-        line.FMR_Line_ID
-      ),
-      Index_Type: 'BAGLINE',
-      Entity_ID: bagItemId,
-      Parent_ID: bagTagId,
-      Row_Number: bagItemRow,
-      Secondary_Row_Number: bagHeaderRow,
-      Active: FMR_V3.YES,
-      Updated_At: now
+
+      Entity_ID:
+        bagItemId,
+
+      Parent_ID:
+        bagTagId,
+
+      Row_Number:
+        bagItemRow,
+
+      Secondary_Row_Number:
+        bagHeaderRow,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     },
     {
-      Index_Key: operationalIndexKeyFmrV3_(
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BAGSTATUS',
+          'ACTIVE'
+        ),
+
+      Index_Type:
         'BAGSTATUS',
-        'ACTIVE'
-      ),
-      Index_Type: 'BAGSTATUS',
-      Entity_ID: bagTagId,
-      Parent_ID: line.FMR_Line_ID,
-      Row_Number: bagHeaderRow,
-      Secondary_Row_Number: bagItemRow,
-      Active: FMR_V3.YES,
-      Updated_At: now
+
+      Entity_ID:
+        bagTagId,
+
+      Parent_ID:
+        line.FMR_Line_ID,
+
+      Row_Number:
+        bagHeaderRow,
+
+      Secondary_Row_Number:
+        bagItemRow,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     }
   ]);
 
-  appendTransactionFmrV3_(line, 'BAG', quantity, user, {
-    correlationId: correlationId,
-    performedByName: request.performedByName,
-    targetBagTagId: bagTagId,
-    storageLocation: storageLocation,
-    notes: request.notes
-  });
+  applyLocationBackorderTransitionsFmrV3_(
+    line,
+    state,
+    transitionPlan,
+    user,
+    correlationId,
+    'BAG'
+  );
+
+  appendTransactionFmrV3_(
+    line,
+    'BAG',
+    quantity,
+    user,
+    {
+      correlationId:
+        correlationId,
+
+      performedByName:
+        request.performedByName,
+
+      targetBagTagId:
+        bagTagId,
+
+      storageLocation:
+        storageLocation,
+
+      notes:
+        request.notes
+    }
+  );
 
   return finishLineActionFmrV3_(
     user,
@@ -474,14 +925,38 @@ function bagMaterialFmrV3_(user, line, request) {
     'BAG',
     correlationId,
     {
-      quantity: quantity,
-      tagNumber: tagNumber,
-      storageLocation: storageLocation,
-      message: `${quantity} ${line.UOM} reserved under ${tagNumber}.`
+      quantity:
+        quantity,
+
+      tagNumber:
+        tagNumber,
+
+      storageLocation:
+        storageLocation,
+
+      confirmedBackorderFulfilled:
+        transitionPlan
+          .confirmedConsumed,
+
+      returnedReviewResolved:
+        transitionPlan
+          .returnedResolved,
+
+      message:
+        quantity +
+        ' ' +
+        line.UOM +
+        ' reserved under ' +
+        tagNumber +
+        '.'
     },
-    {Storage_Location: storageLocation}
+    {
+      Storage_Location:
+        storageLocation
+    }
   );
 }
+
 
 function getActiveBagsByLineIdsFmrV3_(lineIds) {
   const result = {};
@@ -543,112 +1018,233 @@ function getActiveBagsByLineIdsFmrV3_(lineIds) {
   return result;
 }
 
-function issueFromBagFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(
-    request.quantity,
-    'Issue quantity'
-  );
-  const issuedTo = normalizeFmrV3_(request.issuedToName);
-  const bagTagId = normalizeFmrV3_(request.bagTagId);
+function issueFromBagFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Issue quantity'
+    );
 
-  if (!issuedTo) throw new Error('Issued To is required.');
-  if (!bagTagId) throw new Error('Bag Tag is required.');
+  const issuedTo =
+    normalizeFmrV3_(
+      request.issuedToName
+    );
 
-  const entries = lookupOperationalRowsFmrV3_(
-    'BAGLINE',
-    line.FMR_Line_ID
-  );
+  const bagTagId =
+    normalizeFmrV3_(
+      request.bagTagId
+    );
 
-  const matchingEntry = entries.find(function (entry) {
-    return normalizeFmrV3_(entry.Parent_ID) === bagTagId;
-  });
-
-  if (!matchingEntry) {
-    throw new Error('The selected bag is not active for this line.');
+  if (!issuedTo) {
+    throw new Error(
+      'Issued To is required.'
+    );
   }
 
-  const item = readRowObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_ITEMS,
-    matchingEntry.Row_Number
-  );
-
-  const header = readRowObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_HEADERS,
-    matchingEntry.Secondary_Row_Number
-  );
-
-  const remaining = numberFmrV3_(item.Qty_Remaining_In_Bag);
-
-  if (quantity > remaining) {
-    throw new Error(`Only ${remaining} remains in ${header.Tag_Number}.`);
+  if (!bagTagId) {
+    throw new Error(
+      'Bag Tag is required.'
+    );
   }
 
-  const itemRemaining = remaining - quantity;
+  const entries =
+    lookupOperationalRowsFmrV3_(
+      'BAGLINE',
+      line.FMR_Line_ID
+    );
+
+  const matchingEntry =
+    entries.find(
+      function (
+        entry
+      ) {
+        return (
+          normalizeFmrV3_(
+            entry.Parent_ID
+          ) ===
+          bagTagId
+        );
+      }
+    );
+
+  if (
+    !matchingEntry
+  ) {
+    throw new Error(
+      'The selected bag is not active for this line.'
+    );
+  }
+
+  const item =
+    readRowObjectFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_ITEMS,
+      matchingEntry.Row_Number
+    );
+
+  const header =
+    readRowObjectFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_HEADERS,
+      matchingEntry
+        .Secondary_Row_Number
+    );
+
+  const state =
+    lineStateFmrV3_(
+      line
+    );
+
+  const remainingInBag =
+    numberFmrV3_(
+      item.Qty_Remaining_In_Bag
+    );
+
+  const maximum =
+    Math.min(
+      remainingInBag,
+      Math.max(
+        0,
+        state.remaining
+      )
+    );
+
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' remains issuable from ' +
+      header.Tag_Number +
+      '.'
+    );
+  }
+
+  const itemRemaining =
+    remainingInBag -
+    quantity;
 
   updateRowObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_ITEMS,
+    FMR_V3.SHEETS
+      .BAG_ITEMS,
     item._rowNumber,
     {
       Qty_Issued_From_Bag:
-        numberFmrV3_(item.Qty_Issued_From_Bag) + quantity,
-      Qty_Remaining_In_Bag: itemRemaining,
-      Status: itemRemaining > 0 ? 'Partially Issued' : 'Issued',
-      Updated_At: nowFmrV3_()
+        numberFmrV3_(
+          item
+            .Qty_Issued_From_Bag
+        ) +
+        quantity,
+
+      Qty_Remaining_In_Bag:
+        itemRemaining,
+
+      Status:
+        itemRemaining > 0
+          ? 'Partially Issued'
+          : 'Issued',
+
+      Updated_At:
+        nowFmrV3_()
     }
   );
 
   updateRowObjectFmrV3_(
-    FMR_V3.SHEETS.BAG_HEADERS,
+    FMR_V3.SHEETS
+      .BAG_HEADERS,
     header._rowNumber,
     {
-      Status: itemRemaining > 0 ? 'Partially Issued' : 'Issued',
-      Updated_At: nowFmrV3_()
+      Status:
+        itemRemaining > 0
+          ? 'Partially Issued'
+          : 'Issued',
+
+      Updated_At:
+        nowFmrV3_()
     }
   );
 
-  if (itemRemaining <= 0) {
-  updateRowObjectFmrV3_(
-    FMR_V3.SHEETS.OPERATIONAL_INDEX,
-    matchingEntry._rowNumber,
+  if (
+    itemRemaining <= 0
+  ) {
+    updateRowObjectFmrV3_(
+      FMR_V3.SHEETS
+        .OPERATIONAL_INDEX,
+      matchingEntry._rowNumber,
+      {
+        Active:
+          FMR_V3.NO,
+
+        Updated_At:
+          nowFmrV3_()
+      }
+    );
+
+    invalidateIndexKeyFmrV3_(
+      FMR_V3.SHEETS
+        .OPERATIONAL_INDEX,
+      operationalIndexKeyFmrV3_(
+        'BAGLINE',
+        line.FMR_Line_ID
+      )
+    );
+
+    deactivateExactIndexRowsFmrV3_(
+      FMR_V3.SHEETS
+        .OPERATIONAL_INDEX,
+      operationalIndexKeyFmrV3_(
+        'BAGSTATUS',
+        'ACTIVE'
+      ),
+      bagTagId
+    );
+  }
+
+  state.bagged -=
+    quantity;
+
+  state.issued +=
+    quantity;
+
+  state.remaining -=
+    quantity;
+
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
+
+  appendTransactionFmrV3_(
+    line,
+    'ISSUE_FROM_BAG',
+    quantity,
+    user,
     {
-      Active: FMR_V3.NO,
-      Updated_At: nowFmrV3_()
+      correlationId:
+        correlationId,
+
+      issuedToName:
+        issuedTo,
+
+      performedByName:
+        request.performedByName,
+
+      sourceBagTagId:
+        bagTagId,
+
+      storageLocation:
+        header.Storage_Location,
+
+      notes:
+        request.notes
     }
   );
-
-  invalidateIndexKeyFmrV3_(
-    FMR_V3.SHEETS.OPERATIONAL_INDEX,
-    operationalIndexKeyFmrV3_(
-      'BAGLINE',
-      line.FMR_Line_ID
-    )
-  );
-
-  deactivateExactIndexRowsFmrV3_(
-    FMR_V3.SHEETS.OPERATIONAL_INDEX,
-    operationalIndexKeyFmrV3_(
-      'BAGSTATUS',
-      'ACTIVE'
-    ),
-    bagTagId
-  );
-}
-
-  const state = lineStateFmrV3_(line);
-  state.bagged -= quantity;
-  state.issued += quantity;
-  state.remaining -= quantity;
-
-  const correlationId = uuidFmrV3_('CORR');
-
-  appendTransactionFmrV3_(line, 'ISSUE_FROM_BAG', quantity, user, {
-    correlationId: correlationId,
-    issuedToName: issuedTo,
-    performedByName: request.performedByName,
-    sourceBagTagId: bagTagId,
-    storageLocation: header.Storage_Location,
-    notes: request.notes
-  });
 
   return finishLineActionFmrV3_(
     user,
@@ -657,120 +1253,297 @@ function issueFromBagFmrV3_(user, line, request) {
     'ISSUE_FROM_BAG',
     correlationId,
     {
-      quantity: quantity,
-      tagNumber: header.Tag_Number,
-      issuedTo: issuedTo,
+      quantity:
+        quantity,
+
+      tagNumber:
+        header.Tag_Number,
+
+      issuedTo:
+        issuedTo,
+
       message:
-        `${quantity} ${line.UOM} issued from ${header.Tag_Number} to ${issuedTo}.`
+        quantity +
+        ' ' +
+        line.UOM +
+        ' issued from ' +
+        header.Tag_Number +
+        ' to ' +
+        issuedTo +
+        '.'
     }
   );
 }
 
-function submitBackorderFmrV3_(user, line, request) {
-  const quantity = positiveNumberFmrV3_(
-    request.quantity,
-    'Backorder quantity'
-  );
-  const reason = normalizeFmrV3_(request.reason);
 
-  if (!reason) throw new Error('Backorder reason is required.');
 
-  const state = lineStateFmrV3_(line);
-  const maximum = Math.max(
-    0,
-    state.requested -
-    state.confirmed -
-    state.pendingBackorder -
-    state.confirmedBackorder
-  );
+function submitBackorderFmrV3_(
+  user,
+  line,
+  request
+) {
+  const quantity =
+    positiveNumberFmrV3_(
+      request.quantity,
+      'Backorder quantity'
+    );
 
-  if (quantity > maximum) {
-    throw new Error(`Only ${maximum} can be submitted as a new backorder.`);
+  const reason =
+    normalizeFmrV3_(
+      request.reason
+    );
+
+  if (!reason) {
+    throw new Error(
+      'Backorder reason is required.'
+    );
   }
 
-  const requestId = uuidFmrV3_('BACKORDER');
-  const correlationId = uuidFmrV3_('CORR');
-  const now = nowFmrV3_();
+  const state =
+    lineStateFmrV3_(
+      line
+    );
 
-  const requestRow = appendObjectFmrV3_(
-    FMR_V3.SHEETS.BACKORDERS,
-    {
-      Backorder_Request_ID: requestId,
-      Correlation_ID: correlationId,
-      FMR_ID: line.FMR_ID,
-      FMR_Number: line.FMR_Number,
-      FMR_Line_ID: line.FMR_Line_ID,
-      ISO_Key: line.ISO_Key,
-      Commodity_Code: line.Commodity_Code,
-      Qty_Requested_Backorder: quantity,
-      Qty_Confirmed_Backorder: 0,
-      Qty_Pending: quantity,
-      Reason: reason,
-      Field_Notes: normalizeFmrV3_(request.notes),
-      Reported_By_Email: user.email,
-      Reported_By_Name: normalizeFmrV3_(
-        request.performedByName || user.name
-      ),
-      Reported_At: now,
-      Status: 'Pending Admin Review',
-      Admin_Decision: '',
-      Admin_Notes: '',
-      Decided_By_Email: '',
-      Decided_By_Name: '',
-      Decided_At: '',
-      Returned_Review_Reason: '',
-      Active: FMR_V3.YES,
-      Updated_At: now
-    }
+  const maximum =
+    fieldNewBackorderQuantityFmrV3_(
+      state
+    );
+
+  if (
+    quantity >
+    maximum
+  ) {
+    throw new Error(
+      'Only ' +
+      maximum +
+      ' can be submitted as a new backorder without duplicating an existing commitment.'
+    );
+  }
+
+  const requestId =
+    uuidFmrV3_(
+      'BACKORDER'
+    );
+
+  const correlationId =
+    uuidFmrV3_(
+      'CORR'
+    );
+
+  const resubmissionPlan =
+    planReturnedBackorderResubmissionFmrV3_(
+      line,
+      quantity
+    );
+
+  applyReturnedBackorderResubmissionFmrV3_(
+    line,
+    resubmissionPlan,
+    user,
+    correlationId
   );
+
+  const now =
+    nowFmrV3_();
+
+  const requestRow =
+    appendObjectFmrV3_(
+      FMR_V3.SHEETS
+        .BACKORDERS,
+      {
+        Backorder_Request_ID:
+          requestId,
+
+        Correlation_ID:
+          correlationId,
+
+        FMR_ID:
+          line.FMR_ID,
+
+        FMR_Number:
+          line.FMR_Number,
+
+        FMR_Line_ID:
+          line.FMR_Line_ID,
+
+        ISO_Key:
+          line.ISO_Key,
+
+        Commodity_Code:
+          line.Commodity_Code,
+
+        Qty_Requested_Backorder:
+          quantity,
+
+        Qty_Confirmed_Backorder:
+          0,
+
+        Qty_Pending:
+          quantity,
+
+        Reason:
+          reason,
+
+        Field_Notes:
+          normalizeFmrV3_(
+            request.notes
+          ),
+
+        Reported_By_Email:
+          user.email,
+
+        Reported_By_Name:
+          normalizeFmrV3_(
+            request
+              .performedByName ||
+            user.name
+          ),
+
+        Reported_At:
+          now,
+
+        Status:
+          'Pending Admin Review',
+
+        Admin_Decision:
+          '',
+
+        Admin_Notes:
+          '',
+
+        Decided_By_Email:
+          '',
+
+        Decided_By_Name:
+          '',
+
+        Decided_At:
+          '',
+
+        Returned_Review_Reason:
+          '',
+
+        Active:
+          FMR_V3.YES,
+
+        Updated_At:
+          now
+      }
+    );
 
   appendOperationalIndexEntriesFmrV3_([
     {
-      Index_Key: operationalIndexKeyFmrV3_('BACKORDER', requestId),
-      Index_Type: 'BACKORDER',
-      Entity_ID: requestId,
-      Parent_ID: line.FMR_Line_ID,
-      Row_Number: requestRow,
-      Secondary_Row_Number: line._rowNumber,
-      Active: FMR_V3.YES,
-      Updated_At: now
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BACKORDER',
+          requestId
+        ),
+
+      Index_Type:
+        'BACKORDER',
+
+      Entity_ID:
+        requestId,
+
+      Parent_ID:
+        line.FMR_Line_ID,
+
+      Row_Number:
+        requestRow,
+
+      Secondary_Row_Number:
+        line._rowNumber,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     },
     {
-      Index_Key: operationalIndexKeyFmrV3_(
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BACKORDERSTATUS',
+          'Pending Admin Review'
+        ),
+
+      Index_Type:
         'BACKORDERSTATUS',
-        'Pending Admin Review'
-      ),
-      Index_Type: 'BACKORDERSTATUS',
-      Entity_ID: requestId,
-      Parent_ID: line.FMR_Line_ID,
-      Row_Number: requestRow,
-      Secondary_Row_Number: line._rowNumber,
-      Active: FMR_V3.YES,
-      Updated_At: now
+
+      Entity_ID:
+        requestId,
+
+      Parent_ID:
+        line.FMR_Line_ID,
+
+      Row_Number:
+        requestRow,
+
+      Secondary_Row_Number:
+        line._rowNumber,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     },
     {
-      Index_Key: operationalIndexKeyFmrV3_(
+      Index_Key:
+        operationalIndexKeyFmrV3_(
+          'BACKORDERLINE',
+          line.FMR_Line_ID
+        ),
+
+      Index_Type:
         'BACKORDERLINE',
-        line.FMR_Line_ID
-      ),
-      Index_Type: 'BACKORDERLINE',
-      Entity_ID: requestId,
-      Parent_ID: line.FMR_Line_ID,
-      Row_Number: requestRow,
-      Secondary_Row_Number: line._rowNumber,
-      Active: FMR_V3.YES,
-      Updated_At: now
+
+      Entity_ID:
+        requestId,
+
+      Parent_ID:
+        line.FMR_Line_ID,
+
+      Row_Number:
+        requestRow,
+
+      Secondary_Row_Number:
+        line._rowNumber,
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
     }
   ]);
 
-  state.pendingBackorder += quantity;
+  state.pendingBackorder +=
+    quantity;
 
-  appendTransactionFmrV3_(line, 'BACKORDER_REQUESTED', quantity, user, {
-    correlationId: correlationId,
-    backorderRequestId: requestId,
-    performedByName: request.performedByName,
-    notes: `${reason}. ${normalizeFmrV3_(request.notes)}`
-  });
+  appendTransactionFmrV3_(
+    line,
+    'BACKORDER_REQUESTED',
+    quantity,
+    user,
+    {
+      correlationId:
+        correlationId,
+
+      backorderRequestId:
+        requestId,
+
+      performedByName:
+        request.performedByName,
+
+      notes:
+        reason +
+        '. ' +
+        normalizeFmrV3_(
+          request.notes
+        )
+    }
+  );
 
   return finishLineActionFmrV3_(
     user,
@@ -779,14 +1552,28 @@ function submitBackorderFmrV3_(user, line, request) {
     'BACKORDER_REQUESTED',
     correlationId,
     {
-      requestId: requestId,
-      quantity: quantity,
-      reason: reason,
+      requestId:
+        requestId,
+
+      quantity:
+        quantity,
+
+      reason:
+        reason,
+
+      resubmittedReturnedQuantity:
+        resubmissionPlan
+          .resubmittedQuantity,
+
       message:
-        `${quantity} ${line.UOM} submitted for Admin backorder review.`
+        quantity +
+        ' ' +
+        line.UOM +
+        ' submitted for Admin backorder review.'
     }
   );
 }
+
 
 function refreshHeaderFromIndexedLinesFmrV3_(fmrId, fmrNumber, user) {
   const entries = lookupIndexEntriesFmrV3_(
