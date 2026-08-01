@@ -1,210 +1,221 @@
-function sheetFmrV3_(sheetName) {
-  const sheet = fmrV3Database_().getSheetByName(sheetName);
-  if (!sheet) throw new Error(`Missing required sheet: ${sheetName}`);
-  return sheet;
-}
+function parseCombinedIsoFmrV3_(value) {
+  const input = normalizeUpperFmrV3_(value);
+  let splitIndex = Math.max(
+    input.lastIndexOf('|'),
+    input.lastIndexOf('/')
+  );
 
-function expectedHeadersFmrV3_(sheetName) {
-  const headers = FMR_V3_HEADERS[sheetName];
-  if (!headers) throw new Error(`No header contract is defined for ${sheetName}.`);
-  return headers.slice();
-}
+  if (splitIndex <= 0) {
+    const match = input.match(
+      /^(.*?)[\s]+(?:SHT|SHEET)[\s:#-]*([A-Z0-9._-]+)$/
+    );
 
-function headerMapFmrV3_(sheetName) {
-  if (FMR_V3_HEADER_MAP_CACHE_[sheetName]) {
-    return FMR_V3_HEADER_MAP_CACHE_[sheetName];
+    if (match) {
+      return {
+        isoNumber: normalizeUpperFmrV3_(match[1]),
+        isoSheet: normalizeUpperFmrV3_(match[2])
+      };
+    }
+
+    throw new Error(
+      'Combined ISO search must include a sheet, such as FG-70912_001|3.'
+    );
   }
 
-  const expected = expectedHeadersFmrV3_(sheetName);
-  const actual = sheetFmrV3_(sheetName)
-    .getRange(1, 1, 1, expected.length)
-    .getDisplayValues()[0]
-    .map(normalizeFmrV3_);
+  const isoNumber = normalizeUpperFmrV3_(input.slice(0, splitIndex));
+  const isoSheet = normalizeUpperFmrV3_(input.slice(splitIndex + 1));
 
-  expected.forEach(function (header, index) {
-    if (actual[index] !== header) {
-      throw new Error(
-        `${sheetName} header mismatch at column ${index + 1}. ` +
-        `Expected "${header}", found "${actual[index]}".`
-      );
-    }
-  });
-
-  const indexByHeader = {};
-  expected.forEach(function (header, index) {
-    indexByHeader[header] = index;
-  });
-
-  const result = {headers: expected, indexByHeader: indexByHeader};
-  FMR_V3_HEADER_MAP_CACHE_[sheetName] = result;
-  return result;
-}
-
-function ensureAppendCapacityFmrV3_(sheet, requiredRows) {
-  const requested = Math.max(1, numberFmrV3_(requiredRows));
-  const needed = sheet.getLastRow() + requested;
-  const maximum = sheet.getMaxRows();
-
-  if (needed > maximum) {
-    sheet.insertRowsAfter(maximum, Math.max(needed - maximum + 1000, requested));
+  if (!isoNumber || !isoSheet) {
+    throw new Error('Both ISO Number and ISO Sheet are required.');
   }
+
+  return {isoNumber: isoNumber, isoSheet: isoSheet};
 }
 
-function appendObjectFmrV3_(sheetName, record) {
-  return appendObjectsFmrV3_(sheetName, [record])[0];
+function normalizeSearchRequestFmrV3_(query, mode) {
+  const raw = normalizeFmrV3_(query);
+  if (!raw) {
+    throw new Error('Enter an FMR number or a combined ISO and sheet.');
+  }
+
+  const normalizedMode = normalizeUpperFmrV3_(mode || 'AUTO');
+  const upper = normalizeUpperFmrV3_(raw);
+
+  if (normalizedMode === 'FMR' || upper.indexOf('FMR:') === 0) {
+    return [fmrSearchKeyFmrV3_(upper.replace(/^FMR:/, ''))];
+  }
+
+  if (normalizedMode === 'ISO' || upper.indexOf('ISO:') === 0) {
+    const parsed = parseCombinedIsoFmrV3_(upper.replace(/^ISO:/, ''));
+    return [isoSearchKeyFmrV3_(parsed.isoNumber, parsed.isoSheet)];
+  }
+
+  const candidates = [fmrSearchKeyFmrV3_(upper)];
+
+  try {
+    const parsed = parseCombinedIsoFmrV3_(upper);
+    candidates.push(isoSearchKeyFmrV3_(parsed.isoNumber, parsed.isoSheet));
+  } catch (ignored) {}
+
+  return Array.from(new Set(candidates));
 }
 
-function appendObjectsFmrV3_(sheetName, records) {
-  const source = Array.isArray(records) ? records : [];
-  if (!source.length) return [];
-
-  const sheet = sheetFmrV3_(sheetName);
-  const contract = headerMapFmrV3_(sheetName);
-  ensureAppendCapacityFmrV3_(sheet, source.length);
-
-  const startRow = Math.max(2, sheet.getLastRow() + 1);
-  const values = source.map(function (record) {
-    return contract.headers.map(function (header) {
-      return record && Object.prototype.hasOwnProperty.call(record, header)
-        ? record[header]
-        : '';
-    });
-  });
-
-  sheet.getRange(startRow, 1, values.length, contract.headers.length)
-    .setValues(values);
-
-  return values.map(function (_, index) {
-    return startRow + index;
-  });
+function serializeHeaderTotalsFmrV3_(header) {
+  return {
+    requested: numberFmrV3_(header.Qty_Requested),
+    located: numberFmrV3_(header.Qty_Confirmed_Located),
+    bagged: numberFmrV3_(header.Qty_Active_Bagged),
+    available: numberFmrV3_(header.Qty_Available),
+    issued: numberFmrV3_(header.Qty_Issued),
+    pendingBackorder: numberFmrV3_(header.Qty_Pending_Backorder),
+    confirmedBackorder: numberFmrV3_(header.Qty_Confirmed_Backorder),
+    remaining: numberFmrV3_(header.Qty_Remaining_Requirement),
+    fulfillmentPct: numberFmrV3_(header.Fulfillment_Pct)
+  };
 }
 
-function readRowObjectFmrV3_(sheetName, rowNumber) {
-  const row = numberFmrV3_(rowNumber);
-  if (row < 2) throw new Error(`Invalid row ${rowNumber} for ${sheetName}.`);
+function serializeLineForPortalFmrV3_(line, activeBags, returnedBackorders) {
+  const requested = numberFmrV3_(line.Qty_Requested);
+  const confirmed = numberFmrV3_(line.Qty_Confirmed_Located);
+  const pending = numberFmrV3_(line.Qty_Pending_Backorder);
+  const confirmedBackorder = numberFmrV3_(line.Qty_Confirmed_Backorder);
 
-  const contract = headerMapFmrV3_(sheetName);
-  const values = sheetFmrV3_(sheetName)
-    .getRange(row, 1, 1, contract.headers.length)
-    .getValues()[0];
-
-  const record = {_rowNumber: row};
-  contract.headers.forEach(function (header, index) {
-    record[header] = values[index];
-  });
-  return record;
+  return {
+    fmrLineId: normalizeFmrV3_(line.FMR_Line_ID),
+    lineNumber: numberFmrV3_(line.Line_Number),
+    isoNumber: normalizeFmrV3_(line.ISO_Number),
+    isoSheet: normalizeFmrV3_(line.ISO_Sheet),
+    isoKey: normalizeFmrV3_(line.ISO_Key),
+    commodityCode: normalizeFmrV3_(line.Commodity_Code),
+    size: normalizeFmrV3_(line.Size),
+    description: normalizeFmrV3_(line.Material_Description),
+    uom: normalizeFmrV3_(line.UOM),
+    qtyRequested: requested,
+    qtyConfirmedLocated: confirmed,
+    qtyActiveBagged: numberFmrV3_(line.Qty_Active_Bagged),
+    qtyAvailable: numberFmrV3_(line.Qty_Available),
+    qtyIssued: numberFmrV3_(line.Qty_Issued),
+    qtyPendingBackorder: pending,
+    qtyConfirmedBackorder: confirmedBackorder,
+    qtyNotYetLocated: numberFmrV3_(line.Qty_Not_Yet_Located),
+    qtyRemainingRequirement: numberFmrV3_(line.Qty_Remaining_Requirement),
+    lineStatus: normalizeFmrV3_(line.Line_Status),
+    storageLocation: normalizeFmrV3_(line.Storage_Location),
+    actionLimits: {
+      confirmAvailable: Math.max(0, numberFmrV3_(line.Qty_Not_Yet_Located)),
+      bag: Math.max(
+        0,
+        numberFmrV3_(line.Qty_Available) +
+        numberFmrV3_(line.Qty_Not_Yet_Located)
+      ),
+      directIssue: Math.max(0, numberFmrV3_(line.Qty_Not_Yet_Located)),
+      issueAvailable: Math.max(0, numberFmrV3_(line.Qty_Available)),
+      backorder: Math.max(
+        0,
+        requested - confirmed - pending - confirmedBackorder
+      )
+    },
+    activeBags: activeBags || [],
+    returnedBackorders: returnedBackorders || []
+  };
 }
 
-function readRowsObjectsFmrV3_(sheetName, rowNumbers) {
-  const rows = Array.from(new Set(
-    (rowNumbers || [])
-      .map(numberFmrV3_)
-      .filter(function (value) { return value >= 2; })
-  )).sort(function (a, b) { return a - b; });
+function searchPublishedFmrV3_(userEmail, query, mode) {
+  const user = assertSearchUserFmrV3_(userEmail);
+  const keys = normalizeSearchRequestFmrV3_(query, mode);
 
-  if (!rows.length) return [];
+  let entries = [];
 
-  const groups = [];
-  rows.forEach(function (row) {
-    const current = groups.length ? groups[groups.length - 1] : null;
-    if (current && row === current.end + 1) {
-      current.end = row;
-    } else {
-      groups.push({start: row, end: row});
+  keys.some(function (key) {
+    const found = lookupIndexEntriesFmrV3_(
+      FMR_V3.SHEETS.SEARCH_INDEX,
+      key
+    );
+
+    if (found.length) {
+      entries = found;
+      return true;
     }
+
+    return false;
   });
 
-  const contract = headerMapFmrV3_(sheetName);
-  const sheet = sheetFmrV3_(sheetName);
-  const result = [];
+  if (!entries.length) {
+    return {
+      generatedAt: formatDateTimeFmrV3_(nowFmrV3_()),
+      user: user,
+      query: normalizeFmrV3_(query),
+      resultCount: 0,
+      cards: []
+    };
+  }
 
-  groups.forEach(function (group) {
-    const count = group.end - group.start + 1;
-    const values = sheet.getRange(
-      group.start, 1, count, contract.headers.length
-    ).getValues();
+  const lines = readRowsObjectsFmrV3_(
+    FMR_V3.SHEETS.LINES,
+    entries.map(function (entry) { return entry.Line_Row; })
+  ).filter(function (line) { return yesFmrV3_(line.Active); });
 
-    values.forEach(function (rowValues, index) {
-      const record = {_rowNumber: group.start + index};
-      contract.headers.forEach(function (header, columnIndex) {
-        record[header] = rowValues[columnIndex];
-      });
-      result.push(record);
-    });
+  const headers = readRowsObjectsFmrV3_(
+    FMR_V3.SHEETS.HEADERS,
+    entries.map(function (entry) { return entry.Header_Row; })
+  ).filter(function (header) { return yesFmrV3_(header.Active); });
+
+  const headersById = {};
+  headers.forEach(function (header) {
+    headersById[normalizeFmrV3_(header.FMR_ID)] = header;
   });
 
-  return result;
-}
+  const lineIds = lines.map(function (line) {
+    return normalizeFmrV3_(line.FMR_Line_ID);
+  });
 
-function updateRowObjectFmrV3_(sheetName, rowNumber, patch) {
-  const record = readRowObjectFmrV3_(sheetName, rowNumber);
-  const contract = headerMapFmrV3_(sheetName);
+  const bagsByLine = getActiveBagsByLineIdsFmrV3_(lineIds);
+  const returnedByLine = getReturnedBackordersByLineIdsFmrV3_(lineIds);
+  const grouped = {};
 
-  Object.keys(patch || {}).forEach(function (field) {
-    if (Object.prototype.hasOwnProperty.call(contract.indexByHeader, field)) {
-      record[field] = patch[field];
+  lines.forEach(function (line) {
+    const fmrId = normalizeFmrV3_(line.FMR_ID);
+    const header = headersById[fmrId];
+    if (!header) return;
+
+    if (!grouped[fmrId]) {
+      grouped[fmrId] = {
+        fmrId: fmrId,
+        fmrNumber: normalizeFmrV3_(header.FMR_Number),
+        iwpNumber: normalizeFmrV3_(header.IWP_Number),
+        requestedBy: normalizeFmrV3_(header.Requested_By),
+        dateRequired: formatDateTimeFmrV3_(header.Date_Required),
+        priority: normalizeFmrV3_(header.Priority),
+        status: normalizeFmrV3_(header.Current_Status),
+        notes: normalizeFmrV3_(header.Notes),
+        totals: serializeHeaderTotalsFmrV3_(header),
+        materials: []
+      };
     }
+
+    const lineId = normalizeFmrV3_(line.FMR_Line_ID);
+    grouped[fmrId].materials.push(
+      serializeLineForPortalFmrV3_(
+        line,
+        bagsByLine[lineId] || [],
+        returnedByLine[lineId] || []
+      )
+    );
   });
 
-  const values = contract.headers.map(function (header) {
-    return record[header];
+  const cards = Object.values(grouped).sort(function (a, b) {
+    return a.fmrNumber.localeCompare(
+      b.fmrNumber,
+      undefined,
+      {numeric: true, sensitivity: 'base'}
+    );
   });
 
-  sheetFmrV3_(sheetName)
-    .getRange(numberFmrV3_(rowNumber), 1, 1, values.length)
-    .setValues([values]);
-
-  return Object.assign({}, record, patch || {});
-}
-
-function findRowsByExactValueFmrV3_(sheetName, columnNumber, value) {
-  const target = normalizeFmrV3_(value);
-  if (!target) return [];
-
-  const sheet = sheetFmrV3_(sheetName);
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  return sheet
-    .getRange(2, numberFmrV3_(columnNumber), lastRow - 1, 1)
-    .createTextFinder(target)
-    .matchEntireCell(true)
-    .findAll()
-    .map(function (range) { return range.getRow(); });
-}
-
-function getUsedRowsFmrV3_(sheetName) {
-  const sheet = sheetFmrV3_(sheetName);
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  const contract = headerMapFmrV3_(sheetName);
-  const values = sheet.getRange(
-    2, 1, lastRow - 1, contract.headers.length
-  ).getValues();
-
-  return values.map(function (rowValues, index) {
-    const record = {_rowNumber: index + 2};
-    contract.headers.forEach(function (header, columnIndex) {
-      record[header] = rowValues[columnIndex];
-    });
-    return record;
-  }).filter(function (record) {
-    return contract.headers.some(function (header) {
-      return record[header] !== '' && record[header] !== null;
-    });
-  });
-}
-
-function deleteAppendedRowsFmrV3_(sheetName, rowNumbers) {
-  const rows = Array.from(new Set(
-    (rowNumbers || [])
-      .map(numberFmrV3_)
-      .filter(function (value) { return value >= 2; })
-  )).sort(function (a, b) { return b - a; });
-
-  const sheet = sheetFmrV3_(sheetName);
-  rows.forEach(function (row) {
-    if (row <= sheet.getLastRow()) sheet.deleteRow(row);
-  });
+  return {
+    generatedAt: formatDateTimeFmrV3_(nowFmrV3_()),
+    user: user,
+    query: normalizeFmrV3_(query),
+    resultCount: cards.length,
+    cards: cards
+  };
 }
