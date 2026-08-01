@@ -518,3 +518,114 @@ function runFmrV3AdminActiveBagPublicApiDiagnostic() {
 
   return output;
 }
+
+function runFmrV3AdminOperationalRailDiagnostic() {
+  setFmrV3DatabaseContext_(
+    FMR_V3.DEFAULT_DATABASE_ID
+  );
+
+  const started = Date.now();
+
+  const result =
+    getAdminDashboardFmrV3_(
+      'jonathanmura05@gmail.com'
+    );
+
+  const rail =
+    result &&
+    result.operationalRail
+      ? result.operationalRail
+      : null;
+
+  const backorders =
+    rail &&
+    rail.backorders
+      ? rail.backorders
+      : null;
+
+  const activeBags =
+    rail &&
+    rail.activeBags
+      ? rail.activeBags
+      : null;
+
+  const firstActiveBag =
+    activeBags &&
+    Array.isArray(activeBags.records) &&
+    activeBags.records.length
+      ? activeBags.records[0]
+      : null;
+
+  const output = {
+    passed:
+      Boolean(result) &&
+      Boolean(result.kpis) &&
+      Boolean(rail) &&
+      Boolean(backorders) &&
+      Boolean(activeBags) &&
+      Array.isArray(
+        backorders.requests
+      ) &&
+      Array.isArray(
+        activeBags.records
+      ) &&
+      backorders.count ===
+        backorders.requests.length &&
+      activeBags.summary.activeTags === 1 &&
+      activeBags.records.length === 1 &&
+      Boolean(firstActiveBag) &&
+      firstActiveBag.tagNumber ===
+        'BT-2026-00001',
+
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    version: FMR_V3.VERSION,
+
+    backorderCount:
+      backorders
+        ? backorders.count
+        : -1,
+
+    canReviewBackorders:
+      backorders
+        ? backorders.canReview
+        : false,
+
+    activeTags:
+      activeBags
+        ? activeBags.summary.activeTags
+        : -1,
+
+    activeItems:
+      activeBags
+        ? activeBags.summary.activeItems
+        : -1,
+
+    returnedActiveBags:
+      activeBags
+        ? activeBags.records.length
+        : -1,
+
+    firstTag:
+      firstActiveBag
+        ? firstActiveBag.tagNumber
+        : '',
+
+    firstReadiness:
+      firstActiveBag
+        ? firstActiveBag.readiness
+        : ''
+  };
+
+  console.log(
+    JSON.stringify(output, null, 2)
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Admin operational-rail diagnostic failed.'
+    );
+  }
+
+  return output;
+}
