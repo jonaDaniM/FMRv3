@@ -1,18 +1,18 @@
 {
-    "timeZone": "America/Indiana/Indianapolis",
-    "exceptionLogging": "STACKDRIVER",
-    "runtimeVersion": "V8",
-    "dependencies": {
-      "libraries": [
-        {
-          "userSymbol": "FMRCoreV3",
-          "libraryId": "1MRGDG--7YL4Lad_3cXeJR_4BWw8RhxsgrYBac7VSCeA1RpuNOG-0EZ9E",
-          "version": "2"
-        }
-      ]
-    },
-    "webapp": {
-      "executeAs": "USER_ACCESSING",
-      "access": "ANYONE"
-    }
+  "timeZone": "America/Indiana/Indianapolis",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "dependencies": {
+    "libraries": [
+      {
+        "userSymbol": "FMRCoreV3",
+        "libraryId": "1MRGDG--7YL4Lad_3cXeJR_4BWw8RhxsgrYBac7VSCeA1RpuNOG-0EZ9E",
+        "version": "3"
+      }
+    ]
+  },
+  "webapp": {
+    "executeAs": "USER_ACCESSING",
+    "access": "ANYONE"
   }
+}
