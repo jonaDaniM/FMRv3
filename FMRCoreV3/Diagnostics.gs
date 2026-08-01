@@ -106,3 +106,291 @@ function verifyFmrV3IndexServiceLoaded() {
 
   return result;
 }
+
+function runFmrV3KnownSearchPerformanceDiagnostic() {
+  setFmrV3DatabaseContext_(FMR_V3.DEFAULT_DATABASE_ID);
+
+  const fmrNumber = 'V3-ACCEPT-0001';
+  const started = Date.now();
+
+  const result = searchPublishedFmrV3_(
+    'jonathanmura05@gmail.com',
+    fmrNumber,
+    'FMR'
+  );
+
+  const output = {
+    passed: result.resultCount > 0,
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    query: fmrNumber,
+    resultCount: result.resultCount,
+    materialLineCount: (result.cards || []).reduce(
+      function (total, card) {
+        return total + (card.materials || []).length;
+      },
+      0
+    )
+  };
+
+  console.log(JSON.stringify(output, null, 2));
+
+  if (!output.passed) {
+    throw new Error(
+      'Known-search diagnostic did not find a published FMR.'
+    );
+  }
+
+  return output;
+}
+
+function runFmrV3KnownSearchPhaseDiagnostic() {
+  setFmrV3DatabaseContext_(FMR_V3.DEFAULT_DATABASE_ID);
+
+  const userEmail = 'jonathanmura05@gmail.com';
+  const fmrNumber = 'V3-ACCEPT-0001';
+  const timings = {};
+  const totalStarted = Date.now();
+
+  let started = Date.now();
+  const user = assertSearchUserFmrV3_(userEmail);
+  timings.authorizationMs = Date.now() - started;
+
+  started = Date.now();
+  const keys = normalizeSearchRequestFmrV3_(fmrNumber, 'FMR');
+  timings.requestNormalizationMs = Date.now() - started;
+
+  started = Date.now();
+  let entries = [];
+
+  keys.some(function (key) {
+    const found = lookupIndexEntriesFmrV3_(
+      FMR_V3.SHEETS.SEARCH_INDEX,
+      key
+    );
+
+    if (found.length) {
+      entries = found;
+      return true;
+    }
+
+    return false;
+  });
+
+  timings.searchIndexLookupMs = Date.now() - started;
+
+  started = Date.now();
+  const lines = readRowsObjectsFmrV3_(
+    FMR_V3.SHEETS.LINES,
+    entries.map(function (entry) {
+      return entry.Line_Row;
+    })
+  ).filter(function (line) {
+    return yesFmrV3_(line.Active);
+  });
+
+  timings.lineReadMs = Date.now() - started;
+
+  started = Date.now();
+  const headers = readRowsObjectsFmrV3_(
+    FMR_V3.SHEETS.HEADERS,
+    entries.map(function (entry) {
+      return entry.Header_Row;
+    })
+  ).filter(function (header) {
+    return yesFmrV3_(header.Active);
+  });
+
+  timings.headerReadMs = Date.now() - started;
+
+  const lineIds = lines.map(function (line) {
+    return normalizeFmrV3_(line.FMR_Line_ID);
+  });
+
+  started = Date.now();
+  const bagsByLine = getActiveBagsByLineIdsFmrV3_(lineIds);
+  timings.activeBagLookupMs = Date.now() - started;
+
+  started = Date.now();
+  const returnedByLine =
+    getReturnedBackordersByLineIdsFmrV3_(lineIds);
+  timings.returnedBackorderLookupMs = Date.now() - started;
+
+  started = Date.now();
+
+  const headersById = {};
+  headers.forEach(function (header) {
+    headersById[normalizeFmrV3_(header.FMR_ID)] = header;
+  });
+
+  const grouped = {};
+
+  lines.forEach(function (line) {
+    const fmrId = normalizeFmrV3_(line.FMR_ID);
+    const header = headersById[fmrId];
+
+    if (!header) return;
+
+    if (!grouped[fmrId]) {
+      grouped[fmrId] = {
+        fmrId: fmrId,
+        fmrNumber: normalizeFmrV3_(header.FMR_Number),
+        materials: []
+      };
+    }
+
+    const lineId = normalizeFmrV3_(line.FMR_Line_ID);
+
+    grouped[fmrId].materials.push(
+      serializeLineForPortalFmrV3_(
+        line,
+        bagsByLine[lineId] || [],
+        returnedByLine[lineId] || []
+      )
+    );
+  });
+
+  timings.serializationMs = Date.now() - started;
+  timings.totalMs = Date.now() - totalStarted;
+
+  const output = {
+    passed: entries.length > 0 && lines.length > 0,
+    readOnly: true,
+    query: fmrNumber,
+    indexEntryCount: entries.length,
+    headerCount: headers.length,
+    materialLineCount: lines.length,
+    timings: timings,
+    user: {
+      email: user.email,
+      role: user.role
+    }
+  };
+
+  console.log(JSON.stringify(output, null, 2));
+
+  if (!output.passed) {
+    throw new Error(
+      'Phase diagnostic could not load the known published FMR.'
+    );
+  }
+
+  return output;
+}
+
+function runFmrV3AdminRegisterPerformanceDiagnostic() {
+  setFmrV3DatabaseContext_(FMR_V3.DEFAULT_DATABASE_ID);
+
+  const userEmail = 'jonathanmura05@gmail.com';
+  const started = Date.now();
+
+  const result = getAdminFmrRegisterFmrV3_(
+    userEmail,
+    {
+      query: '',
+      queryType: 'AUTO',
+      status: 'ALL',
+      priority: 'ALL',
+      exceptionType: 'ALL',
+      sortBy: 'LAST_ACTIVITY',
+      sortDirection: 'DESC',
+      page: 1,
+      pageSize: 25
+    }
+  );
+
+  const output = {
+    passed:
+      Boolean(result) &&
+      Boolean(result.pagination) &&
+      Array.isArray(result.records),
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    page: result.pagination.page,
+    pageSize: result.pagination.pageSize,
+    totalRecords: result.pagination.totalRecords,
+    returnedRecords: result.records.length,
+    statusFilterCount:
+      (result.filterOptions.statuses || []).length,
+    priorityFilterCount:
+      (result.filterOptions.priorities || []).length
+  };
+
+  console.log(JSON.stringify(output, null, 2));
+
+  if (!output.passed) {
+    throw new Error(
+      'Admin register performance diagnostic failed.'
+    );
+  }
+
+  return output;
+}
+
+function runFmrV3AdminDashboardPerformanceDiagnostic() {
+  setFmrV3DatabaseContext_(FMR_V3.DEFAULT_DATABASE_ID);
+
+  const userEmail = 'jonathanmura05@gmail.com';
+  const started = Date.now();
+
+  const result = getAdminDashboardFmrV3_(userEmail);
+
+  const output = {
+    passed:
+      Boolean(result) &&
+      Boolean(result.kpis) &&
+      Array.isArray(result.backorders),
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    backorderCount: result.backorders.length,
+    canReviewBackorders: result.canReviewBackorders,
+    publishedFmrs: result.kpis.publishedFmrs,
+    activeTags: result.kpis.activeTags
+  };
+
+  console.log(JSON.stringify(output, null, 2));
+
+  if (!output.passed) {
+    throw new Error(
+      'Admin dashboard performance diagnostic failed.'
+    );
+  }
+
+  return output;
+}
+
+function runFmrV3BootstrapPerformanceDiagnostic() {
+  setFmrV3DatabaseContext_(FMR_V3.DEFAULT_DATABASE_ID);
+
+  const userEmail = 'jonathanmura05@gmail.com';
+  const started = Date.now();
+
+  const result = {
+    version: FMR_V3.VERSION,
+    user: assertSearchUserFmrV3_(userEmail),
+    field: getFieldBootstrapFmrV3_(userEmail)
+  };
+
+  const output = {
+    passed:
+      Boolean(result.user) &&
+      Boolean(result.field) &&
+      Boolean(result.field.options),
+    readOnly: true,
+    elapsedMs: Date.now() - started,
+    version: result.version,
+    role: result.user.role,
+    backorderReasonCount:
+      (result.field.options.backorderReasons || []).length,
+    uomCount:
+      (result.field.options.uoms || []).length
+  };
+
+  console.log(JSON.stringify(output, null, 2));
+
+  if (!output.passed) {
+    throw new Error('Portal bootstrap diagnostic failed.');
+  }
+
+  return output;
+}
