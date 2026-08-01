@@ -629,3 +629,184 @@ function runFmrV3AdminOperationalRailDiagnostic() {
 
   return output;
 }
+
+function runFmrV3FieldWorkflowContractDiagnostic() {
+  setFmrV3DatabaseContext_(
+    FMR_V3.DEFAULT_DATABASE_ID
+  );
+
+  const started =
+    Date.now();
+
+  const result =
+    searchPublishedFmrV3_(
+      'jonathanmura05@gmail.com',
+      'V3-ACCEPT-0001',
+      'FMR'
+    );
+
+  const materials =
+    (result.cards || [])
+      .reduce(
+        function (all, card) {
+          return all.concat(
+            card.materials || []
+          );
+        },
+        []
+      );
+
+  const missingWorkflow =
+    materials.filter(
+      function (material) {
+        return (
+          !material.workflow ||
+          !Array.isArray(
+            material.workflow.actions
+          )
+        );
+      }
+    );
+
+  const invalidActions = [];
+
+  materials.forEach(
+    function (material) {
+      const actions =
+        material.workflow &&
+        Array.isArray(
+          material.workflow.actions
+        )
+          ? material.workflow.actions
+          : [];
+
+      actions.forEach(
+        function (action) {
+          if (
+            !action.action ||
+            !action.label ||
+            !action.group ||
+            !Array.isArray(
+              action.requiredFields
+            ) ||
+            !Array.isArray(
+              action.optionalFields
+            ) ||
+            numberFmrV3_(
+              action.maxQuantity
+            ) <= 0
+          ) {
+            invalidActions.push({
+              fmrLineId:
+                material.fmrLineId,
+              action:
+                action.action || ''
+            });
+          }
+        }
+      );
+    }
+  );
+
+  const materialWithBag =
+    materials.find(
+      function (material) {
+        return (
+          material.activeBags &&
+          material.activeBags.length
+        );
+      }
+    );
+
+  const issueFromBagAction =
+    materialWithBag &&
+    materialWithBag.workflow
+      ? materialWithBag
+          .workflow
+          .actions
+          .find(
+            function (action) {
+              return (
+                action.action ===
+                FMR_V3.ACTIONS
+                  .ISSUE_FROM_BAG
+              );
+            }
+          )
+      : null;
+
+  const firstBagSource =
+    issueFromBagAction &&
+    issueFromBagAction.sources &&
+    issueFromBagAction.sources.length
+      ? issueFromBagAction.sources[0]
+      : null;
+
+  const output = {
+    passed:
+      result.resultCount > 0 &&
+      materials.length > 0 &&
+      missingWorkflow.length === 0 &&
+      invalidActions.length === 0 &&
+      Boolean(materialWithBag) &&
+      Boolean(issueFromBagAction) &&
+      Boolean(firstBagSource),
+
+    readOnly: true,
+    elapsedMs:
+      Date.now() - started,
+
+    version:
+      FMR_V3.VERSION,
+
+    resultCount:
+      result.resultCount,
+
+    materialLineCount:
+      materials.length,
+
+    missingWorkflowCount:
+      missingWorkflow.length,
+
+    invalidActionCount:
+      invalidActions.length,
+
+    activeBagLine:
+      materialWithBag
+        ? materialWithBag.fmrLineId
+        : '',
+
+    firstBagTag:
+      firstBagSource
+        ? firstBagSource.tagNumber
+        : '',
+
+    issueFromBagMaximum:
+      issueFromBagAction
+        ? issueFromBagAction
+            .maxQuantity
+        : 0,
+
+    issueFromBagRequiredFields:
+      issueFromBagAction
+        ? issueFromBagAction
+            .requiredFields
+        : []
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Field workflow contract diagnostic failed.'
+    );
+  }
+
+  return output;
+}
