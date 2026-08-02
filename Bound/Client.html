@@ -17,6 +17,9 @@
       adminDecisionBusy: false,
       systemControlData: null,
       systemControlBusy: false,
+      operationsCenterData: null,
+      operationsBusy: false,
+      recoveryPreview: null,
       fieldExpandedLineIds: new Set(),
       fieldFilterValues: {},
       fieldSearchSequence: 0,
@@ -107,6 +110,7 @@
           ) {
             refreshStagingV3_();
             refreshSystemControlV3_();
+            refreshOperationsCenterV3_();
           }
         })
         .catch(
@@ -284,6 +288,47 @@
       byId('systemUserClearButton').addEventListener(
         'click',
         clearSystemUserFormV3_
+      );
+
+      byId('operationsRefreshButton').addEventListener(
+        'click',
+        () =>
+          refreshOperationsCenterV3_()
+      );
+
+      byId('operationsHealthButton').addEventListener(
+        'click',
+        runOperationalHealthCheckV3_
+      );
+
+      byId('operationsBackupButton').addEventListener(
+        'click',
+        createDatabaseBackupV3_
+      );
+
+      byId('operationsSettingsSaveButton').addEventListener(
+        'click',
+        saveOperationalSettingsV3_
+      );
+
+      byId('operationsScheduleInstallButton').addEventListener(
+        'click',
+        installDailyOperationsV3_
+      );
+
+      byId('operationsScheduleRemoveButton').addEventListener(
+        'click',
+        removeDailyOperationsV3_
+      );
+
+      byId('operationsRecoveryPreviewButton').addEventListener(
+        'click',
+        previewRecoveryActionV3_
+      );
+
+      byId('operationsRecoveryApplyButton').addEventListener(
+        'click',
+        applyRecoveryActionV3_
       );
 
       byId('modalClose').addEventListener(
@@ -5289,6 +5334,1291 @@
         await refreshStagingV3_();
       } catch (error) {
         showErrorV3_(error);
+      }
+    }
+
+    async function refreshOperationsCenterV3_(
+      silent
+    ) {
+      if (
+        state.operationsBusy &&
+        !silent
+      ) {
+        return;
+      }
+
+      if (!silent) {
+        hideAlertsV3_();
+
+        setOperationsBusyV3_(
+          true,
+          'Loading operational readiness…'
+        );
+      }
+
+      try {
+        const data =
+          await callServerV3_(
+            'getOperationsCenterV3'
+          );
+
+        state.operationsCenterData =
+          data;
+
+        renderOperationsCenterV3_(
+          data
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        if (!silent) {
+          setOperationsBusyV3_(
+            false
+          );
+        }
+      }
+    }
+
+    function operationsStatusClassV3_(
+      status
+    ) {
+      const normalized =
+        String(
+          status || ''
+        ).toUpperCase();
+
+      if (
+        normalized ===
+        'PASS' ||
+        normalized ===
+        'SUCCESS' ||
+        normalized ===
+        'ENABLED'
+      ) {
+        return 'is-pass';
+      }
+
+      if (
+        normalized ===
+        'WARN' ||
+        normalized ===
+        'READ_ONLY'
+      ) {
+        return 'is-warn';
+      }
+
+      return 'is-fail';
+    }
+
+    function renderOperationsCenterV3_(
+      data
+    ) {
+      const source =
+        data || {};
+
+      const health =
+        source.currentHealth || {};
+
+      const backup =
+        health.backup || {};
+
+      const rollout =
+        health.rollout || {};
+
+      const schedule =
+        source.schedule || {};
+
+      const settings =
+        source.settings || {};
+
+      const environment =
+        source.environment || {};
+
+      byId(
+        'operationsHealthBadge'
+      ).className =
+        (
+          'operations-status-badge ' +
+          operationsStatusClassV3_(
+            health.overallStatus
+          )
+        );
+
+      byId(
+        'operationsHealthBadge'
+      ).textContent =
+        health.overallStatus ||
+        'UNKNOWN';
+
+      byId(
+        'operationsHealthSummary'
+      ).textContent =
+        health.warnings &&
+        health.warnings.length
+          ? health.warnings.join(
+              ' '
+            )
+          : (
+              'Schema, integrity, and system controls are healthy.'
+            );
+
+      byId(
+        'operationsBackupSummary'
+      ).textContent =
+        backup.exists
+          ? (
+              `${backup.status} · ` +
+              `${backup.completedAt || 'Unknown time'} · ` +
+              `${backup.ageHours == null
+                ? 'Unknown age'
+                : (
+                    Math.round(
+                      Number(
+                        backup.ageHours
+                      ) *
+                      10
+                    ) /
+                    10 +
+                    'h old'
+                  )}`
+            )
+          : 'No successful backup exists.';
+
+      byId(
+        'operationsScheduleSummary'
+      ).textContent =
+        schedule.enabled
+          ? (
+              `Daily near ${String(
+                schedule.hour
+              ).padStart(
+                2,
+                '0'
+              )}:00 · ${schedule.timezone}`
+            )
+          : 'Daily operations are not scheduled.';
+
+      byId(
+        'operationsRolloutSummary'
+      ).textContent =
+        rollout.productionReady
+          ? 'Production ready'
+          : rollout.pilotReady
+            ? 'Pilot ready'
+            : 'Readiness requirements remain';
+
+      byId(
+        'operationsRolloutSummary'
+      ).className =
+        (
+          'operations-rollout-value ' +
+          (
+            rollout.productionReady ||
+            rollout.pilotReady
+              ? 'is-ready'
+              : 'is-not-ready'
+          )
+        );
+
+      byId(
+        'operationsEnvironmentSummary'
+      ).textContent =
+        (
+          `${environment.environmentName || 'TEST'} · ` +
+          `${environment.transactionMode || 'ENABLED'} · ` +
+          `Database ${
+            environment.databaseFingerprint ||
+            'unknown'
+          }`
+        );
+
+      byId(
+        'operationsBackupRetentionDays'
+      ).value =
+        settings.backupRetentionDays ||
+        30;
+
+      byId(
+        'operationsBackupMaxAgeHours'
+      ).value =
+        settings.backupMaxAgeHours ||
+        30;
+
+      byId(
+        'operationsStaleBackorderHours'
+      ).value =
+        settings.staleBackorderHours ||
+        48;
+
+      byId(
+        'operationsStaleBagDays'
+      ).value =
+        settings.staleBagDays ||
+        7;
+
+      byId(
+        'operationsScheduleHour'
+      ).value =
+        Number.isInteger(
+          Number(
+            schedule.hour
+          )
+        )
+          ? Number(
+              schedule.hour
+            )
+          : 2;
+
+      byId(
+        'operationsScheduleInstallButton'
+      ).textContent =
+        schedule.enabled
+          ? 'Replace Daily Schedule'
+          : 'Install Daily Schedule';
+
+      byId(
+        'operationsScheduleRemoveButton'
+      ).disabled =
+        !schedule.enabled;
+
+      renderOperationsHealthCountsV3_(
+        health.counts || {}
+      );
+
+      renderOperationsBackupHistoryV3_(
+        source.backups || []
+      );
+
+      renderOperationsHealthHistoryV3_(
+        source.healthHistory || []
+      );
+
+      renderOperationsRecoveryHistoryV3_(
+        source.recoveryHistory || []
+      );
+
+      byId(
+        'operationsStatusText'
+      ).textContent =
+        (
+          'Last refreshed ' +
+          (
+            source.generatedAt ||
+            'now'
+          )
+        );
+    }
+
+    function renderOperationsHealthCountsV3_(
+      counts
+    ) {
+      const values = [
+        {
+          label:
+            'Published FMRs',
+
+          value:
+            counts.publishedFmrs ||
+            0
+        },
+        {
+          label:
+            'Pending B/O',
+
+          value:
+            counts.pendingBackorders ||
+            0
+        },
+        {
+          label:
+            'Returned',
+
+          value:
+            counts.returnedNotices ||
+            0
+        },
+        {
+          label:
+            'Rejected',
+
+          value:
+            counts.rejectedNotices ||
+            0
+        },
+        {
+          label:
+            'Stale B/O',
+
+          value:
+            counts.staleBackorders ||
+            0
+        },
+        {
+          label:
+            'Active Bags',
+
+          value:
+            counts.activeBagItems ||
+            0
+        },
+        {
+          label:
+            'Stale Bags',
+
+          value:
+            counts.staleBagItems ||
+            0
+        },
+        {
+          label:
+            'Transactions 24h',
+
+          value:
+            counts.recentTransactions24h ||
+            0
+        }
+      ];
+
+      byId(
+        'operationsCountGrid'
+      ).innerHTML =
+        values
+          .map(
+            item => `
+              <div class="operations-count-card">
+                <span>
+                  ${
+                    escapeHtmlV3_(
+                      item.label
+                    )
+                  }
+                </span>
+
+                <strong>
+                  ${
+                    formatQtyV3_(
+                      item.value
+                    )
+                  }
+                </strong>
+              </div>
+            `
+          )
+          .join('');
+    }
+
+    function renderOperationsBackupHistoryV3_(
+      rows
+    ) {
+      const container =
+        byId(
+          'operationsBackupHistory'
+        );
+
+      if (!rows.length) {
+        container.innerHTML =
+          '<div class="register-empty">No backup history yet.</div>';
+
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="operations-table-wrap">
+          <table class="operations-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>File</th>
+                <th>Trigger</th>
+                <th>Completed</th>
+                <th>Created By</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>
+                    <span class="operations-status-badge ${
+                      operationsStatusClassV3_(
+                        row.status
+                      )
+                    }">
+                      ${
+                        escapeHtmlV3_(
+                          row.status
+                        )
+                      }
+                    </span>
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.fileName
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.triggerType
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.completedAt ||
+                        row.createdAt
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.createdBy
+                      )
+                    }
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderOperationsHealthHistoryV3_(
+      rows
+    ) {
+      const container =
+        byId(
+          'operationsHealthHistory'
+        );
+
+      if (!rows.length) {
+        container.innerHTML =
+          '<div class="register-empty">No recorded health checks yet.</div>';
+
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="operations-table-wrap">
+          <table class="operations-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Run At</th>
+                <th>Trigger</th>
+                <th>Pending B/O</th>
+                <th>Stale B/O</th>
+                <th>Stale Bags</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>
+                    <span class="operations-status-badge ${
+                      operationsStatusClassV3_(
+                        row.overallStatus
+                      )
+                    }">
+                      ${
+                        escapeHtmlV3_(
+                          row.overallStatus
+                        )
+                      }
+                    </span>
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.runAt
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.triggerType
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      formatQtyV3_(
+                        row.pendingBackorders
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      formatQtyV3_(
+                        row.staleBackorders
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      formatQtyV3_(
+                        row.staleBagItems
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      formatQtyV3_(
+                        row.elapsedMs
+                      )
+                    } ms
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderOperationsRecoveryHistoryV3_(
+      rows
+    ) {
+      const container =
+        byId(
+          'operationsRecoveryHistory'
+        );
+
+      if (!rows.length) {
+        container.innerHTML =
+          '<div class="register-empty">No recovery activity yet.</div>';
+
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="operations-table-wrap">
+          <table class="operations-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>FMR</th>
+                <th>Action</th>
+                <th>Previewed</th>
+                <th>Applied</th>
+                <th>Backup</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows.map(row => `
+                <tr>
+                  <td>
+                    <span class="operations-status-badge ${
+                      operationsStatusClassV3_(
+                        row.status ===
+                          'APPLIED'
+                          ? 'PASS'
+                          : row.status ===
+                              'FAILED'
+                            ? 'FAIL'
+                            : 'WARN'
+                      )
+                    }">
+                      ${
+                        escapeHtmlV3_(
+                          row.status
+                        )
+                      }
+                    </span>
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.fmrNumber
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.actionType
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.previewedAt
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.appliedAt ||
+                        '—'
+                      )
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      escapeHtmlV3_(
+                        row.backupId ||
+                        '—'
+                      )
+                    }
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function runOperationalHealthCheckV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Running operational health check…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'runOperationalHealthV3'
+          );
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Operational health check completed: ' +
+            result.overallStatus +
+            '.'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function createDatabaseBackupV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const notes =
+        window.prompt(
+          'Optional backup notes:',
+          'Sprint 4B manual backup acceptance'
+        );
+
+      if (
+        notes === null
+      ) {
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Creating database backup…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'createDatabaseBackupV3',
+            notes
+          );
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Database backup created: ' +
+            result.fileName
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function saveOperationalSettingsV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const payload = {
+        backupRetentionDays:
+          Number(
+            byId(
+              'operationsBackupRetentionDays'
+            ).value
+          ),
+
+        backupMaxAgeHours:
+          Number(
+            byId(
+              'operationsBackupMaxAgeHours'
+            ).value
+          ),
+
+        staleBackorderHours:
+          Number(
+            byId(
+              'operationsStaleBackorderHours'
+            ).value
+          ),
+
+        staleBagDays:
+          Number(
+            byId(
+              'operationsStaleBagDays'
+            ).value
+          )
+      };
+
+      setOperationsBusyV3_(
+        true,
+        'Saving operational thresholds…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'saveOperationalSettingsV3',
+            payload
+          );
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          result.message ||
+          'Operational thresholds updated.'
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function installDailyOperationsV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const hour =
+        Number(
+          byId(
+            'operationsScheduleHour'
+          ).value
+        );
+
+      if (
+        !Number.isInteger(
+          hour
+        ) ||
+        hour < 0 ||
+        hour > 23
+      ) {
+        showErrorV3_(
+          'Schedule hour must be an integer from 0 through 23.'
+        );
+
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Installing daily backup and health schedule…'
+      );
+
+      try {
+        await callServerV3_(
+          'installBoundDailyOperationsV3',
+          hour
+        );
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Daily operations scheduled near ' +
+            String(
+              hour
+            ).padStart(
+              2,
+              '0'
+            ) +
+            ':00.'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function removeDailyOperationsV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          'Remove the daily backup and health-check schedule?'
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Removing daily operations schedule…'
+      );
+
+      try {
+        await callServerV3_(
+          'removeBoundDailyOperationsV3'
+        );
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          'Daily operations schedule removed.'
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function previewRecoveryActionV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const payload = {
+        fmrNumber:
+          byId(
+            'operationsRecoveryFmr'
+          ).value.trim(),
+
+        action:
+          byId(
+            'operationsRecoveryAction'
+          ).value
+      };
+
+      if (!payload.fmrNumber) {
+        showErrorV3_(
+          'Enter the published FMR number to preview.'
+        );
+
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Generating controlled recovery preview…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'previewRecoveryV3',
+            payload
+          );
+
+        state.recoveryPreview =
+          result;
+
+        renderRecoveryPreviewV3_(
+          result
+        );
+
+        showSuccessV3_(
+          (
+            'Recovery preview created. It expires in ' +
+            result.expiresInSeconds +
+            ' seconds.'
+          )
+        );
+      } catch (
+        error
+      ) {
+        state.recoveryPreview =
+          null;
+
+        byId(
+          'operationsRecoveryApplyButton'
+        ).disabled =
+          true;
+
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    function renderRecoveryPreviewV3_(
+      preview
+    ) {
+      const before =
+        preview.before || {};
+
+      const header =
+        before.header || {};
+
+      byId(
+        'operationsRecoveryPreview'
+      ).innerHTML = `
+        <div class="operations-recovery-preview-card">
+          <div>
+            <span>Recovery ID</span>
+            <strong>
+              ${
+                escapeHtmlV3_(
+                  preview.recoveryId
+                )
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>FMR</span>
+            <strong>
+              ${
+                escapeHtmlV3_(
+                  preview.fmrNumber
+                )
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Action</span>
+            <strong>
+              ${
+                escapeHtmlV3_(
+                  preview.action
+                )
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Lines</span>
+            <strong>
+              ${
+                formatQtyV3_(
+                  before.lineCount
+                )
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Search Index</span>
+            <strong>
+              ${
+                formatQtyV3_(
+                  before.activeSearchIndexRows
+                )
+              } / ${
+                formatQtyV3_(
+                  before.expectedSearchIndexRows
+                )
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Remaining</span>
+            <strong>
+              ${
+                formatQtyV3_(
+                  header.remaining
+                )
+              }
+            </strong>
+          </div>
+        </div>
+
+        <div class="alert warning">
+          Apply requires READ_ONLY mode, a written reason,
+          and creates an automatic database backup first.
+        </div>
+      `;
+
+      byId(
+        'operationsRecoveryApplyButton'
+      ).disabled =
+        false;
+    }
+
+    async function applyRecoveryActionV3_() {
+      if (
+        state.operationsBusy
+      ) {
+        return;
+      }
+
+      const preview =
+        state.recoveryPreview;
+
+      if (
+        !preview ||
+        !preview.previewToken
+      ) {
+        showErrorV3_(
+          'Generate a current recovery preview first.'
+        );
+
+        return;
+      }
+
+      const reason =
+        byId(
+          'operationsRecoveryReason'
+        ).value.trim();
+
+      if (
+        reason.length < 10
+      ) {
+        showErrorV3_(
+          'Provide a recovery reason of at least 10 characters.'
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          (
+            'Apply ' +
+            preview.action +
+            ' to ' +
+            preview.fmrNumber +
+            '? A database backup will be created first.'
+          )
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setOperationsBusyV3_(
+        true,
+        'Creating backup and applying controlled recovery…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'applyRecoveryV3',
+            {
+              previewToken:
+                preview.previewToken,
+
+              reason:
+                reason
+            }
+          );
+
+        state.recoveryPreview =
+          null;
+
+        byId(
+          'operationsRecoveryPreview'
+        ).innerHTML =
+          '<div class="register-empty">No active recovery preview.</div>';
+
+        byId(
+          'operationsRecoveryApplyButton'
+        ).disabled =
+          true;
+
+        byId(
+          'operationsRecoveryReason'
+        ).value =
+          '';
+
+        await refreshOperationsCenterV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Recovery applied successfully. Backup: ' +
+            result.backupId
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setOperationsBusyV3_(
+          false
+        );
+      }
+    }
+
+    function setOperationsBusyV3_(
+      busy,
+      message
+    ) {
+      state.operationsBusy =
+        Boolean(
+          busy
+        );
+
+      [
+        'operationsRefreshButton',
+        'operationsHealthButton',
+        'operationsBackupButton',
+        'operationsSettingsSaveButton',
+        'operationsScheduleInstallButton',
+        'operationsScheduleRemoveButton',
+        'operationsRecoveryPreviewButton',
+        'operationsRecoveryApplyButton'
+      ].forEach(
+        id => {
+          const element =
+            byId(
+              id
+            );
+
+          if (element) {
+            const schedule =
+              state.operationsCenterData &&
+              state.operationsCenterData
+                .schedule
+                ? state.operationsCenterData
+                    .schedule
+                : {};
+
+            element.disabled =
+              state.operationsBusy ||
+              (
+                id ===
+                  'operationsRecoveryApplyButton' &&
+                !state.recoveryPreview
+              ) ||
+              (
+                id ===
+                  'operationsScheduleRemoveButton' &&
+                !schedule.enabled
+              );
+          }
+        }
+      );
+
+      if (
+        message &&
+        byId(
+          'operationsStatusText'
+        )
+      ) {
+        byId(
+          'operationsStatusText'
+        ).textContent =
+          message;
       }
     }
 

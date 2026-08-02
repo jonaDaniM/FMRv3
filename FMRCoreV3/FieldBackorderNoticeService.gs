@@ -69,9 +69,7 @@ const FMR_V3_FIELD_NOTICE =
   });
 
 function fieldNoticeSpreadsheetFmrV3_() {
-  return SpreadsheetApp.openById(
-    FMR_V3.DEFAULT_DATABASE_ID
-  );
+  return fmrV3Database_();
 }
 
 function ensureFieldNoticeSheetFmrV3_() {

@@ -213,14 +213,38 @@ function inspectBoundEnvironmentV3() {
 }
 
 function callerEmailFmrV3_() {
-  const email =
+  const activeEmail =
     Session
       .getActiveUser()
       .getEmail();
 
+  const effectiveEmail =
+    Session
+      .getEffectiveUser()
+      .getEmail();
+
+  const email =
+    activeEmail ||
+    effectiveEmail;
+
   if (!email) {
     throw new Error(
       'Authenticated Google account email is unavailable.'
+    );
+  }
+
+  return email;
+}
+
+function scheduledCallerEmailFmrV3_() {
+  const email =
+    Session
+      .getEffectiveUser()
+      .getEmail();
+
+  if (!email) {
+    throw new Error(
+      'Scheduled-operation owner email is unavailable.'
     );
   }
 
@@ -418,6 +442,278 @@ function saveSystemConfigurationV3(
     callerEmailFmrV3_(),
     source
   );
+}
+
+function getOperationsCenterV3() {
+  const center =
+    FMRCoreV3.getFmrV3OperationsCenter(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      activeBoundEnvironmentV3_()
+    );
+
+  center.schedule =
+    getBoundOperationsScheduleV3();
+
+  return center;
+}
+
+function runOperationalHealthV3() {
+  return FMRCoreV3.runFmrV3OperationalHealth(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    'MANUAL'
+  );
+}
+
+function createDatabaseBackupV3(
+  notes
+) {
+  return FMRCoreV3.createFmrV3DatabaseBackup(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    'MANUAL',
+    notes || ''
+  );
+}
+
+function saveOperationalSettingsV3(
+  payload
+) {
+  return FMRCoreV3.saveFmrV3OperationalSettings(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    payload || {}
+  );
+}
+
+function previewRecoveryV3(
+  request
+) {
+  return FMRCoreV3.previewFmrV3Recovery(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    request || {}
+  );
+}
+
+function applyRecoveryV3(
+  request
+) {
+  return FMRCoreV3.applyFmrV3Recovery(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    request || {}
+  );
+}
+
+function runBoundScheduledOperationsV3() {
+  return FMRCoreV3.runFmrV3ScheduledOperations(
+    boundDatabaseIdFmrV3_(),
+    scheduledCallerEmailFmrV3_(),
+    activeBoundEnvironmentV3_()
+  );
+}
+
+function boundOperationsTriggerHandlerV3_() {
+  return 'runBoundScheduledOperationsV3';
+}
+
+function getBoundOperationsScheduleV3() {
+  const handler =
+    boundOperationsTriggerHandlerV3_();
+
+  const triggers =
+    ScriptApp
+      .getProjectTriggers()
+      .filter(
+        function (
+          trigger
+        ) {
+          return (
+            trigger
+              .getHandlerFunction() ===
+            handler
+          );
+        }
+      );
+
+  const properties =
+    PropertiesService
+      .getScriptProperties();
+
+  const hour =
+    Number(
+      properties.getProperty(
+        'FMR_V3_DAILY_OPERATIONS_HOUR'
+      ) ||
+      2
+    );
+
+  return {
+    enabled:
+      triggers.length > 0,
+
+    triggerCount:
+      triggers.length,
+
+    hour:
+      Number.isInteger(
+        hour
+      )
+        ? hour
+        : 2,
+
+    timezone:
+      Session
+        .getScriptTimeZone(),
+
+    installedBy:
+      properties.getProperty(
+        'FMR_V3_DAILY_OPERATIONS_INSTALLED_BY'
+      ) ||
+      '',
+
+    installedAt:
+      properties.getProperty(
+        'FMR_V3_DAILY_OPERATIONS_INSTALLED_AT'
+      ) ||
+      ''
+  };
+}
+
+function installBoundDailyOperationsV3(
+  hour
+) {
+  assertCurrentBoundOwnerV3_();
+
+  const parsedHour =
+    Number(
+      hour
+    );
+
+  if (
+    !Number.isInteger(
+      parsedHour
+    ) ||
+    parsedHour < 0 ||
+    parsedHour > 23
+  ) {
+    throw new Error(
+      'Schedule hour must be an integer from 0 through 23.'
+    );
+  }
+
+  const handler =
+    boundOperationsTriggerHandlerV3_();
+
+  ScriptApp
+    .getProjectTriggers()
+    .filter(
+      function (
+        trigger
+      ) {
+        return (
+          trigger
+            .getHandlerFunction() ===
+          handler
+        );
+      }
+    )
+    .forEach(
+      function (
+        trigger
+      ) {
+        ScriptApp.deleteTrigger(
+          trigger
+        );
+      }
+    );
+
+  ScriptApp
+    .newTrigger(
+      handler
+    )
+    .timeBased()
+    .everyDays(
+      1
+    )
+    .atHour(
+      parsedHour
+    )
+    .create();
+
+  const properties =
+    PropertiesService
+      .getScriptProperties();
+
+  properties.setProperties({
+    FMR_V3_DAILY_OPERATIONS_HOUR:
+      String(
+        parsedHour
+      ),
+
+    FMR_V3_DAILY_OPERATIONS_INSTALLED_BY:
+      callerEmailFmrV3_(),
+
+    FMR_V3_DAILY_OPERATIONS_INSTALLED_AT:
+      new Date()
+        .toISOString()
+  });
+
+  return getBoundOperationsScheduleV3();
+}
+
+function removeBoundDailyOperationsV3() {
+  assertCurrentBoundOwnerV3_();
+
+  const handler =
+    boundOperationsTriggerHandlerV3_();
+
+  let removed = 0;
+
+  ScriptApp
+    .getProjectTriggers()
+    .filter(
+      function (
+        trigger
+      ) {
+        return (
+          trigger
+            .getHandlerFunction() ===
+          handler
+        );
+      }
+    )
+    .forEach(
+      function (
+        trigger
+      ) {
+        ScriptApp.deleteTrigger(
+          trigger
+        );
+
+        removed +=
+          1;
+      }
+    );
+
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty(
+      'FMR_V3_DAILY_OPERATIONS_HOUR'
+    );
+
+  return {
+    success:
+      true,
+
+    removed:
+      removed,
+
+    schedule:
+      getBoundOperationsScheduleV3()
+  };
 }
 
 function verifyBoundFmrV3Connection() {
@@ -2016,6 +2312,147 @@ function verifyBoundSystemControlContractV3() {
   if (!output.passed) {
     throw new Error(
       'Bound Sprint 4A system-control contract failed.'
+    );
+  }
+
+  return output;
+}
+
+function verifyBoundOperationalReadinessV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const center =
+    getOperationsCenterV3();
+
+  const health =
+    center.currentHealth || {};
+
+  const backup =
+    health.backup || {};
+
+  const rollout =
+    health.rollout || {};
+
+  const schedule =
+    center.schedule || {};
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        11
+      ) &&
+      Boolean(
+        center.settings
+      ) &&
+      Boolean(
+        center.environment
+      ) &&
+      Boolean(
+        center.currentHealth
+      ) &&
+      health.schema &&
+      health.schema.passed ===
+        true &&
+      health.integrity &&
+      health.integrity.passed ===
+        true &&
+      health.systemControl &&
+      health.systemControl.passed ===
+        true &&
+      backup.exists ===
+        true &&
+      backup.current ===
+        true &&
+      rollout.pilotReady ===
+        true &&
+      schedule.enabled ===
+        true &&
+      Boolean(
+        schedule.timezone
+      ),
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    environmentName:
+      center.environment
+        .environmentName,
+
+    boundEnvironment:
+      center.environment
+        .boundEnvironment,
+
+    transactionMode:
+      center.environment
+        .transactionMode,
+
+    overallStatus:
+      health.overallStatus,
+
+    backupExists:
+      backup.exists ===
+        true,
+
+    backupCurrent:
+      backup.current ===
+        true,
+
+    backupAgeHours:
+      backup.ageHours,
+
+    pilotReady:
+      rollout.pilotReady ===
+        true,
+
+    productionReady:
+      rollout.productionReady ===
+        true,
+
+    scheduleEnabled:
+      schedule.enabled ===
+        true,
+
+    scheduleHour:
+      schedule.hour,
+
+    healthHistoryCount:
+      Array.isArray(
+        center.healthHistory
+      )
+        ? center.healthHistory.length
+        : 0,
+
+    backupHistoryCount:
+      Array.isArray(
+        center.backups
+      )
+        ? center.backups.length
+        : 0
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Sprint 4B operational-readiness contract failed.'
     );
   }
 

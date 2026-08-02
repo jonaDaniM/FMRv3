@@ -1100,5 +1100,249 @@
       border-left: 0;
     }
   }
+/*
+Sprint 4B Styles.html patch
+
+Append these rules immediately before the closing </style> tag in
+Bound/Styles.html.
+*/
+
+.operations-center-panel {
+  border-top: 5px solid #344054;
+}
+
+.operations-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.operations-overview-card,
+.operations-control-card,
+.operations-history-card,
+.operations-recovery-card {
+  padding: 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.operations-overview-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  background: #f8fafc;
+}
+
+.operations-overview-card p {
+  margin: 0;
+  color: #475467;
+  line-height: 1.4;
+}
+
+.operations-card-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #667085;
+}
+
+.operations-status-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.operations-status-badge.is-pass {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.operations-status-badge.is-warn {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.operations-status-badge.is-fail {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.operations-rollout-value.is-ready {
+  color: #027a48;
+}
+
+.operations-rollout-value.is-not-ready {
+  color: #b54708;
+}
+
+.operations-count-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(90px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.operations-count-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.operations-count-card span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #667085;
+}
+
+.operations-count-card strong {
+  font-size: 18px;
+  color: #101828;
+}
+
+.operations-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.operations-threshold-card {
+  grid-column: 1 / -1;
+}
+
+.operations-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.operations-recovery-card,
+.operations-history-card {
+  margin-top: 16px;
+}
+
+.operations-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+}
+
+.operations-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.operations-table th,
+.operations-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #eaecf0;
+  text-align: left;
+  vertical-align: top;
+  font-size: 11px;
+}
+
+.operations-table th {
+  background: #f8fafc;
+  color: #475467;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.operations-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.operations-recovery-preview-card {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+
+.operations-recovery-preview-card > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.operations-recovery-preview-card span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #667085;
+}
+
+.operations-recovery-preview-card strong {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+body[data-transaction-mode="READ_ONLY"]
+.operations-recovery-card {
+  border-color: #f79009;
+  box-shadow: inset 0 4px 0 #f79009;
+}
+
+@media (max-width: 1280px) {
+  .operations-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operations-count-grid {
+    grid-template-columns: repeat(4, minmax(90px, 1fr));
+  }
+
+  .operations-history-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .operations-control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-threshold-card {
+    grid-column: auto;
+  }
+
+  .operations-recovery-preview-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .operations-overview-grid,
+  .operations-count-grid,
+  .operations-recovery-preview-card {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-control-card .owner-grid,
+  .operations-recovery-card .owner-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 </style>

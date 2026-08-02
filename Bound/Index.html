@@ -369,7 +369,7 @@
 
     <!-- OWNER VIEW -->
     <section id="ownerView" class="hidden">
-
+//////
 <section class="panel system-control-panel">
   <div class="section-heading">
     <div>
@@ -622,6 +622,364 @@
   </section>
 </section>
 
+<!--
+Sprint 4B Index.html patch
+
+Insert this entire block after the existing Sprint 4A
+"Production Controls" panel and before the existing "Owner Intake" panel.
+-->
+
+<section class="panel operations-center-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Operational Readiness</h2>
+
+      <p>
+        Monitor database health, maintain current backups, schedule
+        daily checks, and apply controlled recovery actions.
+      </p>
+    </div>
+
+    <button
+      id="operationsRefreshButton"
+      type="button"
+      class="secondary">
+      Refresh Operations
+    </button>
+  </div>
+
+  <div
+    id="operationsEnvironmentSummary"
+    class="status">
+    Loading active environment…
+  </div>
+
+  <div class="operations-overview-grid">
+    <article class="operations-overview-card">
+      <span class="operations-card-label">
+        Overall Health
+      </span>
+
+      <strong
+        id="operationsHealthBadge"
+        class="operations-status-badge">
+        Loading…
+      </strong>
+
+      <p id="operationsHealthSummary">
+        Loading health status…
+      </p>
+    </article>
+
+    <article class="operations-overview-card">
+      <span class="operations-card-label">
+        Latest Backup
+      </span>
+
+      <strong id="operationsBackupSummary">
+        Loading backup history…
+      </strong>
+    </article>
+
+    <article class="operations-overview-card">
+      <span class="operations-card-label">
+        Daily Schedule
+      </span>
+
+      <strong id="operationsScheduleSummary">
+        Loading schedule…
+      </strong>
+    </article>
+
+    <article class="operations-overview-card">
+      <span class="operations-card-label">
+        Rollout
+      </span>
+
+      <strong
+        id="operationsRolloutSummary"
+        class="operations-rollout-value">
+        Loading readiness…
+      </strong>
+    </article>
+  </div>
+
+  <div
+    id="operationsCountGrid"
+    class="operations-count-grid">
+  </div>
+
+  <div
+    id="operationsStatusText"
+    class="status">
+  </div>
+
+  <div class="operations-control-grid">
+    <section class="operations-control-card">
+      <div class="section-heading">
+        <div>
+          <h3>Health and Backup</h3>
+
+          <p>
+            A scheduled run creates the backup first and records
+            the operational health result afterward.
+          </p>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button
+          id="operationsHealthButton"
+          type="button">
+          Run Health Check
+        </button>
+
+        <button
+          id="operationsBackupButton"
+          type="button"
+          class="secondary">
+          Create Backup
+        </button>
+      </div>
+    </section>
+
+    <section class="operations-control-card">
+      <div class="section-heading">
+        <div>
+          <h3>Daily Schedule</h3>
+
+          <p>
+            Runs in the Bound project timezone under the installing
+            System Owner account.
+          </p>
+        </div>
+      </div>
+
+      <label>
+        Approximate Hour — 0 through 23
+
+        <input
+          id="operationsScheduleHour"
+          type="number"
+          min="0"
+          max="23"
+          step="1"
+          value="2">
+      </label>
+
+      <div class="button-row">
+        <button
+          id="operationsScheduleInstallButton"
+          type="button">
+          Install Daily Schedule
+        </button>
+
+        <button
+          id="operationsScheduleRemoveButton"
+          type="button"
+          class="secondary"
+          disabled>
+          Remove Schedule
+        </button>
+      </div>
+    </section>
+
+    <section class="operations-control-card operations-threshold-card">
+      <div class="section-heading">
+        <div>
+          <h3>Operational Thresholds</h3>
+
+          <p>
+            Thresholds affect health warnings and backup retention.
+          </p>
+        </div>
+      </div>
+
+      <div class="owner-grid">
+        <label>
+          Backup Retention Days
+
+          <input
+            id="operationsBackupRetentionDays"
+            type="number"
+            min="1"
+            step="1">
+        </label>
+
+        <label>
+          Maximum Backup Age — Hours
+
+          <input
+            id="operationsBackupMaxAgeHours"
+            type="number"
+            min="1"
+            step="1">
+        </label>
+
+        <label>
+          Stale Backorder — Hours
+
+          <input
+            id="operationsStaleBackorderHours"
+            type="number"
+            min="1"
+            step="1">
+        </label>
+
+        <label>
+          Stale Bag &amp; Tag — Days
+
+          <input
+            id="operationsStaleBagDays"
+            type="number"
+            min="1"
+            step="1">
+        </label>
+      </div>
+
+      <button
+        id="operationsSettingsSaveButton"
+        type="button">
+        Save Thresholds
+      </button>
+    </section>
+  </div>
+
+  <div class="operations-history-grid">
+    <section class="operations-history-card">
+      <div class="section-heading">
+        <div>
+          <h3>Backup History</h3>
+
+          <p>
+            Latest successful and failed database-copy attempts.
+          </p>
+        </div>
+      </div>
+
+      <div id="operationsBackupHistory">
+        <div class="register-empty">
+          Loading backup history…
+        </div>
+      </div>
+    </section>
+
+    <section class="operations-history-card">
+      <div class="section-heading">
+        <div>
+          <h3>Health History</h3>
+
+          <p>
+            Recorded manual and scheduled operational checks.
+          </p>
+        </div>
+      </div>
+
+      <div id="operationsHealthHistory">
+        <div class="register-empty">
+          Loading health history…
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="operations-recovery-card">
+    <div class="section-heading">
+      <div>
+        <h3>Controlled Recovery</h3>
+
+        <p>
+          Preview first. Application requires READ_ONLY mode, a written
+          reason, and an automatic backup before repair.
+        </p>
+      </div>
+    </div>
+
+    <div class="owner-grid">
+      <label>
+        Published FMR Number
+
+        <input
+          id="operationsRecoveryFmr"
+          autocomplete="off"
+          placeholder="V3-ADMIN-CONFIRM-0003">
+      </label>
+
+      <label>
+        Recovery Action
+
+        <select id="operationsRecoveryAction">
+          <option value="SAFE_RECONCILE">
+            Safe Reconcile
+          </option>
+
+          <option value="REFRESH_HEADER_TOTALS">
+            Refresh Header Totals
+          </option>
+
+          <option value="REBUILD_SEARCH_INDEX">
+            Rebuild Search Index
+          </option>
+
+          <option value="SYNC_FIELD_NOTICES">
+            Synchronize Field Notices
+          </option>
+        </select>
+      </label>
+
+      <label class="wide">
+        Application Reason
+
+        <input
+          id="operationsRecoveryReason"
+          autocomplete="off"
+          placeholder="Required before applying the preview">
+      </label>
+    </div>
+
+    <div class="button-row">
+      <button
+        id="operationsRecoveryPreviewButton"
+        type="button"
+        class="secondary">
+        Preview Recovery
+      </button>
+
+      <button
+        id="operationsRecoveryApplyButton"
+        type="button"
+        disabled>
+        Apply Previewed Recovery
+      </button>
+    </div>
+
+    <div id="operationsRecoveryPreview">
+      <div class="register-empty">
+        No active recovery preview.
+      </div>
+    </div>
+  </section>
+
+  <section class="operations-history-card">
+    <div class="section-heading">
+      <div>
+        <h3>Recovery History</h3>
+
+        <p>
+          Previewed, applied, and failed controlled recovery records.
+        </p>
+      </div>
+    </div>
+
+    <div id="operationsRecoveryHistory">
+      <div class="register-empty">
+        Loading recovery history…
+      </div>
+    </div>
+  </section>
+</section>
+
+//////////////////////////////////////////////////////////////
       <section class="panel">
         <h2>Owner Intake</h2>
 

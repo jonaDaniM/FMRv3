@@ -2045,9 +2045,20 @@ function migrateFmrV3SystemControls() {
   }
 }
 
-function inspectFmrV3SystemControlContract() {
+function inspectFmrV3SystemControlContract(
+  databaseId
+) {
+  const targetDatabaseId =
+    normalizeFmrV3_(
+      databaseId
+    ) ||
+    normalizeFmrV3_(
+      FMR_V3_DATABASE_ID_
+    ) ||
+    FMR_V3.DEFAULT_DATABASE_ID;
+
   setFmrV3DatabaseContext_(
-    FMR_V3.DEFAULT_DATABASE_ID
+    targetDatabaseId
   );
 
   const started =

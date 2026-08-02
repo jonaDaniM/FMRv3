@@ -1,5 +1,5 @@
 const FMR_V3 = Object.freeze({
-  VERSION: '3.0.0-alpha.10',
+  VERSION: '3.0.0-alpha.11',
   DEFAULT_DATABASE_ID: '1nDEsty3PTVppEPAkKpN9RVXCl_P0pgQALyGPficjz68',
 
   SHEETS: Object.freeze({
@@ -17,7 +17,10 @@ const FMR_V3 = Object.freeze({
     BAG_HEADERS: 'Bag_Tag_Header',
     BAG_ITEMS: 'Bag_Tag_Items',
     BACKORDERS: 'Backorder_Requests',
-    AUDIT: 'Audit_Log'
+    AUDIT: 'Audit_Log',
+    HEALTH_LOG: 'Operational_Health_Log',
+    BACKUP_HISTORY: 'Backup_History',
+    RECOVERY_ACTIONS: 'Recovery_Actions'
   }),
 
   ACTIONS: Object.freeze({
@@ -121,10 +124,34 @@ const FMR_V3_HEADERS = Object.freeze({
     'Decided_At', 'Returned_Review_Reason', 'Active', 'Updated_At'
   ],
   Audit_Log: [
-    'Audit_ID', 'Entity_Type', 'Entity_ID', 'Action', 'Field_Name',
-    'Old_Value', 'New_Value', 'User_Email', 'User_Name', 'Timestamp',
-    'Source_Interface', 'Correlation_ID', 'Notes'
-  ]
+  'Audit_ID', 'Entity_Type', 'Entity_ID', 'Action', 'Field_Name',
+  'Old_Value', 'New_Value', 'User_Email', 'User_Name', 'Timestamp',
+  'Source_Interface', 'Correlation_ID', 'Notes'
+],
+  Operational_Health_Log: [
+  'Health_Run_ID', 'Environment', 'Database_Fingerprint',
+  'Overall_Status', 'Integrity_Status', 'Schema_Status',
+  'System_Control_Status', 'Last_Backup_Status', 'Last_Backup_At',
+  'Backup_Age_Hours', 'Published_FMRs', 'Active_Users',
+  'Pending_Backorders', 'Returned_Notices', 'Rejected_Notices',
+  'Stale_Backorders', 'Active_Bag_Items', 'Stale_Bag_Items',
+  'Recent_Transactions_24H', 'Diagnostic_Duration_Ms',
+  'Trigger_Type', 'Run_By_Email', 'Run_At', 'Details_JSON'
+],
+  Backup_History: [
+  'Backup_ID', 'Backup_File_ID', 'Backup_File_Name',
+  'Database_Fingerprint', 'Environment', 'Trigger_Type', 'Status',
+  'Created_By_Email', 'Created_By_Name', 'Created_At', 'Completed_At',
+  'File_Size_Bytes', 'Folder_Fingerprint', 'Retention_Expires_At',
+  'Error_Message', 'Notes', 'Active'
+],
+  Recovery_Actions: [
+  'Recovery_ID', 'Correlation_ID', 'Action_Type',
+  'Target_FMR_Number', 'Target_FMR_ID', 'Status',
+  'Previewed_By_Email', 'Previewed_At', 'Applied_By_Email',
+  'Applied_At', 'Reason', 'Backup_ID', 'Before_JSON',
+  'After_JSON', 'Error_Message'
+]
 });
 
 let FMR_V3_DATABASE_ID_ = '';

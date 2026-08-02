@@ -321,3 +321,113 @@ function saveFmrV3SystemConfiguration(
     payload || {}
   );
 }
+
+function getFmrV3OperationsCenter(
+  databaseId,
+  userEmail,
+  boundEnvironment
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return getOperationsCenterFmrV3_(
+    userEmail,
+    boundEnvironment
+  );
+}
+
+function runFmrV3OperationalHealth(
+  databaseId,
+  userEmail,
+  triggerType
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return runOperationalHealthCheckFmrV3_(
+    userEmail,
+    triggerType ||
+    'MANUAL'
+  );
+}
+
+function createFmrV3DatabaseBackup(
+  databaseId,
+  userEmail,
+  triggerType,
+  notes
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return createDatabaseBackupFmrV3_(
+    userEmail,
+    triggerType ||
+    'MANUAL',
+    notes || ''
+  );
+}
+
+function saveFmrV3OperationalSettings(
+  databaseId,
+  userEmail,
+  payload
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return updateOperationalSettingsFmrV3_(
+    userEmail,
+    payload || {}
+  );
+}
+
+function previewFmrV3Recovery(
+  databaseId,
+  userEmail,
+  request
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return previewRecoveryFmrV3_(
+    userEmail,
+    request || {}
+  );
+}
+
+function applyFmrV3Recovery(
+  databaseId,
+  userEmail,
+  request
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return applyRecoveryFmrV3_(
+    userEmail,
+    request || {}
+  );
+}
+
+function runFmrV3ScheduledOperations(
+  databaseId,
+  userEmail,
+  boundEnvironment
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return runScheduledOperationsFmrV3_(
+    userEmail,
+    boundEnvironment
+  );
+}
+
