@@ -1,5 +1,216 @@
-const FMR_V3_DATABASE_ID =
+const FMR_V3_DEFAULT_DATABASE_ID =
   '1nDEsty3PTVppEPAkKpN9RVXCl_P0pgQALyGPficjz68';
+
+const FMR_V3_BOUND_ENVIRONMENTS =
+  Object.freeze([
+    'TEST',
+    'PRODUCTION'
+  ]);
+
+function normalizeBoundEnvironmentV3_(
+  environment
+) {
+  const normalized =
+    String(
+      environment || ''
+    )
+      .trim()
+      .toUpperCase() ||
+    'TEST';
+
+  if (
+    !FMR_V3_BOUND_ENVIRONMENTS
+      .includes(
+        normalized
+      )
+  ) {
+    throw new Error(
+      'Bound environment must be TEST or PRODUCTION.'
+    );
+  }
+
+  return normalized;
+}
+
+function activeBoundEnvironmentV3_() {
+  return normalizeBoundEnvironmentV3_(
+    PropertiesService
+      .getScriptProperties()
+      .getProperty(
+        'FMR_V3_ACTIVE_ENVIRONMENT'
+      ) ||
+    'TEST'
+  );
+}
+
+function boundDatabasePropertyKeyV3_(
+  environment
+) {
+  return (
+    'FMR_V3_DATABASE_ID_' +
+    normalizeBoundEnvironmentV3_(
+      environment
+    )
+  );
+}
+
+function boundDatabaseIdForEnvironmentV3_(
+  environment
+) {
+  const normalized =
+    normalizeBoundEnvironmentV3_(
+      environment
+    );
+
+  const configured =
+    String(
+      PropertiesService
+        .getScriptProperties()
+        .getProperty(
+          boundDatabasePropertyKeyV3_(
+            normalized
+          )
+        ) ||
+      ''
+    ).trim();
+
+  if (configured) {
+    return configured;
+  }
+
+  if (
+    normalized ===
+    'TEST'
+  ) {
+    return FMR_V3_DEFAULT_DATABASE_ID;
+  }
+
+  throw new Error(
+    'No database is configured for the PRODUCTION environment.'
+  );
+}
+
+function boundDatabaseIdFmrV3_() {
+  return boundDatabaseIdForEnvironmentV3_(
+    activeBoundEnvironmentV3_()
+  );
+}
+
+function assertCurrentBoundOwnerV3_() {
+  return FMRCoreV3.getFmrV3SystemControl(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    activeBoundEnvironmentV3_()
+  );
+}
+
+function configureBoundEnvironmentV3(
+  environment,
+  databaseId
+) {
+  assertCurrentBoundOwnerV3_();
+
+  const normalizedEnvironment =
+    normalizeBoundEnvironmentV3_(
+      environment
+    );
+
+  const normalizedDatabaseId =
+    String(
+      databaseId || ''
+    ).trim();
+
+  if (!normalizedDatabaseId) {
+    throw new Error(
+      'databaseId is required.'
+    );
+  }
+
+  FMRCoreV3.getFmrV3SystemControl(
+    normalizedDatabaseId,
+    callerEmailFmrV3_(),
+    normalizedEnvironment
+  );
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      boundDatabasePropertyKeyV3_(
+        normalizedEnvironment
+      ),
+      normalizedDatabaseId
+    );
+
+  return inspectBoundEnvironmentV3();
+}
+
+function activateBoundEnvironmentV3(
+  environment
+) {
+  assertCurrentBoundOwnerV3_();
+
+  const normalizedEnvironment =
+    normalizeBoundEnvironmentV3_(
+      environment
+    );
+
+  const databaseId =
+    boundDatabaseIdForEnvironmentV3_(
+      normalizedEnvironment
+    );
+
+  FMRCoreV3.getFmrV3SystemControl(
+    databaseId,
+    callerEmailFmrV3_(),
+    normalizedEnvironment
+  );
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      'FMR_V3_ACTIVE_ENVIRONMENT',
+      normalizedEnvironment
+    );
+
+  return inspectBoundEnvironmentV3();
+}
+
+function inspectBoundEnvironmentV3() {
+  const environment =
+    activeBoundEnvironmentV3_();
+
+  const databaseId =
+    boundDatabaseIdForEnvironmentV3_(
+      environment
+    );
+
+  const control =
+    FMRCoreV3.getFmrV3SystemControl(
+      databaseId,
+      callerEmailFmrV3_(),
+      environment
+    );
+
+  return {
+    environment:
+      environment,
+
+    databaseFingerprint:
+      control.environment
+        .databaseFingerprint,
+
+    coreEnvironment:
+      control.environment
+        .environmentName,
+
+    transactionMode:
+      control.environment
+        .transactionMode,
+
+    version:
+      control.version
+  };
+}
 
 function callerEmailFmrV3_() {
   const email =
@@ -16,10 +227,15 @@ function callerEmailFmrV3_() {
   return email;
 }
 
-function getPortalBootstrapV3() {
+function getPortalBootstrapV3(
+  interfaceName
+) {
   return FMRCoreV3.getFmrV3Bootstrap(
-    FMR_V3_DATABASE_ID,
-    callerEmailFmrV3_()
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    interfaceName ||
+      'PORTAL',
+    activeBoundEnvironmentV3_()
   );
 }
 
@@ -28,7 +244,7 @@ function searchPortalV3(
   mode
 ) {
   return FMRCoreV3.searchFmrV3(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     query,
     mode || 'AUTO'
@@ -39,7 +255,7 @@ function performFieldActionV3(
   request
 ) {
   return FMRCoreV3.performFmrV3FieldAction(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     request || {}
   );
@@ -47,7 +263,7 @@ function performFieldActionV3(
 
 function getAdminDashboardV3() {
   return FMRCoreV3.getFmrV3AdminDashboard(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_()
   );
 }
@@ -56,7 +272,7 @@ function getAdminFmrRegisterV3(
   request
 ) {
   return FMRCoreV3.getFmrV3AdminRegister(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     request || {}
   );
@@ -66,7 +282,7 @@ function getAdminActiveBagsV3(
   request
 ) {
   return FMRCoreV3.getFmrV3AdminActiveBags(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     request || {}
   );
@@ -76,7 +292,7 @@ function reviewBackorderV3(
   request
 ) {
   return FMRCoreV3.reviewFmrV3Backorder(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     request || {}
   );
@@ -86,7 +302,7 @@ function saveStagingV3(
   payload
 ) {
   return FMRCoreV3.saveFmrV3Staging(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     payload || {}
   );
@@ -96,7 +312,7 @@ function getStagingListV3(
   maximumRows
 ) {
   return FMRCoreV3.getFmrV3StagingList(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     maximumRows || 100
   );
@@ -106,7 +322,7 @@ function getStagedFmrV3(
   stagingFmrId
 ) {
   return FMRCoreV3.getFmrV3StagedFmr(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     stagingFmrId
   );
@@ -116,7 +332,7 @@ function publishStagedFmrV3(
   stagingFmrId
 ) {
   return FMRCoreV3.publishFmrV3StagedFmr(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     stagingFmrId
   );
@@ -128,7 +344,7 @@ function renumberPublishedFmrV3(
   reason
 ) {
   return FMRCoreV3.renumberFmrV3(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     fmrId,
     newFmrNumber,
@@ -142,11 +358,65 @@ function renumberPublishedFmrByNumberV3(
   reason
 ) {
   return FMRCoreV3.renumberFmrV3ByNumber(
-    FMR_V3_DATABASE_ID,
+    boundDatabaseIdFmrV3_(),
     callerEmailFmrV3_(),
     currentFmrNumber,
     newFmrNumber,
     reason
+  );
+}
+
+function getSystemControlV3() {
+  return FMRCoreV3.getFmrV3SystemControl(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    activeBoundEnvironmentV3_()
+  );
+}
+
+function saveSystemUserV3(
+  payload
+) {
+  return FMRCoreV3.saveFmrV3SystemUser(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    payload || {}
+  );
+}
+
+function setSystemUserActiveV3(
+  targetEmail,
+  active,
+  reason
+) {
+  return FMRCoreV3.setFmrV3SystemUserActive(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    targetEmail,
+    Boolean(
+      active
+    ),
+    reason || ''
+  );
+}
+
+function saveSystemConfigurationV3(
+  payload
+) {
+  const source =
+    Object.assign(
+      {},
+      payload || {},
+      {
+        boundEnvironment:
+          activeBoundEnvironmentV3_()
+      }
+    );
+
+  return FMRCoreV3.saveFmrV3SystemConfiguration(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    source
   );
 }
 
@@ -1601,6 +1871,151 @@ function verifyBoundFieldBackorderNoticeContractV3() {
   if (!output.passed) {
     throw new Error(
       'Bound Field backorder notice contract failed.'
+    );
+  }
+
+  return output;
+}
+
+function verifyBoundSystemControlContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const control =
+    getSystemControlV3();
+
+  const environment =
+    control.environment || {};
+
+  const summary =
+    control.summary || {};
+
+  const users =
+    Array.isArray(
+      control.users
+    )
+      ? control.users
+      : [];
+
+  const profiles =
+    Array.isArray(
+      control.roleProfiles
+    )
+      ? control.roleProfiles
+      : [];
+
+  const owner =
+    users.find(
+      function (
+        user
+      ) {
+        return (
+          user.email ===
+          environment.ownerEmail
+        );
+      }
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        10
+      ) &&
+      Boolean(control) &&
+      Boolean(control.configuration) &&
+      Boolean(control.environment) &&
+      [
+        'TEST',
+        'PRODUCTION'
+      ].includes(
+        environment.environmentName
+      ) &&
+      [
+        'TEST',
+        'PRODUCTION'
+      ].includes(
+        environment.boundEnvironment
+      ) &&
+      environment.environmentName ===
+        environment.boundEnvironment &&
+      [
+        'ENABLED',
+        'READ_ONLY'
+      ].includes(
+        environment.transactionMode
+      ) &&
+      Boolean(
+        environment.databaseFingerprint
+      ) &&
+      users.length >= 1 &&
+      profiles.length === 4 &&
+      Boolean(owner) &&
+      owner.active === true &&
+      owner.canOwnerEdit ===
+        true &&
+      Number(
+        summary.activeUsers ||
+        0
+      ) >= 1,
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    environmentName:
+      environment.environmentName,
+
+    boundEnvironment:
+      environment.boundEnvironment,
+
+    transactionMode:
+      environment.transactionMode,
+
+    databaseFingerprint:
+      environment.databaseFingerprint,
+
+    totalUsers:
+      Number(
+        summary.totalUsers ||
+        0
+      ),
+
+    activeUsers:
+      Number(
+        summary.activeUsers ||
+        0
+      ),
+
+    roleProfileCount:
+      profiles.length,
+
+    ownerEmail:
+      owner
+        ? owner.email
+        : ''
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Sprint 4A system-control contract failed.'
     );
   }
 

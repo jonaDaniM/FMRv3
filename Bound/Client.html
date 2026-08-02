@@ -15,6 +15,8 @@
       adminRegisterData: null,
       adminOpenFmrNumber: '',
       adminDecisionBusy: false,
+      systemControlData: null,
+      systemControlBusy: false,
       fieldExpandedLineIds: new Set(),
       fieldFilterValues: {},
       fieldSearchSequence: 0,
@@ -32,23 +34,132 @@
       activateRequestedViewV3_();
       bindPortalEventsV3_();
 
-      callServerV3_('getPortalBootstrapV3')
+      callServerV3_(
+        'getPortalBootstrapV3',
+        REQUESTED_VIEW
+      )
         .then(bootstrap => {
-          state.bootstrap = bootstrap;
+          state.bootstrap =
+            bootstrap;
 
-          byId('pageSubtitle').textContent =
-            `${bootstrap.user.name || bootstrap.user.email} · ` +
-            `${bootstrap.user.role} · FMRCore ${bootstrap.version}`;
+          applyPortalEnvironmentV3_(
+            bootstrap
+          );
 
-          if (REQUESTED_VIEW === 'admin') {
+          if (
+            byId(
+              'adminNav'
+            )
+          ) {
+            byId(
+              'adminNav'
+            ).classList.toggle(
+              'hidden',
+              !bootstrap.user
+                .canAdminBackorder
+            );
+          }
+
+          if (
+            byId(
+              'ownerNav'
+            )
+          ) {
+            byId(
+              'ownerNav'
+            ).classList.toggle(
+              'hidden',
+              !bootstrap.user
+                .canOwnerEdit
+            );
+          }
+
+          if (
+            REQUESTED_VIEW ===
+              'admin' &&
+            !bootstrap.user
+              .canAdminBackorder
+          ) {
+            throw new Error(
+              'Your account does not have Admin access.'
+            );
+          }
+
+          if (
+            REQUESTED_VIEW ===
+              'owner' &&
+            !bootstrap.user
+              .canOwnerEdit
+          ) {
+            throw new Error(
+              'Your account does not have System Owner access.'
+            );
+          }
+
+          if (
+            REQUESTED_VIEW ===
+            'admin'
+          ) {
             refreshAdminV3_();
-          } else if (REQUESTED_VIEW === 'owner') {
+          } else if (
+            REQUESTED_VIEW ===
+            'owner'
+          ) {
             refreshStagingV3_();
+            refreshSystemControlV3_();
           }
         })
-        .catch(showErrorV3_);
+        .catch(
+          showErrorV3_
+        );
     }
 
+    function applyPortalEnvironmentV3_(
+      bootstrap
+    ) {
+      const source =
+        bootstrap || {};
+
+      const user =
+        source.user || {};
+
+      const environment =
+        source.environment || {};
+
+      const projectName =
+        environment.projectName ||
+        'FMR Operations v3';
+
+      const environmentName =
+        environment.environmentName ||
+        'TEST';
+
+      const transactionMode =
+        environment.transactionMode ||
+        'ENABLED';
+
+      byId(
+        'pageSubtitle'
+      ).textContent =
+        (
+          `${user.name || user.email} · ` +
+          `${user.role} · ${projectName} · ` +
+          `${environmentName} · ${transactionMode} · ` +
+          `FMRCore ${source.version}`
+        );
+
+      document.body
+        .setAttribute(
+          'data-environment',
+          environmentName
+        );
+
+      document.body
+        .setAttribute(
+          'data-transaction-mode',
+          transactionMode
+        );
+    }
     function activateRequestedViewV3_() {
       ['field', 'admin', 'owner'].forEach(view => {
         byId(`${view}View`).classList.toggle(
@@ -152,6 +263,27 @@
       byId('renumberButton').addEventListener(
         'click',
         renumberPublishedFmrV3_
+      );
+
+      byId('systemControlRefreshButton').addEventListener(
+        'click',
+        () =>
+          refreshSystemControlV3_()
+      );
+
+      byId('systemConfigSaveButton').addEventListener(
+        'click',
+        saveSystemConfigurationV3_
+      );
+
+      byId('systemUserSaveButton').addEventListener(
+        'click',
+        saveSystemUserV3_
+      );
+
+      byId('systemUserClearButton').addEventListener(
+        'click',
+        clearSystemUserFormV3_
       );
 
       byId('modalClose').addEventListener(
@@ -5157,6 +5289,908 @@
         await refreshStagingV3_();
       } catch (error) {
         showErrorV3_(error);
+      }
+    }
+
+    async function refreshSystemControlV3_(
+      silent
+    ) {
+      if (
+        state.systemControlBusy &&
+        !silent
+      ) {
+        return;
+      }
+
+      if (!silent) {
+        hideAlertsV3_();
+
+        setSystemControlBusyV3_(
+          true,
+          'Loading production controls…'
+        );
+      }
+
+      try {
+        const data =
+          await callServerV3_(
+            'getSystemControlV3'
+          );
+
+        state.systemControlData =
+          data;
+
+        renderSystemControlV3_(
+          data
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        if (!silent) {
+          setSystemControlBusyV3_(
+            false
+          );
+        }
+      }
+    }
+
+    function renderSystemControlV3_(
+      data
+    ) {
+      const source =
+        data || {};
+
+      const environment =
+        source.environment || {};
+
+      const configuration =
+        source.configuration || {};
+
+      const summary =
+        source.summary || {};
+
+      byId(
+        'systemEnvironmentBadge'
+      ).textContent =
+        (
+          `${environment.environmentName || 'TEST'} · ` +
+          `${environment.transactionMode || 'ENABLED'}`
+        );
+
+      byId(
+        'systemEnvironmentBadge'
+      ).className =
+        (
+          'system-environment-badge ' +
+          (
+            environment.transactionMode ===
+              'READ_ONLY'
+              ? 'is-read-only'
+              : 'is-enabled'
+          )
+        );
+
+      byId(
+        'systemDatabaseFingerprint'
+      ).textContent =
+        (
+          'Database ' +
+          (
+            environment.databaseFingerprint ||
+            'unavailable'
+          ) +
+          ' · Bound ' +
+          (
+            environment.boundEnvironment ||
+            'unspecified'
+          )
+        );
+
+      byId(
+        'systemUserSummary'
+      ).textContent =
+        (
+          `${Number(
+            summary.activeUsers || 0
+          )} active of ` +
+          `${Number(
+            summary.totalUsers || 0
+          )} users · ` +
+          `${Number(
+            summary.fieldUsers || 0
+          )} Field · ` +
+          `${Number(
+            summary.admins || 0
+          )} Admin`
+        );
+
+      byId(
+        'systemProjectName'
+      ).value =
+        configuration.projectName ||
+        '';
+
+      byId(
+        'systemEnvironmentName'
+      ).value =
+        configuration.environmentName ||
+        'TEST';
+
+      byId(
+        'systemTransactionMode'
+      ).value =
+        configuration.transactionMode ||
+        'ENABLED';
+
+      byId(
+        'systemMaintenanceMessage'
+      ).value =
+        configuration.maintenanceMessage ||
+        '';
+
+      byId(
+        'systemTimezone'
+      ).value =
+        configuration.timezone ||
+        '';
+
+      byId(
+        'systemDefaultCraft'
+      ).value =
+        configuration.defaultCraft ||
+        '';
+
+      byId(
+        'systemDefaultDestination'
+      ).value =
+        configuration.defaultDestination ||
+        '';
+
+      byId(
+        'systemDefaultDeliverTo'
+      ).value =
+        configuration.defaultDeliverTo ||
+        '';
+
+      byId(
+        'systemDefaultPriority'
+      ).value =
+        configuration.defaultPriority ||
+        '';
+
+      renderSystemRoleProfileOptionsV3_(
+        source.roleProfiles || []
+      );
+
+      renderSystemUsersV3_(
+        source.users || []
+      );
+
+      byId(
+        'systemControlStatus'
+      ).textContent =
+        (
+          'Last refreshed ' +
+          (
+            source.generatedAt ||
+            'now'
+          )
+        );
+    }
+
+    function renderSystemRoleProfileOptionsV3_(
+      profiles
+    ) {
+      const select =
+        byId(
+          'systemUserProfile'
+        );
+
+      const currentValue =
+        select.value ||
+        'READ_ONLY';
+
+      select.innerHTML =
+        (profiles || [])
+          .map(
+            profile => `
+              <option value="${
+                escapeAttributeV3_(
+                  profile.key
+                )
+              }">
+                ${
+                  escapeHtmlV3_(
+                    profile.label
+                  )
+                }
+              </option>
+            `
+          )
+          .join('');
+
+      if (
+        Array.from(
+          select.options
+        ).some(
+          option =>
+            option.value ===
+            currentValue
+        )
+      ) {
+        select.value =
+          currentValue;
+      } else if (
+        select.options.length
+      ) {
+        select.value =
+          select.options[0].value;
+      }
+    }
+
+    function renderSystemUsersV3_(
+      users
+    ) {
+      const container =
+        byId(
+          'systemUserList'
+        );
+
+      if (
+        !users.length
+      ) {
+        container.innerHTML =
+          '<div class="register-empty">No users are configured.</div>';
+
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="system-user-table-wrap">
+          <table class="system-user-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Profile</th>
+                <th>Permissions</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${users.map(user => {
+                const permissions = [
+                  user.canSearch
+                    ? 'Search'
+                    : '',
+                  user.canFieldTransact
+                    ? 'Field'
+                    : '',
+                  user.canAdminBackorder
+                    ? 'Admin'
+                    : '',
+                  user.canOwnerEdit
+                    ? 'Owner'
+                    : ''
+                ].filter(Boolean);
+
+                return `
+                  <tr class="${
+                    user.active
+                      ? ''
+                      : 'is-inactive'
+                  }">
+                    <td>
+                      <strong>
+                        ${
+                          escapeHtmlV3_(
+                            user.displayName ||
+                            user.email
+                          )
+                        }
+                      </strong>
+
+                      <div class="muted">
+                        ${
+                          escapeHtmlV3_(
+                            user.email
+                          )
+                        }
+                      </div>
+                    </td>
+
+                    <td>
+                      ${
+                        escapeHtmlV3_(
+                          user.role ||
+                          user.profile
+                        )
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        permissions.length
+                          ? permissions.map(
+                              permission => `
+                                <span class="system-permission-chip">
+                                  ${
+                                    escapeHtmlV3_(
+                                      permission
+                                    )
+                                  }
+                                </span>
+                              `
+                            ).join('')
+                          : '<span class="muted">None</span>'
+                      }
+                    </td>
+
+                    <td>
+                      <span class="system-user-status ${
+                        user.active
+                          ? 'is-active'
+                          : 'is-inactive'
+                      }">
+                        ${
+                          user.active
+                            ? 'Active'
+                            : 'Inactive'
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      ${
+                        escapeHtmlV3_(
+                          user.lastLoginAt ||
+                          'Never'
+                        )
+                      }
+
+                      ${
+                        user.lastInterface
+                          ? `
+                            <div class="muted">
+                              ${
+                                escapeHtmlV3_(
+                                  user.lastInterface
+                                )
+                              }
+                            </div>
+                          `
+                          : ''
+                      }
+                    </td>
+
+                    <td>
+                      <div class="system-user-actions">
+                        <button
+                          type="button"
+                          class="secondary small"
+                          data-system-user-edit="${
+                            escapeAttributeV3_(
+                              user.email
+                            )
+                          }">
+                          Edit
+                        </button>
+
+                        ${
+                          user.canOwnerEdit
+                            ? ''
+                            : user.active
+                              ? `
+                                <button
+                                  type="button"
+                                  class="danger small"
+                                  data-system-user-active="NO"
+                                  data-system-user-email="${
+                                    escapeAttributeV3_(
+                                      user.email
+                                    )
+                                  }">
+                                  Deactivate
+                                </button>
+                              `
+                              : `
+                                <button
+                                  type="button"
+                                  class="secondary small"
+                                  data-system-user-active="YES"
+                                  data-system-user-email="${
+                                    escapeAttributeV3_(
+                                      user.email
+                                    )
+                                  }">
+                                  Reactivate
+                                </button>
+                              `
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container
+        .querySelectorAll(
+          '[data-system-user-edit]'
+        )
+        .forEach(
+          button => {
+            button.addEventListener(
+              'click',
+              () =>
+                editSystemUserV3_(
+                  button.dataset
+                    .systemUserEdit
+                )
+            );
+          }
+        );
+
+      container
+        .querySelectorAll(
+          '[data-system-user-active]'
+        )
+        .forEach(
+          button => {
+            button.addEventListener(
+              'click',
+              () =>
+                changeSystemUserActiveV3_(
+                  button.dataset
+                    .systemUserEmail,
+                  button.dataset
+                    .systemUserActive ===
+                    'YES'
+                )
+            );
+          }
+        );
+    }
+
+    function editSystemUserV3_(
+      email
+    ) {
+      const users =
+        state.systemControlData &&
+        Array.isArray(
+          state.systemControlData
+            .users
+        )
+          ? state.systemControlData
+              .users
+          : [];
+
+      const user =
+        users.find(
+          item =>
+            item.email ===
+            email
+        );
+
+      if (!user) {
+        showErrorV3_(
+          'User record could not be loaded.'
+        );
+
+        return;
+      }
+
+      byId(
+        'systemUserEmail'
+      ).value =
+        user.email;
+
+      byId(
+        'systemUserEmail'
+      ).readOnly =
+        true;
+
+      byId(
+        'systemUserName'
+      ).value =
+        user.displayName ||
+        '';
+
+      byId(
+        'systemUserProfile'
+      ).value =
+        user.profile ===
+          'CUSTOM'
+          ? 'READ_ONLY'
+          : user.profile;
+
+      byId(
+        'systemUserNotes'
+      ).value =
+        user.notes ||
+        '';
+
+      byId(
+        'systemUserEditorStatus'
+      ).textContent =
+        (
+          'Editing ' +
+          user.email
+        );
+
+      byId(
+        'systemUserName'
+      ).focus();
+    }
+
+    function clearSystemUserFormV3_() {
+      byId(
+        'systemUserEmail'
+      ).value =
+        '';
+
+      byId(
+        'systemUserEmail'
+      ).readOnly =
+        false;
+
+      byId(
+        'systemUserName'
+      ).value =
+        '';
+
+      byId(
+        'systemUserNotes'
+      ).value =
+        '';
+
+      if (
+        byId(
+          'systemUserProfile'
+        ).options.length
+      ) {
+        byId(
+          'systemUserProfile'
+        ).value =
+          'READ_ONLY';
+      }
+
+      byId(
+        'systemUserEditorStatus'
+      ).textContent =
+        'Create a new authorized user or select Edit.';
+    }
+
+    async function saveSystemUserV3_() {
+      if (
+        state.systemControlBusy
+      ) {
+        return;
+      }
+
+      const payload = {
+        email:
+          byId(
+            'systemUserEmail'
+          ).value.trim(),
+
+        displayName:
+          byId(
+            'systemUserName'
+          ).value.trim(),
+
+        profile:
+          byId(
+            'systemUserProfile'
+          ).value,
+
+        notes:
+          byId(
+            'systemUserNotes'
+          ).value.trim()
+      };
+
+      if (
+        !payload.email ||
+        !payload.displayName
+      ) {
+        showErrorV3_(
+          'Email and display name are required.'
+        );
+
+        return;
+      }
+
+      setSystemControlBusyV3_(
+        true,
+        'Saving user access…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'saveSystemUserV3',
+            payload
+          );
+
+        clearSystemUserFormV3_();
+
+        await refreshSystemControlV3_(
+          true
+        );
+
+        showSuccessV3_(
+          result.message ||
+          'User access saved.'
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setSystemControlBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function changeSystemUserActiveV3_(
+      email,
+      active
+    ) {
+      if (
+        state.systemControlBusy
+      ) {
+        return;
+      }
+
+      const action =
+        active
+          ? 'reactivate'
+          : 'deactivate';
+
+      const reason =
+        window.prompt(
+          (
+            'Reason to ' +
+            action +
+            ' ' +
+            email +
+            ':'
+          ),
+          ''
+        );
+
+      if (
+        reason === null
+      ) {
+        return;
+      }
+
+      if (
+        !active &&
+        !reason.trim()
+      ) {
+        showErrorV3_(
+          'A deactivation reason is required.'
+        );
+
+        return;
+      }
+
+      setSystemControlBusyV3_(
+        true,
+        (
+          active
+            ? 'Reactivating'
+            : 'Deactivating'
+        ) +
+        ' user access…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'setSystemUserActiveV3',
+            email,
+            active,
+            reason.trim()
+          );
+
+        await refreshSystemControlV3_(
+          true
+        );
+
+        showSuccessV3_(
+          result.message ||
+          'User status updated.'
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setSystemControlBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function saveSystemConfigurationV3_() {
+      if (
+        state.systemControlBusy
+      ) {
+        return;
+      }
+
+      const payload = {
+        projectName:
+          byId(
+            'systemProjectName'
+          ).value.trim(),
+
+        environmentName:
+          byId(
+            'systemEnvironmentName'
+          ).value,
+
+        transactionMode:
+          byId(
+            'systemTransactionMode'
+          ).value,
+
+        maintenanceMessage:
+          byId(
+            'systemMaintenanceMessage'
+          ).value.trim(),
+
+        timezone:
+          byId(
+            'systemTimezone'
+          ).value.trim(),
+
+        defaultCraft:
+          byId(
+            'systemDefaultCraft'
+          ).value.trim(),
+
+        defaultDestination:
+          byId(
+            'systemDefaultDestination'
+          ).value.trim(),
+
+        defaultDeliverTo:
+          byId(
+            'systemDefaultDeliverTo'
+          ).value.trim(),
+
+        defaultPriority:
+          byId(
+            'systemDefaultPriority'
+          ).value.trim()
+      };
+
+      if (
+        payload.transactionMode ===
+          'READ_ONLY' &&
+        !payload.maintenanceMessage
+      ) {
+        showErrorV3_(
+          'Enter a maintenance message before enabling READ_ONLY mode.'
+        );
+
+        return;
+      }
+
+      setSystemControlBusyV3_(
+        true,
+        'Saving production configuration…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'saveSystemConfigurationV3',
+            payload
+          );
+
+        await refreshSystemControlV3_(
+          true
+        );
+
+        const bootstrap =
+          await callServerV3_(
+            'getPortalBootstrapV3',
+            REQUESTED_VIEW
+          );
+
+        state.bootstrap =
+          bootstrap;
+
+        applyPortalEnvironmentV3_(
+          bootstrap
+        );
+
+        showSuccessV3_(
+          result.message ||
+          'Production configuration updated.'
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setSystemControlBusyV3_(
+          false
+        );
+      }
+    }
+
+    function setSystemControlBusyV3_(
+      busy,
+      message
+    ) {
+      state.systemControlBusy =
+        Boolean(
+          busy
+        );
+
+      [
+        'systemControlRefreshButton',
+        'systemConfigSaveButton',
+        'systemUserSaveButton',
+        'systemUserClearButton'
+      ].forEach(
+        id => {
+          const element =
+            byId(
+              id
+            );
+
+          if (element) {
+            element.disabled =
+              state.systemControlBusy;
+          }
+        }
+      );
+
+      document
+        .querySelectorAll(
+          '[data-system-user-edit], ' +
+          '[data-system-user-active]'
+        )
+        .forEach(
+          button => {
+            button.disabled =
+              state.systemControlBusy;
+          }
+        );
+
+      if (
+        message &&
+        byId(
+          'systemControlStatus'
+        )
+      ) {
+        byId(
+          'systemControlStatus'
+        ).textContent =
+          message;
       }
     }
 

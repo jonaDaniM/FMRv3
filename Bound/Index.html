@@ -369,6 +369,259 @@
 
     <!-- OWNER VIEW -->
     <section id="ownerView" class="hidden">
+
+<section class="panel system-control-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Production Controls</h2>
+
+      <p>
+        Manage authorized users, environment identity, transaction
+        availability, and project defaults without editing database rows.
+      </p>
+    </div>
+
+    <button
+      id="systemControlRefreshButton"
+      type="button"
+      class="secondary">
+      Refresh Controls
+    </button>
+  </div>
+
+  <div class="system-control-overview">
+    <div>
+      <span class="label">Environment</span>
+
+      <strong
+        id="systemEnvironmentBadge"
+        class="system-environment-badge">
+        Loading…
+      </strong>
+    </div>
+
+    <div>
+      <span class="label">Database</span>
+
+      <strong id="systemDatabaseFingerprint">
+        Loading…
+      </strong>
+    </div>
+
+    <div>
+      <span class="label">Authorized Users</span>
+
+      <strong id="systemUserSummary">
+        Loading…
+      </strong>
+    </div>
+  </div>
+
+  <div
+    id="systemControlStatus"
+    class="status">
+  </div>
+
+  <div class="system-control-grid">
+    <section class="system-control-card">
+      <div class="section-heading">
+        <div>
+          <h3>Environment Configuration</h3>
+
+          <p>
+            READ_ONLY mode blocks Field, Admin, staging,
+            publication, and renumbering transactions.
+          </p>
+        </div>
+      </div>
+
+      <div class="owner-grid">
+        <label>
+          Project Name
+
+          <input
+            id="systemProjectName"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Environment
+
+          <select id="systemEnvironmentName">
+            <option value="TEST">
+              TEST
+            </option>
+
+            <option value="PRODUCTION">
+              PRODUCTION
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Transaction Mode
+
+          <select id="systemTransactionMode">
+            <option value="ENABLED">
+              ENABLED
+            </option>
+
+            <option value="READ_ONLY">
+              READ_ONLY
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Timezone
+
+          <input
+            id="systemTimezone"
+            autocomplete="off"
+            placeholder="America/Indiana/Indianapolis">
+        </label>
+
+        <label>
+          Default Craft
+
+          <input
+            id="systemDefaultCraft"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Default Destination
+
+          <input
+            id="systemDefaultDestination"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Default Deliver To
+
+          <input
+            id="systemDefaultDeliverTo"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Default Priority
+
+          <input
+            id="systemDefaultPriority"
+            autocomplete="off">
+        </label>
+
+        <label class="wide">
+          Maintenance Message
+
+          <input
+            id="systemMaintenanceMessage"
+            autocomplete="off"
+            placeholder="Required when transaction mode is READ_ONLY">
+        </label>
+      </div>
+
+      <button
+        id="systemConfigSaveButton"
+        type="button">
+        Save Configuration
+      </button>
+    </section>
+
+    <section class="system-control-card">
+      <div class="section-heading">
+        <div>
+          <h3>User Access</h3>
+
+          <p>
+            Access changes take effect immediately after the
+            user cache is invalidated.
+          </p>
+        </div>
+      </div>
+
+      <div class="owner-grid">
+        <label>
+          Google Account Email
+
+          <input
+            id="systemUserEmail"
+            type="email"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Display Name
+
+          <input
+            id="systemUserName"
+            autocomplete="off">
+        </label>
+
+        <label>
+          Permission Profile
+
+          <select id="systemUserProfile">
+            <option value="READ_ONLY">
+              Read Only
+            </option>
+          </select>
+        </label>
+
+        <label class="wide">
+          Notes
+
+          <input
+            id="systemUserNotes"
+            autocomplete="off">
+        </label>
+      </div>
+
+      <div class="button-row">
+        <button
+          id="systemUserSaveButton"
+          type="button">
+          Save User
+        </button>
+
+        <button
+          id="systemUserClearButton"
+          type="button"
+          class="secondary">
+          Clear
+        </button>
+
+        <span
+          id="systemUserEditorStatus"
+          class="status">
+          Create a new authorized user or select Edit.
+        </span>
+      </div>
+    </section>
+  </div>
+
+  <section class="system-user-register">
+    <div class="section-heading">
+      <div>
+        <h3>Authorized User Register</h3>
+
+        <p>
+          Inactive users remain in the audit history but cannot
+          access protected services.
+        </p>
+      </div>
+    </div>
+
+    <div id="systemUserList">
+      <div class="register-empty">
+        Loading authorized users…
+      </div>
+    </div>
+  </section>
+</section>
+
       <section class="panel">
         <h2>Owner Intake</h2>
 

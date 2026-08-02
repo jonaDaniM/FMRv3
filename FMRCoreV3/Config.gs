@@ -1,5 +1,5 @@
 const FMR_V3 = Object.freeze({
-  VERSION: '3.0.0-alpha.9',
+  VERSION: '3.0.0-alpha.10',
   DEFAULT_DATABASE_ID: '1nDEsty3PTVppEPAkKpN9RVXCl_P0pgQALyGPficjz68',
 
   SHEETS: Object.freeze({
@@ -42,10 +42,12 @@ const FMR_V3 = Object.freeze({
 const FMR_V3_HEADERS = Object.freeze({
   Configuration: ['Setting', 'Value', 'Description', 'Editable'],
   Users: [
-    'User_ID', 'Email', 'Display_Name', 'Role', 'Can_Search',
-    'Can_Field_Transact', 'Can_Admin_Backorder', 'Can_Owner_Edit',
-    'Active', 'Created_At', 'Notes'
-  ],
+  'User_ID', 'Email', 'Display_Name', 'Role', 'Can_Search',
+  'Can_Field_Transact', 'Can_Admin_Backorder', 'Can_Owner_Edit',
+  'Active', 'Created_At', 'Notes', 'Updated_By', 'Updated_At',
+  'Last_Login_At', 'Last_Interface', 'Deactivated_By',
+  'Deactivated_At'
+],
   Lists: ['List_Name', 'Value', 'Sort_Order', 'Active'],
   Import_Staging_Header: [
     'Staging_FMR_ID', 'Source_File_ID', 'Source_File_Name',
