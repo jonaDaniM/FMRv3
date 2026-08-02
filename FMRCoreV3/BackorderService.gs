@@ -499,6 +499,97 @@ function reviewBackorderFmrV3_(
       now
     );
 
+    const updatedBackorderForNotice =
+      Object.assign(
+        {},
+        backorder,
+        {
+          Qty_Confirmed_Backorder:
+            existingConfirmed +
+            confirmedQuantity,
+
+          Qty_Pending:
+            requestPendingAfter,
+
+          Status:
+            nextStatus,
+
+          Admin_Decision:
+            decision,
+
+          Admin_Notes:
+            normalizeFmrV3_(
+              payload.notes
+            ),
+
+          Returned_Review_Reason:
+            (
+              decision ===
+                FMR_V3
+                  .BACKORDER_DECISIONS
+                  .RETURN &&
+              splitReturnedQuantity <= 0
+            )
+              ? normalizeFmrV3_(
+                  payload.notes
+                )
+              : '',
+
+          Active:
+            keepOperational
+              ? FMR_V3.YES
+              : FMR_V3.NO,
+
+          Updated_At:
+            now
+        }
+      );
+
+    upsertFieldNotificationFromBackorderFmrV3_(
+      updatedBackorderForNotice,
+      line,
+      {
+        quantityOverride:
+          (
+            decision ===
+              FMR_V3
+                .BACKORDER_DECISIONS
+                .REJECT &&
+            existingConfirmed <= 0
+          )
+            ? pending
+            : null,
+
+        reasonOverride:
+          normalizeFmrV3_(
+            payload.notes
+          ),
+
+        timestamp:
+          now
+      }
+    );
+
+    if (
+      decision ===
+        FMR_V3
+          .BACKORDER_DECISIONS
+          .REJECT &&
+      existingConfirmed > 0 &&
+      pending > 0
+    ) {
+      createRejectedRemainderFieldNotificationFmrV3_(
+        backorder,
+        line,
+        pending,
+        normalizeFmrV3_(
+          payload.notes
+        ),
+        correlationId,
+        now
+      );
+    }
+
     if (
       splitReturnedQuantity > 0
     ) {
@@ -676,6 +767,69 @@ function reviewBackorderFmrV3_(
             now
         }
       ]);
+
+      upsertFieldNotificationFromBackorderFmrV3_(
+        {
+          _rowNumber:
+            splitRow,
+
+          Backorder_Request_ID:
+            splitReturnedRequestId,
+
+          FMR_ID:
+            line.FMR_ID,
+
+          FMR_Number:
+            line.FMR_Number,
+
+          FMR_Line_ID:
+            line.FMR_Line_ID,
+
+          Qty_Requested_Backorder:
+            splitReturnedQuantity,
+
+          Qty_Confirmed_Backorder:
+            0,
+
+          Qty_Pending:
+            splitReturnedQuantity,
+
+          Reason:
+            backorder.Reason,
+
+          Status:
+            'Returned for Review',
+
+          Admin_Notes:
+            normalizeFmrV3_(
+              payload.notes
+            ),
+
+          Returned_Review_Reason:
+            normalizeFmrV3_(
+              payload.notes
+            ),
+
+          Active:
+            FMR_V3.YES,
+
+          Updated_At:
+            now
+        },
+        line,
+        {
+          quantityOverride:
+            splitReturnedQuantity,
+
+          reasonOverride:
+            normalizeFmrV3_(
+              payload.notes
+            ),
+
+          timestamp:
+            now
+        }
+      );
 
       transactionRequestId =
         splitReturnedRequestId;

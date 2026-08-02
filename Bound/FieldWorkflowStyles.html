@@ -996,4 +996,109 @@
     }
   }
 
+
+  /* Sprint 3B Field backorder notices */
+  .field-backorder-status-chip {
+    font-weight: 900;
+  }
+
+  .field-backorder-status-chip.field-notice-info {
+    border-color: #b2ddff;
+    background: #eff8ff;
+    color: #175cd3;
+  }
+
+  .field-backorder-status-chip.field-notice-success {
+    border-color: #a6f4c5;
+    background: #ecfdf3;
+    color: #027a48;
+  }
+
+  .field-backorder-notice-stack {
+    display: grid;
+    gap: 6px;
+    padding: 0 10px 8px;
+  }
+
+  .field-backorder-notice {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.55fr);
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border: 1px solid;
+    border-left-width: 5px;
+    border-radius: 8px;
+  }
+
+  .field-backorder-notice.field-notice-warning {
+    border-color: #fec84b;
+    background: #fffaeb;
+    color: #7a2e0e;
+  }
+
+  .field-backorder-notice.field-notice-error {
+    border-color: #fda29b;
+    background: #fef3f2;
+    color: #912018;
+  }
+
+  .field-backorder-notice-main {
+    min-width: 0;
+  }
+
+  .field-backorder-notice-kicker {
+    margin-bottom: 2px;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .field-backorder-notice strong {
+    display: block;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .field-backorder-notice-reason {
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  .field-backorder-notice-guidance {
+    padding-left: 12px;
+    border-left: 1px solid currentColor;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+    opacity: 0.84;
+  }
+
+  /* Sprint 3B Admin synchronization */
+  [data-backorder-decision]:disabled {
+    opacity: 0.48;
+    cursor: wait;
+  }
+
+  #adminFmrDetailPanel.is-refreshing {
+    opacity: 0.78;
+  }
+
+  @media (max-width: 700px) {
+    .field-backorder-notice {
+      grid-template-columns: 1fr;
+      gap: 7px;
+    }
+
+    .field-backorder-notice-guidance {
+      padding-top: 7px;
+      padding-left: 0;
+      border-top: 1px solid currentColor;
+      border-left: 0;
+    }
+  }
+
 </style>

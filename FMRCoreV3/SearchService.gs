@@ -466,11 +466,11 @@ function buildFieldWorkflowFmrV3_(
   };
 }
 
-
 function serializeLineForPortalFmrV3_(
   line,
   activeBags,
-  returnedBackorders
+  returnedBackorders,
+  backorderNotices
 ) {
   const state =
     lineStateFmrV3_(
@@ -482,6 +482,9 @@ function serializeLineForPortalFmrV3_(
 
   const returned =
     returnedBackorders || [];
+
+  const notices =
+    backorderNotices || [];
 
   const actionLimits =
     fieldActionLimitsFromStateFmrV3_(
@@ -571,10 +574,6 @@ function serializeLineForPortalFmrV3_(
         line.Storage_Location
       ),
 
-    /**
-     * Retained for compatibility with
-     * the current Field interface.
-     */
     actionLimits:
       actionLimits,
 
@@ -584,9 +583,23 @@ function serializeLineForPortalFmrV3_(
     returnedBackorders:
       returned,
 
-    /**
-     * Guided Field contract.
-     */
+    backorderNotices:
+      notices,
+
+    hasBackorderNotice:
+      notices.length > 0,
+
+    hasActionRequiredNotice:
+      notices.some(
+        function (
+          notice
+        ) {
+          return Boolean(
+            notice.actionRequired
+          );
+        }
+      ),
+
     workflow:
       buildFieldWorkflowFmrV3_(
         line,
@@ -597,102 +610,296 @@ function serializeLineForPortalFmrV3_(
   };
 }
 
-function searchPublishedFmrV3_(userEmail, query, mode) {
-  const user = assertSearchUserFmrV3_(userEmail);
-  const keys = normalizeSearchRequestFmrV3_(query, mode);
+function searchPublishedFmrV3_(
+  userEmail,
+  query,
+  mode
+) {
+  const user =
+    assertSearchUserFmrV3_(
+      userEmail
+    );
+
+  const keys =
+    normalizeSearchRequestFmrV3_(
+      query,
+      mode
+    );
 
   let entries = [];
 
-  keys.some(function (key) {
-    const found = lookupIndexEntriesFmrV3_(
-      FMR_V3.SHEETS.SEARCH_INDEX,
+  keys.some(
+    function (
       key
-    );
+    ) {
+      const found =
+        lookupIndexEntriesFmrV3_(
+          FMR_V3.SHEETS
+            .SEARCH_INDEX,
+          key
+        );
 
-    if (found.length) {
-      entries = found;
-      return true;
+      if (
+        found.length
+      ) {
+        entries =
+          found;
+
+        return true;
+      }
+
+      return false;
     }
+  );
 
-    return false;
-  });
-
-  if (!entries.length) {
+  if (
+    !entries.length
+  ) {
     return {
-      generatedAt: formatDateTimeFmrV3_(nowFmrV3_()),
-      user: user,
-      query: normalizeFmrV3_(query),
-      resultCount: 0,
-      cards: []
+      generatedAt:
+        formatDateTimeFmrV3_(
+          nowFmrV3_()
+        ),
+
+      user:
+        user,
+
+      query:
+        normalizeFmrV3_(
+          query
+        ),
+
+      resultCount:
+        0,
+
+      cards:
+        []
     };
   }
 
-  const lines = readRowsObjectsFmrV3_(
-    FMR_V3.SHEETS.LINES,
-    entries.map(function (entry) { return entry.Line_Row; })
-  ).filter(function (line) { return yesFmrV3_(line.Active); });
+  const lines =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS.LINES,
+      entries.map(
+        function (
+          entry
+        ) {
+          return entry.Line_Row;
+        }
+      )
+    ).filter(
+      function (
+        line
+      ) {
+        return yesFmrV3_(
+          line.Active
+        );
+      }
+    );
 
-  const headers = readRowsObjectsFmrV3_(
-    FMR_V3.SHEETS.HEADERS,
-    entries.map(function (entry) { return entry.Header_Row; })
-  ).filter(function (header) { return yesFmrV3_(header.Active); });
+  const headers =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS.HEADERS,
+      entries.map(
+        function (
+          entry
+        ) {
+          return entry.Header_Row;
+        }
+      )
+    ).filter(
+      function (
+        header
+      ) {
+        return yesFmrV3_(
+          header.Active
+        );
+      }
+    );
 
   const headersById = {};
-  headers.forEach(function (header) {
-    headersById[normalizeFmrV3_(header.FMR_ID)] = header;
-  });
 
-  const lineIds = lines.map(function (line) {
-    return normalizeFmrV3_(line.FMR_Line_ID);
-  });
+  headers.forEach(
+    function (
+      header
+    ) {
+      headersById[
+        normalizeFmrV3_(
+          header.FMR_ID
+        )
+      ] =
+        header;
+    }
+  );
 
-  const bagsByLine = getActiveBagsByLineIdsFmrV3_(lineIds);
-  const returnedByLine = getReturnedBackordersByLineIdsFmrV3_(lineIds);
+  const lineIds =
+    lines.map(
+      function (
+        line
+      ) {
+        return normalizeFmrV3_(
+          line.FMR_Line_ID
+        );
+      }
+    );
+
+  const bagsByLine =
+    getActiveBagsByLineIdsFmrV3_(
+      lineIds
+    );
+
+  const returnedByLine =
+    getReturnedBackordersByLineIdsFmrV3_(
+      lineIds
+    );
+
+  const noticesByLine =
+    getFieldBackorderNoticesByLineIdsFmrV3_(
+      lineIds
+    );
+
   const grouped = {};
 
-  lines.forEach(function (line) {
-    const fmrId = normalizeFmrV3_(line.FMR_ID);
-    const header = headersById[fmrId];
-    if (!header) return;
+  lines.forEach(
+    function (
+      line
+    ) {
+      const fmrId =
+        normalizeFmrV3_(
+          line.FMR_ID
+        );
 
-    if (!grouped[fmrId]) {
-      grouped[fmrId] = {
-        fmrId: fmrId,
-        fmrNumber: normalizeFmrV3_(header.FMR_Number),
-        iwpNumber: normalizeFmrV3_(header.IWP_Number),
-        requestedBy: normalizeFmrV3_(header.Requested_By),
-        dateRequired: formatDateTimeFmrV3_(header.Date_Required),
-        priority: normalizeFmrV3_(header.Priority),
-        status: normalizeFmrV3_(header.Current_Status),
-        notes: normalizeFmrV3_(header.Notes),
-        totals: serializeHeaderTotalsFmrV3_(header),
-        materials: []
-      };
+      const header =
+        headersById[
+          fmrId
+        ];
+
+      if (!header) {
+        return;
+      }
+
+      if (
+        !grouped[
+          fmrId
+        ]
+      ) {
+        grouped[
+          fmrId
+        ] = {
+          fmrId:
+            fmrId,
+
+          fmrNumber:
+            normalizeFmrV3_(
+              header.FMR_Number
+            ),
+
+          iwpNumber:
+            normalizeFmrV3_(
+              header.IWP_Number
+            ),
+
+          requestedBy:
+            normalizeFmrV3_(
+              header.Requested_By
+            ),
+
+          dateRequired:
+            formatDateTimeFmrV3_(
+              header.Date_Required
+            ),
+
+          priority:
+            normalizeFmrV3_(
+              header.Priority
+            ),
+
+          status:
+            normalizeFmrV3_(
+              header.Current_Status
+            ),
+
+          notes:
+            normalizeFmrV3_(
+              header.Notes
+            ),
+
+          totals:
+            serializeHeaderTotalsFmrV3_(
+              header
+            ),
+
+          materials:
+            []
+        };
+      }
+
+      const lineId =
+        normalizeFmrV3_(
+          line.FMR_Line_ID
+        );
+
+      grouped[
+        fmrId
+      ].materials.push(
+        serializeLineForPortalFmrV3_(
+          line,
+          bagsByLine[
+            lineId
+          ] || [],
+          returnedByLine[
+            lineId
+          ] || [],
+          noticesByLine[
+            lineId
+          ] || []
+        )
+      );
     }
+  );
 
-    const lineId = normalizeFmrV3_(line.FMR_Line_ID);
-    grouped[fmrId].materials.push(
-      serializeLineForPortalFmrV3_(
-        line,
-        bagsByLine[lineId] || [],
-        returnedByLine[lineId] || []
-      )
-    );
-  });
+  const cards =
+    Object.values(
+      grouped
+    ).sort(
+      function (
+        left,
+        right
+      ) {
+        return left
+          .fmrNumber
+          .localeCompare(
+            right.fmrNumber,
+            undefined,
+            {
+              numeric:
+                true,
 
-  const cards = Object.values(grouped).sort(function (a, b) {
-    return a.fmrNumber.localeCompare(
-      b.fmrNumber,
-      undefined,
-      {numeric: true, sensitivity: 'base'}
+              sensitivity:
+                'base'
+            }
+          );
+      }
     );
-  });
 
   return {
-    generatedAt: formatDateTimeFmrV3_(nowFmrV3_()),
-    user: user,
-    query: normalizeFmrV3_(query),
-    resultCount: cards.length,
-    cards: cards
+    generatedAt:
+      formatDateTimeFmrV3_(
+        nowFmrV3_()
+      ),
+
+    user:
+      user,
+
+    query:
+      normalizeFmrV3_(
+        query
+      ),
+
+    resultCount:
+      cards.length,
+
+    cards:
+      cards
   };
 }

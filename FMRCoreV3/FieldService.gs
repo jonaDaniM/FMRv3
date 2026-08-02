@@ -140,12 +140,16 @@ function finishLineActionFmrV3_(
   details,
   extraPatch
 ) {
-  const updatedLine = updateLineStateFmrV3_(
-    line,
-    state,
-    user,
-    extraPatch
-  );
+  const actionDetails =
+    details || {};
+
+  const updatedLine =
+    updateLineStateFmrV3_(
+      line,
+      state,
+      user,
+      extraPatch
+    );
 
   refreshHeaderFromIndexedLinesFmrV3_(
     line.FMR_ID,
@@ -160,35 +164,90 @@ function finishLineActionFmrV3_(
     user,
     correlationId,
     {
-      sourceInterface: 'FIELD',
-      payload: details || {}
+      sourceInterface:
+        'FIELD',
+
+      payload:
+        actionDetails
     }
+  );
+
+  const rejectedResolution =
+    resolveRejectedFieldNotificationsFmrV3_(
+      line,
+      numberFmrV3_(
+        actionDetails
+          .rejectedNoticeResolutionQuantity
+      ),
+      user,
+      correlationId,
+      action
+    );
+
+  syncFieldNotificationsForLineFmrV3_(
+    line
   );
 
   SpreadsheetApp.flush();
 
-  const activeBags = getActiveBagsByLineIdsFmrV3_(
-    [line.FMR_Line_ID]
-  )[line.FMR_Line_ID] || [];
+  const activeBags =
+    getActiveBagsByLineIdsFmrV3_(
+      [
+        line.FMR_Line_ID
+      ]
+    )[
+      line.FMR_Line_ID
+    ] || [];
 
-  const returnedBackorders = getReturnedBackordersByLineIdsFmrV3_(
-    [line.FMR_Line_ID]
-  )[line.FMR_Line_ID] || [];
+  const returnedBackorders =
+    getReturnedBackordersByLineIdsFmrV3_(
+      [
+        line.FMR_Line_ID
+      ]
+    )[
+      line.FMR_Line_ID
+    ] || [];
+
+  const backorderNotices =
+    getFieldBackorderNoticesByLineIdsFmrV3_(
+      [
+        line.FMR_Line_ID
+      ]
+    )[
+      line.FMR_Line_ID
+    ] || [];
 
   return {
-    success: true,
-    action: action,
-    correlationId: correlationId,
-    message: normalizeFmrV3_(details && details.message) ||
-      `${action} completed.`,
-    line: serializeLineForPortalFmrV3_(
-      updatedLine,
-      activeBags,
-      returnedBackorders
-    )
+    success:
+      true,
+
+    action:
+      action,
+
+    correlationId:
+      correlationId,
+
+    message:
+      normalizeFmrV3_(
+        actionDetails.message
+      ) ||
+      (
+        action +
+        ' completed.'
+      ),
+
+    rejectedNoticeResolution:
+      rejectedResolution,
+
+    line:
+      serializeLineForPortalFmrV3_(
+        updatedLine,
+        activeBags,
+        returnedBackorders,
+        backorderNotices
+      )
   };
 }
-
 function performFieldActionFmrV3_(
   userEmail,
   request
@@ -393,6 +452,9 @@ function confirmAvailableFmrV3_(
       quantity:
         quantity,
 
+      rejectedNoticeResolutionQuantity:
+        quantity,
+
       confirmedBackorderFulfilled:
         transitionPlan
           .confirmedConsumed,
@@ -531,6 +593,9 @@ function directIssueFmrV3_(
     correlationId,
     {
       quantity:
+        quantity,
+
+      rejectedNoticeResolutionQuantity:
         quantity,
 
       issuedTo:
@@ -1044,6 +1109,9 @@ function bagMaterialFmrV3_(
     {
       quantity:
         quantity,
+
+      rejectedNoticeResolutionQuantity:
+        newlyLocated,
 
       tagNumber:
         tagNumber,
@@ -1635,6 +1703,51 @@ function submitBackorderFmrV3_(
     }
   ]);
 
+  upsertFieldNotificationFromBackorderFmrV3_(
+    {
+      _rowNumber:
+        requestRow,
+
+      Backorder_Request_ID:
+        requestId,
+
+      FMR_ID:
+        line.FMR_ID,
+
+      FMR_Number:
+        line.FMR_Number,
+
+      FMR_Line_ID:
+        line.FMR_Line_ID,
+
+      Qty_Requested_Backorder:
+        quantity,
+
+      Qty_Confirmed_Backorder:
+        0,
+
+      Qty_Pending:
+        quantity,
+
+      Reason:
+        reason,
+
+      Status:
+        'Pending Admin Review',
+
+      Active:
+        FMR_V3.YES,
+
+      Updated_At:
+        now
+    },
+    line,
+    {
+      timestamp:
+        now
+    }
+  );
+
   state.pendingBackorder +=
     quantity;
 
@@ -1673,6 +1786,9 @@ function submitBackorderFmrV3_(
         requestId,
 
       quantity:
+        quantity,
+
+      rejectedNoticeResolutionQuantity:
         quantity,
 
       reason:

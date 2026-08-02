@@ -13,6 +13,8 @@
       adminRegisterPage: 1,
       adminRegisterPageSize: 25,
       adminRegisterData: null,
+      adminOpenFmrNumber: '',
+      adminDecisionBusy: false,
       fieldExpandedLineIds: new Set(),
       fieldFilterValues: {},
       fieldSearchSequence: 0,
@@ -892,6 +894,276 @@
       `;
     }
 
+    function fieldBackorderNoticeLabelV3_(
+      notice
+    ) {
+      const type =
+        String(
+          notice.type || ''
+        ).toUpperCase();
+
+      if (
+        type ===
+        'PENDING_ADMIN_REVIEW'
+      ) {
+        return (
+          `${formatQtyV3_(
+            notice.quantityPending ||
+            notice.quantity
+          )} ${
+            escapeHtmlV3_(
+              notice.uom || ''
+            )
+          } awaiting Admin`
+        );
+      }
+
+      if (
+        type ===
+        'PARTIALLY_CONFIRMED'
+      ) {
+        return (
+          `${formatQtyV3_(
+            notice.quantityConfirmed
+          )} confirmed · ` +
+          `${formatQtyV3_(
+            notice.quantityPending
+          )} pending`
+        );
+      }
+
+      if (
+        type ===
+        'CONFIRMED'
+      ) {
+        return (
+          `${formatQtyV3_(
+            notice.quantity
+          )} ${
+            escapeHtmlV3_(
+              notice.uom || ''
+            )
+          } confirmed B/O`
+        );
+      }
+
+      if (
+        type ===
+        'RETURNED_FOR_REVIEW'
+      ) {
+        return (
+          `${formatQtyV3_(
+            notice.quantity
+          )} ${
+            escapeHtmlV3_(
+              notice.uom || ''
+            )
+          } returned`
+        );
+      }
+
+      if (
+        type ===
+        'REJECTED'
+      ) {
+        return (
+          `${formatQtyV3_(
+            notice.quantity
+          )} ${
+            escapeHtmlV3_(
+              notice.uom || ''
+            )
+          } rejected`
+        );
+      }
+
+      return (
+        notice.message ||
+        'Backorder update'
+      );
+    }
+
+    function fieldBackorderNoticeClassV3_(
+      notice
+    ) {
+      const severity =
+        String(
+          notice.severity || ''
+        ).toLowerCase();
+
+      if (
+        severity ===
+        'error'
+      ) {
+        return 'field-notice-error';
+      }
+
+      if (
+        severity ===
+        'warning'
+      ) {
+        return 'field-notice-warning';
+      }
+
+      if (
+        severity ===
+        'success'
+      ) {
+        return 'field-notice-success';
+      }
+
+      return 'field-notice-info';
+    }
+
+    function renderFieldBackorderNoticeChipsV3_(
+      notices
+    ) {
+      const informational =
+        (notices || [])
+          .filter(
+            notice =>
+              !notice.actionRequired
+          );
+
+      if (
+        !informational.length
+      ) {
+        return '';
+      }
+
+      return informational
+        .map(
+          notice => `
+            <span
+              class="field-line-chip field-backorder-status-chip ${
+                fieldBackorderNoticeClassV3_(
+                  notice
+                )
+              }"
+              title="${
+                escapeAttributeV3_(
+                  notice.message ||
+                  notice.reason ||
+                  ''
+                )
+              }">
+
+              ${
+                fieldBackorderNoticeLabelV3_(
+                  notice
+                )
+              }
+            </span>
+          `
+        )
+        .join('');
+    }
+
+    function renderFieldBackorderNoticeBannersV3_(
+      notices
+    ) {
+      const required =
+        (notices || [])
+          .filter(
+            notice =>
+              Boolean(
+                notice.actionRequired
+              )
+          );
+
+      if (
+        !required.length
+      ) {
+        return '';
+      }
+
+      return `
+        <div class="field-backorder-notice-stack">
+          ${required.map(notice => {
+            const type =
+              String(
+                notice.type || ''
+              ).toUpperCase();
+
+            const title =
+              type === 'REJECTED'
+                ? (
+                    `Backorder rejected — ${
+                      formatQtyV3_(
+                        notice.quantity
+                      )
+                    } ${
+                      escapeHtmlV3_(
+                        notice.uom || ''
+                      )
+                    } unresolved`
+                  )
+                : (
+                    `Admin returned ${
+                      formatQtyV3_(
+                        notice.quantity
+                      )
+                    } ${
+                      escapeHtmlV3_(
+                        notice.uom || ''
+                      )
+                    } for Field review`
+                  );
+
+            const guidance =
+              type === 'REJECTED'
+                ? (
+                    'Locate the material, reserve or issue it, ' +
+                    'or submit a revised backorder request.'
+                  )
+                : (
+                    'Review the Admin instruction before locating ' +
+                    'the material or resubmitting the request.'
+                  );
+
+            return `
+              <section
+                class="field-backorder-notice ${
+                  fieldBackorderNoticeClassV3_(
+                    notice
+                  )
+                }"
+                role="status">
+
+                <div class="field-backorder-notice-main">
+                  <div class="field-backorder-notice-kicker">
+                    Action required
+                  </div>
+
+                  <strong>
+                    ${title}
+                  </strong>
+
+                  ${
+                    notice.reason
+                      ? `
+                        <div class="field-backorder-notice-reason">
+                          ${
+                            escapeHtmlV3_(
+                              notice.reason
+                            )
+                          }
+                        </div>
+                      `
+                      : ''
+                  }
+                </div>
+
+                <div class="field-backorder-notice-guidance">
+                  ${escapeHtmlV3_(guidance)}
+                </div>
+              </section>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
     function renderFieldMaterialCardV3_(
       material
     ) {
@@ -902,6 +1174,22 @@
 
       const returnedReviews =
         material.returnedBackorders || [];
+
+      const backorderNotices =
+        material.backorderNotices || [];
+
+      const actionRequiredNotices =
+        backorderNotices.filter(
+          notice =>
+            Boolean(
+              notice.actionRequired
+            )
+        );
+
+      const fallbackReturnedReviews =
+        actionRequiredNotices.length
+          ? []
+          : returnedReviews;
 
       const activeBags =
         material.activeBags || [];
@@ -992,6 +1280,15 @@
               bag.storageLocation
             ].join(' ')
         )
+      ).concat(
+        backorderNotices.map(
+          notice =>
+            [
+              notice.type,
+              notice.message,
+              notice.reason
+            ].join(' ')
+        )
       ).filter(Boolean).join(' ');
 
       return `
@@ -1073,6 +1370,12 @@
                       </span>
                     `
                     : ''
+                }
+
+                ${
+                  renderFieldBackorderNoticeChipsV3_(
+                    backorderNotices
+                  )
                 }
               </div>
             </div>
@@ -1158,6 +1461,12 @@
             </div>
           </div>
 
+          ${
+            renderFieldBackorderNoticeBannersV3_(
+              backorderNotices
+            )
+          }
+
           <div
             class="field-workflow-compact ${
               workflowPhaseClassV3_(
@@ -1185,14 +1494,14 @@
             hidden>
 
             ${
-              returnedReviews.length
+              fallbackReturnedReviews.length
                 ? `
                   <div class="field-review-alert">
                     <strong>
                       Field review required
                     </strong>
 
-                    ${returnedReviews.map(item => `
+                    ${fallbackReturnedReviews.map(item => `
                       <div>
                         ${
                           escapeHtmlV3_(
@@ -2863,6 +3172,9 @@
     async function refreshAdminV3_() {
       hideAlertsV3_();
 
+      const openFmrNumber =
+        state.adminOpenFmrNumber;
+
       byId('backorderQueue').innerHTML =
         '<div class="muted">' +
         'Loading backorder queue…' +
@@ -2928,6 +3240,15 @@
           backorderRail.canReview
         );
 
+        if (
+          state.adminDecisionBusy
+        ) {
+          setAdminDecisionBusyV3_(
+            true,
+            'Saving Admin decision and refreshing the selected FMR…'
+          );
+        }
+
         renderActiveBagsV3_(
           activeBagRail.records || [],
           activeBagRail.summary || {}
@@ -2936,11 +3257,29 @@
         renderAdminRegisterV3_(
           register
         );
-      } catch (error) {
-        showErrorV3_(error);
+
+        if (
+          openFmrNumber
+        ) {
+          await openAdminFmrDetailV3_(
+            openFmrNumber,
+            {
+              silent:
+                true,
+
+              preserveScroll:
+                true
+            }
+          );
+        }
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
       }
     }
-
     async function refreshAdminRegisterV3_() {
       hideAlertsV3_();
 
@@ -3584,9 +3923,29 @@
     }
 
     async function openAdminFmrDetailV3_(
-      fmrNumber
+      fmrNumber,
+      options
     ) {
-      hideAlertsV3_();
+      const settings =
+        options || {};
+
+      const normalizedFmr =
+        String(
+          fmrNumber || ''
+        ).trim();
+
+      if (!normalizedFmr) {
+        return;
+      }
+
+      state.adminOpenFmrNumber =
+        normalizedFmr;
+
+      if (
+        !settings.silent
+      ) {
+        hideAlertsV3_();
+      }
 
       byId(
         'adminFmrDetailPanel'
@@ -3597,25 +3956,31 @@
       byId(
         'adminFmrDetailTitle'
       ).textContent =
-        fmrNumber;
+        normalizedFmr;
 
       byId(
         'adminFmrDetailSubtitle'
       ).textContent =
-        'Loading indexed material lines…';
+        settings.silent
+          ? 'Refreshing current quantities…'
+          : 'Loading indexed material lines…';
 
       byId(
         'adminFmrDetail'
       ).innerHTML =
         '<div class="register-empty">' +
-        'Loading FMR detail…' +
+        (
+          settings.silent
+            ? 'Refreshing FMR detail…'
+            : 'Loading FMR detail…'
+        ) +
         '</div>';
 
       try {
         const data =
           await callServerV3_(
             'searchPortalV3',
-            fmrNumber,
+            normalizedFmr,
             'FMR'
           );
 
@@ -3624,7 +3989,7 @@
           data.cards.length !== 1
         ) {
           throw new Error(
-            `Published FMR not found: ${fmrNumber}`
+            `Published FMR not found: ${normalizedFmr}`
           );
         }
 
@@ -3632,18 +3997,44 @@
           data.cards[0]
         );
 
-        byId(
-          'adminFmrDetailPanel'
-        ).scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      } catch (error) {
-        showErrorV3_(error);
+        if (
+          !settings.preserveScroll
+        ) {
+          byId(
+            'adminFmrDetailPanel'
+          ).scrollIntoView({
+            behavior:
+              'smooth',
+
+            block:
+              'start'
+          });
+        }
+      } catch (
+        error
+      ) {
+        if (
+          settings.silent
+        ) {
+          byId(
+            'adminFmrDetailSubtitle'
+          ).textContent =
+            'Automatic detail refresh failed. Select Open to retry.';
+
+          console.error(
+            error
+          );
+
+          return;
+        }
+
+        showErrorV3_(
+          error
+        );
+
         closeAdminFmrDetailV3_();
       }
     }
-
     function renderAdminFmrDetailV3_(
       card
     ) {
@@ -3939,6 +4330,9 @@
     }
 
     function closeAdminFmrDetailV3_() {
+      state.adminOpenFmrNumber =
+        '';
+
       byId(
         'adminFmrDetailPanel'
       )
@@ -4483,24 +4877,41 @@
       decision,
       maximum
     ) {
+      if (
+        state.adminDecisionBusy
+      ) {
+        return;
+      }
+
       let quantity = 0;
 
-      if (decision === 'CONFIRM') {
+      if (
+        decision ===
+        'CONFIRM'
+      ) {
         const response =
           window.prompt(
             `Quantity to confirm, maximum ${maximum}:`,
-            String(maximum)
+            String(
+              maximum
+            )
           );
 
-        if (response == null) {
+        if (
+          response == null
+        ) {
           return;
         }
 
         quantity =
-          Number(response);
+          Number(
+            response
+          );
 
         if (
-          !Number.isFinite(quantity) ||
+          !Number.isFinite(
+            quantity
+          ) ||
           quantity <= 0 ||
           quantity > maximum
         ) {
@@ -4514,7 +4925,8 @@
 
       const notes =
         window.prompt(
-          decision === 'RETURN'
+          decision ===
+          'RETURN'
             ? (
                 'Explain what the Field ' +
                 'team should review:'
@@ -4524,7 +4936,8 @@
         );
 
       if (
-        decision === 'RETURN' &&
+        decision ===
+          'RETURN' &&
         (
           !notes ||
           !notes.trim()
@@ -4537,29 +4950,79 @@
         return;
       }
 
+      setAdminDecisionBusyV3_(
+        true,
+        'Saving Admin decision and refreshing the selected FMR…'
+      );
+
       try {
         await callServerV3_(
           'reviewBackorderV3',
           {
-            requestId,
-            decision,
-            quantity,
-            notes: notes || ''
+            requestId:
+              requestId,
+
+            decision:
+              decision,
+
+            quantity:
+              quantity,
+
+            notes:
+              notes || ''
           }
         );
+
+        await refreshAdminV3_();
 
         showSuccessV3_(
           `Backorder ${
             decision.toLowerCase()
-          } completed.`
+          } completed. The open FMR detail is current.`
         );
-
-        await refreshAdminV3_();
-      } catch (error) {
-        showErrorV3_(error);
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setAdminDecisionBusyV3_(
+          false
+        );
       }
     }
 
+    function setAdminDecisionBusyV3_(
+      busy,
+      message
+    ) {
+      state.adminDecisionBusy =
+        Boolean(
+          busy
+        );
+
+      document
+        .querySelectorAll(
+          '[data-backorder-decision]'
+        )
+        .forEach(
+          button => {
+            button.disabled =
+              state.adminDecisionBusy;
+          }
+        );
+
+      if (
+        state.adminDecisionBusy
+      ) {
+        byId(
+          'adminRegisterStatusText'
+        ).textContent =
+          message ||
+          'Saving Admin decision…';
+      }
+    }
     function parseOwnerLinesV3_() {
       const text =
         byId('ownerLines')

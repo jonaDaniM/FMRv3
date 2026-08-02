@@ -1351,3 +1351,259 @@ function verifyBoundFieldMetadataContractV3() {
 
   return output;
 }
+
+function verifyBoundFieldBackorderNoticeContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const expectations = [
+    {
+      fmrNumber:
+        'V3-ADMIN-CONFIRM-0003',
+
+      notices: [
+        {
+          type:
+            'CONFIRMED',
+
+          quantity:
+            2,
+
+          actionRequired:
+            false
+        }
+      ]
+    },
+    {
+      fmrNumber:
+        'V3-ADMIN-REJECT-0004',
+
+      notices: [
+        {
+          type:
+            'REJECTED',
+
+          quantity:
+            2,
+
+          actionRequired:
+            true
+        }
+      ]
+    },
+    {
+      fmrNumber:
+        'V3-ADMIN-RETURN-0005',
+
+      notices: [
+        {
+          type:
+            'RETURNED_FOR_REVIEW',
+
+          quantity:
+            2,
+
+          actionRequired:
+            true
+        }
+      ]
+    },
+    {
+      fmrNumber:
+        'V3-ADMIN-SPLIT-0006',
+
+      notices: [
+        {
+          type:
+            'CONFIRMED',
+
+          quantity:
+            1,
+
+          actionRequired:
+            false
+        },
+        {
+          type:
+            'RETURNED_FOR_REVIEW',
+
+          quantity:
+            1,
+
+          actionRequired:
+            true
+        }
+      ]
+    }
+  ];
+
+  const results =
+    expectations.map(
+      function (
+        expectation
+      ) {
+        const search =
+          searchPortalV3(
+            expectation.fmrNumber,
+            'FMR'
+          );
+
+        const material =
+          search.cards &&
+          search.cards.length === 1 &&
+          search.cards[0].materials &&
+          search.cards[0].materials.length === 1
+            ? search.cards[0].materials[0]
+            : null;
+
+        const notices =
+          material &&
+          Array.isArray(
+            material.backorderNotices
+          )
+            ? material.backorderNotices
+            : [];
+
+        const mismatches = [];
+
+        expectation.notices.forEach(
+          function (
+            expected
+          ) {
+            const actual =
+              notices.find(
+                function (
+                  notice
+                ) {
+                  return (
+                    String(
+                      notice.type ||
+                      ''
+                    ).toUpperCase() ===
+                    expected.type
+                  );
+                }
+              );
+
+            if (!actual) {
+              mismatches.push(
+                (
+                  'Missing ' +
+                  expected.type
+                )
+              );
+
+              return;
+            }
+
+            if (
+              Number(
+                actual.quantity ||
+                0
+              ) !==
+              expected.quantity
+            ) {
+              mismatches.push(
+                (
+                  expected.type +
+                  ' quantity expected ' +
+                  expected.quantity +
+                  ', received ' +
+                  Number(
+                    actual.quantity ||
+                    0
+                  )
+                )
+              );
+            }
+
+            if (
+              Boolean(
+                actual.actionRequired
+              ) !==
+              expected.actionRequired
+            ) {
+              mismatches.push(
+                (
+                  expected.type +
+                  ' actionRequired expected ' +
+                  expected.actionRequired
+                )
+              );
+            }
+          }
+        );
+
+        return {
+          passed:
+            Boolean(
+              material
+            ) &&
+            mismatches.length === 0,
+
+          fmrNumber:
+            expectation.fmrNumber,
+
+          noticeCount:
+            notices.length,
+
+          notices:
+            notices,
+
+          mismatches:
+            mismatches
+        };
+      }
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        9
+      ) &&
+      results.every(
+        function (
+          result
+        ) {
+          return result.passed;
+        }
+      ),
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    fixtureCount:
+      results.length,
+
+    results:
+      results
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Field backorder notice contract failed.'
+    );
+  }
+
+  return output;
+}
+
