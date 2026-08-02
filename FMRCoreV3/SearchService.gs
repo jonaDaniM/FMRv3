@@ -139,11 +139,17 @@ function buildFieldWorkflowFmrV3_(
 
   const bags =
     (activeBags || [])
-      .filter(function (bag) {
-        return numberFmrV3_(
-          bag.qtyRemaining
-        ) > 0;
-      });
+      .filter(
+        function (
+          bag
+        ) {
+          return (
+            numberFmrV3_(
+              bag.qtyRemaining
+            ) > 0
+          );
+        }
+      );
 
   const returned =
     returnedBackorders || [];
@@ -152,43 +158,50 @@ function buildFieldWorkflowFmrV3_(
 
   if (bags.length) {
     const bagSources =
-      bags.map(function (bag) {
-        return {
-          bagTagId:
-            normalizeFmrV3_(
-              bag.bagTagId
-            ),
+      bags.map(
+        function (
+          bag
+        ) {
+          return {
+            bagTagId:
+              normalizeFmrV3_(
+                bag.bagTagId
+              ),
 
-          tagNumber:
-            normalizeFmrV3_(
-              bag.tagNumber
-            ),
+            tagNumber:
+              normalizeFmrV3_(
+                bag.tagNumber
+              ),
 
-          storageLocation:
-            normalizeFmrV3_(
-              bag.storageLocation
-            ),
+            storageLocation:
+              normalizeFmrV3_(
+                bag.storageLocation
+              ),
 
-          qtyRemaining:
-            numberFmrV3_(
-              bag.qtyRemaining
-            ),
+            qtyRemaining:
+              numberFmrV3_(
+                bag.qtyRemaining
+              ),
 
-          uom:
-            normalizeFmrV3_(
-              bag.uom
-            ),
+            uom:
+              normalizeFmrV3_(
+                bag.uom
+              ),
 
-          status:
-            normalizeFmrV3_(
-              bag.status
-            )
-        };
-      });
+            status:
+              normalizeFmrV3_(
+                bag.status
+              )
+          };
+        }
+      );
 
     const totalBagRemaining =
       bagSources.reduce(
-        function (total, bag) {
+        function (
+          total,
+          bag
+        ) {
           return (
             total +
             numberFmrV3_(
@@ -315,13 +328,13 @@ function buildFieldWorkflowFmrV3_(
         line.UOM,
         [
           'quantity',
+          'storageLocation',
           'performedByName'
         ],
         [
-          'storageLocation',
           'notes'
         ],
-        'Record material as physically located and available for later reservation or issuance.'
+        'Record material as physically located at a configured storage location.'
       )
     );
   }
@@ -373,23 +386,33 @@ function buildFieldWorkflowFmrV3_(
   let headline =
     'No Field action is currently available.';
 
-  if (remaining <= 0) {
-    phase = 'COMPLETE';
+  if (
+    remaining <= 0
+  ) {
+    phase =
+      'COMPLETE';
+
     headline =
       'The requested requirement is complete.';
-  } else if (returned.length) {
+  } else if (
+    returned.length
+  ) {
     phase =
       'FIELD_REVIEW_REQUIRED';
 
     headline =
       'Admin returned a backorder request for Field review.';
-  } else if (bags.length) {
+  } else if (
+    bags.length
+  ) {
     phase =
       'ISSUE_RESERVED';
 
     headline =
       'Reserved material is ready to issue from an active Bag & Tag.';
-  } else if (available > 0) {
+  } else if (
+    available > 0
+  ) {
     phase =
       'ISSUE_OR_RESERVE_AVAILABLE';
 
@@ -414,8 +437,11 @@ function buildFieldWorkflowFmrV3_(
   }
 
   return {
-    phase: phase,
-    headline: headline,
+    phase:
+      phase,
+
+    headline:
+      headline,
 
     isComplete:
       remaining <= 0,
@@ -435,9 +461,11 @@ function buildFieldWorkflowFmrV3_(
     availableActionCount:
       actions.length,
 
-    actions: actions
+    actions:
+      actions
   };
 }
+
 function serializeLineForPortalFmrV3_(
   line,
   activeBags,

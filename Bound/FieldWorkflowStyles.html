@@ -933,4 +933,67 @@
     }
   }
 
+
+  /* Sprint 2E transaction feedback and metadata controls */
+  .field-authenticated-performer[readonly] {
+    border-color: #d0d5dd;
+    background: #f2f4f7;
+    color: #344054;
+    cursor: not-allowed;
+  }
+
+  .field-action-progress {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 12px 0 2px;
+    padding: 10px 12px;
+    border: 1px solid #b2ddff;
+    border-radius: 8px;
+    background: #eff8ff;
+    color: #175cd3;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .field-action-progress.hidden {
+    display: none;
+  }
+
+  .field-action-progress-spinner {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border: 2px solid rgba(23, 92, 211, 0.24);
+    border-top-color: #175cd3;
+    border-radius: 50%;
+    animation: field-action-spin 700ms linear infinite;
+  }
+
+  #actionForm[aria-busy="true"] #modalFields {
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  #actionForm[aria-busy="true"] .button-row {
+    cursor: wait;
+  }
+
+  #modalClose:disabled {
+    opacity: 0.35;
+    cursor: wait;
+  }
+
+  @keyframes field-action-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .field-action-progress-spinner {
+      animation-duration: 1400ms;
+    }
+  }
+
 </style>

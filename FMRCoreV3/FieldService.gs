@@ -1,16 +1,55 @@
 function getFieldBootstrapFmrV3_(userEmail) {
-  const user = assertSearchUserFmrV3_(userEmail);
+  const user =
+    assertSearchUserFmrV3_(
+      userEmail
+    );
 
   return {
-    version: FMR_V3.VERSION,
-    user: user,
+    version:
+      FMR_V3.VERSION,
+
+    user:
+      user,
+
     options: {
-      backorderReasons: getListValuesFmrV3_('BACKORDER_REASON'),
-      uoms: getListValuesFmrV3_('UOM')
+      backorderReasons:
+        getListValuesFmrV3_(
+          'BACKORDER_REASON'
+        ),
+
+      uoms:
+        getListValuesFmrV3_(
+          'UOM'
+        ),
+
+      storageLocations:
+        configuredStorageLocationsFmrV3_()
+    },
+
+    metadataPolicy: {
+      authenticatedPerformer:
+        true,
+
+      storageLocationMode:
+        'CONFIGURED_LIST',
+
+      storageLocationRequiredFor: [
+        FMR_V3.ACTIONS
+          .CONFIRM_AVAILABLE,
+
+        FMR_V3.ACTIONS.BAG
+      ],
+
+      storageLocationOptionalFor: [
+        FMR_V3.ACTIONS
+          .DIRECT_ISSUE
+      ],
+
+      notesMaximumLength:
+        500
     }
   };
 }
-
 function lineStateFmrV3_(line) {
   return {
     requested: numberFmrV3_(line.Qty_Requested),
@@ -145,41 +184,114 @@ function finishLineActionFmrV3_(
   };
 }
 
-function performFieldActionFmrV3_(userEmail, request) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+function performFieldActionFmrV3_(
+  userEmail,
+  request
+) {
+  const lock =
+    LockService
+      .getScriptLock();
+
+  lock.waitLock(
+    30000
+  );
 
   try {
-    const user = assertFieldUserFmrV3_(userEmail);
-    const payload = request || {};
-    const action = normalizeUpperFmrV3_(payload.action);
-    const line = getLineByIdFmrV3_(payload.fmrLineId);
+    const user =
+      assertFieldUserFmrV3_(
+        userEmail
+      );
 
-    if (!yesFmrV3_(line.Active)) {
-      throw new Error('The selected FMR line is inactive.');
+    const rawPayload =
+      request || {};
+
+    const action =
+      normalizeUpperFmrV3_(
+        rawPayload.action
+      );
+
+    const line =
+      getLineByIdFmrV3_(
+        rawPayload.fmrLineId
+      );
+
+    if (
+      !yesFmrV3_(
+        line.Active
+      )
+    ) {
+      throw new Error(
+        'The selected FMR line is inactive.'
+      );
     }
 
-    switch (action) {
-      case FMR_V3.ACTIONS.CONFIRM_AVAILABLE:
-        return confirmAvailableFmrV3_(user, line, payload);
+    const payload =
+      normalizeFieldActionMetadataFmrV3_(
+        user,
+        action,
+        rawPayload
+      );
+
+    switch (
+      action
+    ) {
+      case FMR_V3.ACTIONS
+        .CONFIRM_AVAILABLE:
+        return confirmAvailableFmrV3_(
+          user,
+          line,
+          payload
+        );
+
       case FMR_V3.ACTIONS.BAG:
-        return bagMaterialFmrV3_(user, line, payload);
-      case FMR_V3.ACTIONS.DIRECT_ISSUE:
-        return directIssueFmrV3_(user, line, payload);
-      case FMR_V3.ACTIONS.ISSUE_FROM_AVAILABLE:
-        return issueAvailableFmrV3_(user, line, payload);
-      case FMR_V3.ACTIONS.ISSUE_FROM_BAG:
-        return issueFromBagFmrV3_(user, line, payload);
-      case FMR_V3.ACTIONS.BACKORDER_REQUESTED:
-        return submitBackorderFmrV3_(user, line, payload);
+        return bagMaterialFmrV3_(
+          user,
+          line,
+          payload
+        );
+
+      case FMR_V3.ACTIONS
+        .DIRECT_ISSUE:
+        return directIssueFmrV3_(
+          user,
+          line,
+          payload
+        );
+
+      case FMR_V3.ACTIONS
+        .ISSUE_FROM_AVAILABLE:
+        return issueAvailableFmrV3_(
+          user,
+          line,
+          payload
+        );
+
+      case FMR_V3.ACTIONS
+        .ISSUE_FROM_BAG:
+        return issueFromBagFmrV3_(
+          user,
+          line,
+          payload
+        );
+
+      case FMR_V3.ACTIONS
+        .BACKORDER_REQUESTED:
+        return submitBackorderFmrV3_(
+          user,
+          line,
+          payload
+        );
+
       default:
-        throw new Error(`Unsupported Field action: ${action}`);
+        throw new Error(
+          'Unsupported Field action: ' +
+          action
+        );
     }
   } finally {
     lock.releaseLock();
   }
 }
-
 
 
 

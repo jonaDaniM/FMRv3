@@ -13,6 +13,12 @@
       adminRegisterPage: 1,
       adminRegisterPageSize: 25,
       adminRegisterData: null,
+      fieldExpandedLineIds: new Set(),
+      fieldFilterValues: {},
+      fieldSearchSequence: 0,
+      fieldTransactionBusy: false,
+      lastFieldQuery: '',
+      lastFieldMode: '',
       busy: false
     };
 
@@ -172,24 +178,79 @@
     }
 
     async function searchFieldV3_() {
+      return runFieldSearchV3_({
+        preserveView:
+          false,
+
+        silent:
+          false
+      });
+    }
+
+    async function runFieldSearchV3_(
+      options
+    ) {
+      const settings =
+        options || {};
+
       const query =
-        byId('searchQuery').value.trim();
+        byId(
+          'searchQuery'
+        ).value.trim();
 
       const mode =
-        byId('searchMode').value;
+        byId(
+          'searchMode'
+        ).value;
 
       if (!query) {
-        byId('fieldStatus').textContent =
+        byId(
+          'fieldStatus'
+        ).textContent =
           'Enter an FMR number or a combined ISO and sheet.';
-        return;
+
+        return null;
       }
 
-      hideAlertsV3_();
+      if (
+        settings.preserveView
+      ) {
+        captureFieldViewStateV3_();
+      } else if (
+        query !==
+          state.lastFieldQuery ||
+        mode !==
+          state.lastFieldMode
+      ) {
+        state
+          .fieldExpandedLineIds
+          .clear();
 
-      byId('fieldStatus').textContent =
-        'Loading indexed records…';
+        state.fieldFilterValues =
+          {};
+      }
 
-      setBusyV3_(true);
+      if (
+        !settings.silent
+      ) {
+        hideAlertsV3_();
+
+        byId(
+          'fieldStatus'
+        ).textContent =
+          'Loading indexed records…';
+
+        setBusyV3_(
+          true
+        );
+      }
+
+      const sequence =
+        state.fieldSearchSequence +
+        1;
+
+      state.fieldSearchSequence =
+        sequence;
 
       try {
         const data =
@@ -199,22 +260,76 @@
             mode
           );
 
-        state.fieldData = data;
+        if (
+          sequence !==
+          state.fieldSearchSequence
+        ) {
+          return null;
+        }
 
-        byId('fieldStatus').textContent =
-          `${data.resultCount} matching FMR(s) · ${data.generatedAt}`;
+        state.fieldData =
+          data;
+
+        state.lastFieldQuery =
+          query;
+
+        state.lastFieldMode =
+          mode;
+
+        byId(
+          'fieldStatus'
+        ).textContent =
+          (
+            `${data.resultCount} matching FMR(s) · ` +
+            `${data.generatedAt}`
+          );
 
         renderFieldResultsV3_(
           data.cards || []
         );
-      } catch (error) {
-        byId('fieldStatus').textContent = '';
-        showErrorV3_(error);
+
+        return data;
+      } catch (
+        error
+      ) {
+        if (
+          settings.silent
+        ) {
+          byId(
+            'fieldStatus'
+          ).textContent =
+            (
+              'The transaction was saved, but automatic verification ' +
+              'did not finish. Run Search to refresh the indexed state.'
+            );
+
+          console.error(
+            error
+          );
+
+          return null;
+        }
+
+        byId(
+          'fieldStatus'
+        ).textContent =
+          '';
+
+        showErrorV3_(
+          error
+        );
+
+        throw error;
       } finally {
-        setBusyV3_(false);
+        if (
+          !settings.silent
+        ) {
+          setBusyV3_(
+            false
+          );
+        }
       }
     }
-
     function renderFieldResultsV3_(cards) {
       const container =
         byId('fieldResults');
@@ -236,7 +351,12 @@
           return `
             <article
               class="fmr-card field-fmr-card"
-              data-field-fmr-card>
+              data-field-fmr-card
+              data-field-fmr-number="${
+                escapeAttributeV3_(
+                  card.fmrNumber
+                )
+              }">
 
               <div class="section-heading field-fmr-heading">
                 <div>
@@ -370,6 +490,8 @@
             }
           );
         });
+
+      restoreFieldViewStateV3_();
     }
 
     function toggleFieldLineV3_(
@@ -393,30 +515,80 @@
         return;
       }
 
-      const willExpand =
+      setFieldLineExpandedV3_(
+        card,
         expanded.hasAttribute(
+          'hidden'
+        )
+      );
+    }
+
+    function setFieldLineExpandedV3_(
+      card,
+      expanded
+    ) {
+      if (!card) {
+        return;
+      }
+
+      const lineId =
+        String(
+          card.dataset
+            .fieldLineId ||
+          ''
+        );
+
+      const detail =
+        card.querySelector(
+          '[data-field-line-expanded]'
+        );
+
+      const button =
+        card.querySelector(
+          '[data-field-line-toggle]'
+        );
+
+      if (!detail) {
+        return;
+      }
+
+      if (expanded) {
+        detail.removeAttribute(
           'hidden'
         );
 
-      if (willExpand) {
-        expanded.removeAttribute(
-          'hidden'
-        );
+        state
+          .fieldExpandedLineIds
+          .add(
+            lineId
+          );
       } else {
-        expanded.setAttribute(
+        detail.setAttribute(
           'hidden',
           ''
         );
+
+        state
+          .fieldExpandedLineIds
+          .delete(
+            lineId
+          );
       }
 
       card.classList.toggle(
         'is-expanded',
-        willExpand
+        expanded
       );
+
+      if (!button) {
+        return;
+      }
 
       button.setAttribute(
         'aria-expanded',
-        String(willExpand)
+        String(
+          expanded
+        )
       );
 
       const label =
@@ -426,18 +598,161 @@
 
       if (label) {
         label.textContent =
-          willExpand
+          expanded
             ? (
-                button.dataset.expandedLabel ||
+                button.dataset
+                  .expandedLabel ||
                 'Hide details'
               )
             : (
-                button.dataset.collapsedLabel ||
+                button.dataset
+                  .collapsedLabel ||
                 'Details'
               );
       }
     }
 
+    function fieldFmrViewKeyV3_(
+      card
+    ) {
+      return String(
+        card &&
+        card.dataset
+          ? (
+              card.dataset
+                .fieldFmrNumber ||
+              ''
+            )
+          : ''
+      );
+    }
+
+    function captureFieldViewStateV3_() {
+      const container =
+        byId(
+          'fieldResults'
+        );
+
+      if (!container) {
+        return;
+      }
+
+      container
+        .querySelectorAll(
+          '[data-field-line-id]'
+        )
+        .forEach(
+          card => {
+            const detail =
+              card.querySelector(
+                '[data-field-line-expanded]'
+              );
+
+            if (
+              detail &&
+              !detail.hasAttribute(
+                'hidden'
+              )
+            ) {
+              state
+                .fieldExpandedLineIds
+                .add(
+                  card.dataset
+                    .fieldLineId
+                );
+            }
+          }
+        );
+
+      container
+        .querySelectorAll(
+          '[data-field-material-filter]'
+        )
+        .forEach(
+          input => {
+            const card =
+              input.closest(
+                '[data-field-fmr-card]'
+              );
+
+            const key =
+              fieldFmrViewKeyV3_(
+                card
+              );
+
+            if (key) {
+              state.fieldFilterValues[
+                key
+              ] =
+                input.value || '';
+            }
+          }
+        );
+    }
+
+    function restoreFieldViewStateV3_() {
+      const container =
+        byId(
+          'fieldResults'
+        );
+
+      if (!container) {
+        return;
+      }
+
+      container
+        .querySelectorAll(
+          '[data-field-line-id]'
+        )
+        .forEach(
+          card => {
+            setFieldLineExpandedV3_(
+              card,
+              state
+                .fieldExpandedLineIds
+                .has(
+                  card.dataset
+                    .fieldLineId
+                )
+            );
+          }
+        );
+
+      container
+        .querySelectorAll(
+          '[data-field-material-filter]'
+        )
+        .forEach(
+          input => {
+            const card =
+              input.closest(
+                '[data-field-fmr-card]'
+              );
+
+            const key =
+              fieldFmrViewKeyV3_(
+                card
+              );
+
+            const value =
+              key
+                ? (
+                    state
+                      .fieldFilterValues[
+                        key
+                      ] || ''
+                  )
+                : '';
+
+            input.value =
+              value;
+
+            applyFieldMaterialFilterV3_(
+              input
+            );
+          }
+        );
+    }
     function applyFieldMaterialFilterV3_(
       input
     ) {
@@ -456,6 +771,18 @@
         )
           .trim()
           .toLowerCase();
+
+      const key =
+        fieldFmrViewKeyV3_(
+          card
+        );
+
+      if (key) {
+        state.fieldFilterValues[
+          key
+        ] =
+          input.value || '';
+      }
 
       const lines =
         Array.from(
@@ -1548,6 +1875,10 @@
         .classList
         .remove('hidden');
 
+      setFieldActionBusyV3_(
+        false
+      );
+
       const bagSelect =
         byId('actionBagTag');
 
@@ -1676,6 +2007,29 @@
             )
           : [];
 
+      const storageLocations =
+        state.bootstrap &&
+        state.bootstrap.field &&
+        state.bootstrap.field.options
+          ? (
+              state.bootstrap
+                .field
+                .options
+                .storageLocations || []
+            )
+          : [];
+
+      const currentStorageLocation =
+        storageLocations.find(
+          location =>
+            String(
+              location || ''
+            ).toUpperCase() ===
+            String(
+              material.storageLocation || ''
+            ).toUpperCase()
+        ) || '';
+
       const fields = [];
 
       fields.push(`
@@ -1722,6 +2076,22 @@
               )
             }
           </p>
+        </div>
+
+        <div
+          id="fieldActionProgress"
+          class="field-action-progress hidden"
+          role="status"
+          aria-live="polite">
+
+          <span
+            class="field-action-progress-spinner"
+            aria-hidden="true">
+          </span>
+
+          <span data-field-action-progress-text>
+            Saving transaction…
+          </span>
         </div>
       `);
 
@@ -1857,22 +2227,51 @@
           <label>
             Storage Location
 
-            <input
+            <select
               id="actionStorageLocation"
-              autocomplete="off"
-              value="${
-                escapeAttributeV3_(
-                  material.storageLocation ||
-                  ''
-                )
-              }"
               ${required(
                 'storageLocation'
               )}>
+
+              <option value="">
+                ${
+                  required(
+                    'storageLocation'
+                  )
+                    ? 'Select a configured location'
+                    : 'No storage location'
+                }
+              </option>
+
+              ${storageLocations.map(location => `
+                <option
+                  value="${
+                    escapeAttributeV3_(
+                      location
+                    )
+                  }"
+                  ${
+                    location ===
+                    currentStorageLocation
+                      ? 'selected'
+                      : ''
+                  }>
+
+                  ${
+                    escapeHtmlV3_(
+                      location
+                    )
+                  }
+                </option>
+              `).join('')}
+            </select>
+
+            <span class="workflow-field-hint">
+              Only locations configured by the System Owner are accepted.
+            </span>
           </label>
         `);
       }
-
       if (
         hasField('reason')
       ) {
@@ -1915,6 +2314,7 @@
 
             <input
               id="actionPerformedBy"
+              class="field-authenticated-performer"
               autocomplete="name"
               value="${
                 escapeAttributeV3_(
@@ -1922,9 +2322,15 @@
                   state.bootstrap.user.email
                 )
               }"
+              readonly
+              aria-readonly="true"
               ${required(
                 'performedByName'
               )}>
+
+            <span class="workflow-field-hint">
+              Recorded from the authenticated Google account.
+            </span>
           </label>
         `);
       }
@@ -1939,6 +2345,7 @@
             <textarea
               id="actionNotes"
               rows="3"
+              maxlength="500"
               ${required('notes')}></textarea>
           </label>
         `);
@@ -2016,23 +2423,35 @@
     ) {
       event.preventDefault();
 
-      const quantityInput =
-        byId('actionQuantity');
-
       if (
-        quantityInput &&
-        !quantityInput.checkValidity()
+        state.fieldTransactionBusy
       ) {
-        quantityInput.reportValidity();
         return;
       }
+
+      const form =
+        byId(
+          'actionForm'
+        );
+
+      if (
+        form &&
+        !form.checkValidity()
+      ) {
+        form.reportValidity();
+        return;
+      }
+
+      const lineId =
+        state.activeMaterial
+          .fmrLineId;
 
       const request = {
         action:
           state.activeAction,
 
         fmrLineId:
-          state.activeMaterial.fmrLineId,
+          lineId,
 
         quantity:
           numberValueV3_(
@@ -2070,8 +2489,13 @@
           )
       };
 
-      byId('modalSubmit').disabled =
-        true;
+      const started =
+        Date.now();
+
+      setFieldActionBusyV3_(
+        true,
+        'Saving transaction and updating material quantities…'
+      );
 
       try {
         const result =
@@ -2080,22 +2504,374 @@
             request
           );
 
-        closeActionModalV3_();
+        state
+          .fieldExpandedLineIds
+          .add(
+            lineId
+          );
 
-        showSuccessV3_(
-          result.message
+        applyFieldActionResultV3_(
+          result
         );
 
-        await searchFieldV3_();
-      } catch (error) {
-        showErrorV3_(error);
-      } finally {
-        byId('modalSubmit').disabled =
-          false;
+        setFieldActionBusyV3_(
+          false
+        );
+
+        closeActionModalV3_();
+
+        const elapsedSeconds =
+          Math.max(
+            0.1,
+            (
+              Date.now() -
+              started
+            ) /
+            1000
+          ).toFixed(
+            1
+          );
+
+        showSuccessV3_(
+          (
+            (
+              result.message ||
+              'Field transaction completed.'
+            ) +
+            ' Saved in ' +
+            elapsedSeconds +
+            ' seconds.'
+          )
+        );
+
+        byId(
+          'fieldStatus'
+        ).textContent =
+          'Saved. Verifying the current indexed state…';
+
+        await runFieldSearchV3_({
+          preserveView:
+            true,
+
+          silent:
+            true
+        });
+      } catch (
+        error
+      ) {
+        setFieldActionBusyV3_(
+          false
+        );
+
+        showErrorV3_(
+          error
+        );
       }
     }
 
+    function setFieldActionBusyV3_(
+      busy,
+      message
+    ) {
+      state.fieldTransactionBusy =
+        Boolean(
+          busy
+        );
+
+      const form =
+        byId(
+          'actionForm'
+        );
+
+      const submit =
+        byId(
+          'modalSubmit'
+        );
+
+      const cancel =
+        byId(
+          'modalCancel'
+        );
+
+      const close =
+        byId(
+          'modalClose'
+        );
+
+      const progress =
+        byId(
+          'fieldActionProgress'
+        );
+
+      if (form) {
+        form.setAttribute(
+          'aria-busy',
+          String(
+            state
+              .fieldTransactionBusy
+          )
+        );
+      }
+
+      if (submit) {
+        submit.disabled =
+          state
+            .fieldTransactionBusy;
+
+        submit.textContent =
+          state
+            .fieldTransactionBusy
+            ? 'Saving…'
+            : 'Submit';
+      }
+
+      if (cancel) {
+        cancel.disabled =
+          state
+            .fieldTransactionBusy;
+      }
+
+      if (close) {
+        close.disabled =
+          state
+            .fieldTransactionBusy;
+      }
+
+      if (progress) {
+        progress.classList.toggle(
+          'hidden',
+          !state
+            .fieldTransactionBusy
+        );
+
+        const text =
+          progress.querySelector(
+            '[data-field-action-progress-text]'
+          );
+
+        if (text) {
+          text.textContent =
+            message ||
+            'Saving transaction…';
+        }
+      }
+    }
+
+    function applyFieldActionResultV3_(
+      result
+    ) {
+      const updatedLine =
+        result &&
+        result.line
+          ? result.line
+          : null;
+
+      if (
+        !updatedLine ||
+        !state.fieldData ||
+        !Array.isArray(
+          state.fieldData.cards
+        )
+      ) {
+        return;
+      }
+
+      state.fieldData.cards
+        .some(
+          card => {
+            const materials =
+              card.materials || [];
+
+            const index =
+              materials.findIndex(
+                material =>
+                  material.fmrLineId ===
+                  updatedLine.fmrLineId
+              );
+
+            if (
+              index < 0
+            ) {
+              return false;
+            }
+
+            materials[
+              index
+            ] =
+              updatedLine;
+
+            card.materials =
+              materials;
+
+            card.totals =
+              calculateFieldCardTotalsV3_(
+                materials
+              );
+
+            card.status =
+              calculateFieldCardStatusV3_(
+                card.totals
+              );
+
+            return true;
+          }
+        );
+
+      renderFieldResultsV3_(
+        state.fieldData.cards
+      );
+    }
+
+    function calculateFieldCardTotalsV3_(
+      materials
+    ) {
+      const total =
+        fieldName =>
+          (
+            materials || []
+          ).reduce(
+            (
+              sum,
+              material
+            ) =>
+              sum +
+              Number(
+                material[
+                  fieldName
+                ] ||
+                0
+              ),
+            0
+          );
+
+      const requested =
+        total(
+          'qtyRequested'
+        );
+
+      const issued =
+        total(
+          'qtyIssued'
+        );
+
+      return {
+        requested:
+          requested,
+
+        located:
+          total(
+            'qtyConfirmedLocated'
+          ),
+
+        bagged:
+          total(
+            'qtyActiveBagged'
+          ),
+
+        available:
+          total(
+            'qtyAvailable'
+          ),
+
+        issued:
+          issued,
+
+        pendingBackorder:
+          total(
+            'qtyPendingBackorder'
+          ),
+
+        confirmedBackorder:
+          total(
+            'qtyConfirmedBackorder'
+          ),
+
+        remaining:
+          total(
+            'qtyRemainingRequirement'
+          ),
+
+        fulfillmentPct:
+          requested > 0
+            ? issued /
+              requested
+            : 0
+      };
+    }
+
+    function calculateFieldCardStatusV3_(
+      totals
+    ) {
+      const stateValue =
+        totals || {};
+
+      if (
+        Number(
+          stateValue.remaining ||
+          0
+        ) <= 0 &&
+        Number(
+          stateValue.requested ||
+          0
+        ) > 0
+      ) {
+        return 'Issued';
+      }
+
+      if (
+        Number(
+          stateValue.issued ||
+          0
+        ) > 0
+      ) {
+        return 'Partially Issued';
+      }
+
+      if (
+        Number(
+          stateValue.confirmedBackorder ||
+          0
+        ) > 0
+      ) {
+        return 'Backordered';
+      }
+
+      if (
+        Number(
+          stateValue.pendingBackorder ||
+          0
+        ) > 0
+      ) {
+        return 'Pending Backorder';
+      }
+
+      if (
+        Number(
+          stateValue.bagged ||
+          0
+        ) > 0
+      ) {
+        return 'Partially Bagged';
+      }
+
+      if (
+        Number(
+          stateValue.located ||
+          0
+        ) > 0
+      ) {
+        return 'Partially Located';
+      }
+
+      return 'Published';
+    }
     function closeActionModalV3_() {
+      if (
+        state.fieldTransactionBusy
+      ) {
+        return;
+      }
+
       byId('actionModal')
         .classList
         .add('hidden');

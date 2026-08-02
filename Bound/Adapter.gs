@@ -1232,3 +1232,122 @@ function getBoundFieldAcceptanceSnapshotV3() {
 
   return output;
 }
+
+function verifyBoundFieldMetadataContractV3() {
+  const started =
+    Date.now();
+
+  const bootstrap =
+    getPortalBootstrapV3();
+
+  const coreVersion =
+    bootstrap.version ||
+    FMRCoreV3.getFmrV3Version();
+
+  const field =
+    bootstrap.field || {};
+
+  const options =
+    field.options || {};
+
+  const policy =
+    field.metadataPolicy || {};
+
+  const storageLocations =
+    Array.isArray(
+      options.storageLocations
+    )
+      ? options.storageLocations
+      : [];
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        7
+      ) &&
+      Boolean(
+        bootstrap.user
+      ) &&
+      storageLocations.length > 0 &&
+      storageLocations.every(
+        function (
+          location
+        ) {
+          return (
+            Boolean(
+              location
+            ) &&
+            String(
+              location
+            ) ===
+            String(
+              location
+            ).toUpperCase()
+          );
+        }
+      ) &&
+      policy.authenticatedPerformer ===
+        true &&
+      policy.storageLocationMode ===
+        'CONFIGURED_LIST' &&
+      Array.isArray(
+        policy.storageLocationRequiredFor
+      ) &&
+      policy
+        .storageLocationRequiredFor
+        .includes(
+          'CONFIRM_AVAILABLE'
+        ) &&
+      policy
+        .storageLocationRequiredFor
+        .includes(
+          'BAG'
+        ),
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    authenticatedUser:
+      bootstrap.user
+        ? bootstrap.user.email
+        : '',
+
+    authenticatedPerformer:
+      bootstrap.user
+        ? (
+            bootstrap.user.name ||
+            bootstrap.user.email
+          )
+        : '',
+
+    storageLocations:
+      storageLocations,
+
+    metadataPolicy:
+      policy
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Field metadata contract failed.'
+    );
+  }
+
+  return output;
+}
