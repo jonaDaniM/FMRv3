@@ -6021,6 +6021,15 @@
           true
         );
 
+        if (
+          !result ||
+          !result.overallStatus
+        ) {
+          throw new Error(
+            'The health check completed, but no serialized status was returned. Refresh Operations and retry.'
+          );
+        }
+
         showSuccessV3_(
           (
             'Operational health check completed: ' +

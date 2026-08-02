@@ -444,6 +444,25 @@ function saveSystemConfigurationV3(
   );
 }
 
+function serializeBoundResponseV3_(
+  value
+) {
+  if (
+    value ===
+      undefined ||
+    value ===
+      null
+  ) {
+    return null;
+  }
+
+  return JSON.parse(
+    JSON.stringify(
+      value
+    )
+  );
+}
+
 function getOperationsCenterV3() {
   const center =
     FMRCoreV3.getFmrV3OperationsCenter(
@@ -455,14 +474,21 @@ function getOperationsCenterV3() {
   center.schedule =
     getBoundOperationsScheduleV3();
 
-  return center;
+  return serializeBoundResponseV3_(
+    center
+  );
 }
 
 function runOperationalHealthV3() {
-  return FMRCoreV3.runFmrV3OperationalHealth(
-    boundDatabaseIdFmrV3_(),
-    callerEmailFmrV3_(),
-    'MANUAL'
+  const health =
+    FMRCoreV3.runFmrV3OperationalHealth(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      'MANUAL'
+    );
+
+  return serializeBoundResponseV3_(
+    health
   );
 }
 
@@ -508,10 +534,15 @@ function applyRecoveryV3(
 }
 
 function runBoundScheduledOperationsV3() {
-  return FMRCoreV3.runFmrV3ScheduledOperations(
-    boundDatabaseIdFmrV3_(),
-    scheduledCallerEmailFmrV3_(),
-    activeBoundEnvironmentV3_()
+  const result =
+    FMRCoreV3.runFmrV3ScheduledOperations(
+      boundDatabaseIdFmrV3_(),
+      scheduledCallerEmailFmrV3_(),
+      activeBoundEnvironmentV3_()
+    );
+
+  return serializeBoundResponseV3_(
+    result
   );
 }
 
