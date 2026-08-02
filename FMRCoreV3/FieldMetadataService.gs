@@ -3,7 +3,7 @@ const FMR_V3_FIELD_METADATA =
     storageListName:
       'STORAGE_LOCATION',
 
-    initialStorageLocations:
+    initialStorageSuggestions:
       Object.freeze([
         'V3-TEST-LAYDOWN'
       ]),
@@ -19,7 +19,13 @@ const FMR_V3_FIELD_METADATA =
       Object.freeze([
         'CONFIRM_AVAILABLE',
         'BAG'
-      ])
+      ]),
+
+    storageMaximumLength:
+      100,
+
+    notesMaximumLength:
+      500
   });
 
 function configuredStorageLocationsFmrV3_() {
@@ -32,7 +38,7 @@ function configuredStorageLocationsFmrV3_() {
         function (
           value
         ) {
-          return normalizeUpperFmrV3_(
+          return normalizeStorageLocationFmrV3_(
             value
           );
         }
@@ -41,63 +47,42 @@ function configuredStorageLocationsFmrV3_() {
   ).sort();
 }
 
-function canonicalStorageLocationFmrV3_(
+function normalizeStorageLocationFmrV3_(
+  value
+) {
+  return normalizeUpperFmrV3_(
+    value
+  )
+    .replace(
+      /\s+/g,
+      ' '
+    )
+    .slice(
+      0,
+      FMR_V3_FIELD_METADATA
+        .storageMaximumLength
+    );
+}
+
+function validateStorageLocationFmrV3_(
   value,
   required
 ) {
   const normalized =
-    normalizeUpperFmrV3_(
+    normalizeStorageLocationFmrV3_(
       value
     );
 
-  if (!normalized) {
-    if (required) {
-      throw new Error(
-        'Choose a configured Storage Location.'
-      );
-    }
-
-    return '';
-  }
-
-  const configured =
-    configuredStorageLocationsFmrV3_();
-
-  if (!configured.length) {
+  if (
+    required &&
+    !normalized
+  ) {
     throw new Error(
-      'No active Storage Locations are configured. ' +
-      'A System Owner must add STORAGE_LOCATION values to the Lists sheet.'
+      'Storage Location is required.'
     );
   }
 
-  const match =
-    configured.find(
-      function (
-        location
-      ) {
-        return (
-          normalizeUpperFmrV3_(
-            location
-          ) ===
-          normalized
-        );
-      }
-    );
-
-  if (!match) {
-    throw new Error(
-      (
-        'Storage Location "' +
-        normalizeFmrV3_(
-          value
-        ) +
-        '" is not configured. Choose one of: ' +
-        configured.join(', ')
-      )
-    );
-  }
-
-  return match;
+  return normalized;
 }
 
 function normalizeFieldNotesFmrV3_(
@@ -112,7 +97,8 @@ function normalizeFieldNotesFmrV3_(
     )
     .slice(
       0,
-      500
+      FMR_V3_FIELD_METADATA
+        .notesMaximumLength
     );
 }
 
@@ -161,7 +147,7 @@ function normalizeFieldActionMetadataFmrV3_(
       )
   ) {
     payload.storageLocation =
-      canonicalStorageLocationFmrV3_(
+      validateStorageLocationFmrV3_(
         payload.storageLocation,
         FMR_V3_FIELD_METADATA
           .requiredStorageActions
@@ -213,7 +199,7 @@ function seedFmrV3FieldMetadataLists() {
         )
       ) {
         existing[
-          normalizeUpperFmrV3_(
+          normalizeStorageLocationFmrV3_(
             row.Value
           )
         ] = true;
@@ -251,13 +237,13 @@ function seedFmrV3FieldMetadataLists() {
   const inserted = [];
 
   FMR_V3_FIELD_METADATA
-    .initialStorageLocations
+    .initialStorageSuggestions
     .forEach(
       function (
         location
       ) {
         const normalized =
-          normalizeUpperFmrV3_(
+          normalizeStorageLocationFmrV3_(
             location
           );
 
@@ -302,17 +288,14 @@ function seedFmrV3FieldMetadataLists() {
 
   SpreadsheetApp.flush();
 
-  const correlationId =
-    uuidFmrV3_(
-      'CORR'
-    );
-
   appendAuditFmrV3_(
     'SYSTEM',
     'FIELD_METADATA_LISTS',
     'FIELD_METADATA_LISTS_SEEDED',
     user,
-    correlationId,
+    uuidFmrV3_(
+      'CORR'
+    ),
     {
       sourceInterface:
         'MIGRATION',
@@ -321,8 +304,11 @@ function seedFmrV3FieldMetadataLists() {
         inserted:
           inserted,
 
-        configured:
-          configuredStorageLocationsFmrV3_()
+        configuredSuggestions:
+          configuredStorageLocationsFmrV3_(),
+
+        storageLocationMode:
+          'FREE_TEXT_WITH_SUGGESTIONS'
       }
     }
   );
@@ -335,7 +321,7 @@ function seedFmrV3FieldMetadataLists() {
       diagnostic.passed,
 
     migration:
-      'ALPHA7_FIELD_METADATA_LISTS',
+      'ALPHA7_FIELD_METADATA_SUGGESTIONS',
 
     performedBy:
       user.email,
@@ -346,8 +332,8 @@ function seedFmrV3FieldMetadataLists() {
     inserted:
       inserted,
 
-    configuredStorageLocations:
-      diagnostic.configuredStorageLocations,
+    configuredStorageSuggestions:
+      diagnostic.configuredStorageSuggestions,
 
     postDiagnostic:
       diagnostic
@@ -363,7 +349,7 @@ function seedFmrV3FieldMetadataLists() {
 
   if (!output.passed) {
     throw new Error(
-      'Field metadata list migration did not pass its post-diagnostic.'
+      'Field metadata suggestion migration did not pass its post-diagnostic.'
     );
   }
 
@@ -387,21 +373,33 @@ function inspectFmrV3FieldMetadataContract() {
       )
     );
 
-  const configured =
+  const suggestions =
     configuredStorageLocationsFmrV3_();
 
-  let invalidLocationRejected =
+  const newLocation =
+    validateStorageLocationFmrV3_(
+      '  north   warehouse  -  rack b14  ',
+      true
+    );
+
+  const misspelledLocation =
+    validateStorageLocationFmrV3_(
+      'v3-teset-laydown',
+      true
+    );
+
+  let emptyRequiredRejected =
     false;
 
   try {
-    canonicalStorageLocationFmrV3_(
-      'V3-TESET-LAYDOWN',
+    validateStorageLocationFmrV3_(
+      '',
       true
     );
   } catch (
     ignored
   ) {
-    invalidLocationRejected =
+    emptyRequiredRejected =
       true;
   }
 
@@ -414,10 +412,7 @@ function inspectFmrV3FieldMetadataContract() {
           'Jonathan Muratall',
 
         storageLocation:
-          configured.length
-            ? configured[0]
-                .toLowerCase()
-            : '',
+          ' north warehouse - row 4 ',
 
         notes:
           '  Metadata   diagnostic  '
@@ -426,20 +421,12 @@ function inspectFmrV3FieldMetadataContract() {
 
   const output = {
     passed:
-      configured.length > 0 &&
-      configured.every(
-        function (
-          location
-        ) {
-          return (
-            location ===
-            normalizeUpperFmrV3_(
-              location
-            )
-          );
-        }
-      ) &&
-      invalidLocationRejected &&
+      suggestions.length > 0 &&
+      newLocation ===
+        'NORTH WAREHOUSE - RACK B14' &&
+      misspelledLocation ===
+        'V3-TESET-LAYDOWN' &&
+      emptyRequiredRejected &&
       normalizedPayload
         .performedByName ===
         normalizeFmrV3_(
@@ -448,7 +435,7 @@ function inspectFmrV3FieldMetadataContract() {
         ) &&
       normalizedPayload
         .storageLocation ===
-        configured[0] &&
+        'NORTH WAREHOUSE - ROW 4' &&
       normalizedPayload
         .notes ===
         'Metadata diagnostic',
@@ -472,11 +459,20 @@ function inspectFmrV3FieldMetadataContract() {
         user.email
       ),
 
-    configuredStorageLocations:
-      configured,
+    storageLocationMode:
+      'FREE_TEXT_WITH_SUGGESTIONS',
 
-    invalidLocationRejected:
-      invalidLocationRejected,
+    configuredStorageSuggestions:
+      suggestions,
+
+    acceptsNewLocation:
+      newLocation,
+
+    preservesUnrecognizedText:
+      misspelledLocation,
+
+    emptyRequiredRejected:
+      emptyRequiredRejected,
 
     normalizedPayload:
       normalizedPayload

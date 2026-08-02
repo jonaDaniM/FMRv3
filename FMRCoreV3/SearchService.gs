@@ -334,7 +334,7 @@ function buildFieldWorkflowFmrV3_(
         [
           'notes'
         ],
-        'Record material as physically located at a configured storage location.'
+        'Record material as physically located at a specific storage location.'
       )
     );
   }
@@ -465,6 +465,7 @@ function buildFieldWorkflowFmrV3_(
       actions
   };
 }
+
 
 function serializeLineForPortalFmrV3_(
   line,

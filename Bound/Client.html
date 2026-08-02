@@ -2019,17 +2019,6 @@
             )
           : [];
 
-      const currentStorageLocation =
-        storageLocations.find(
-          location =>
-            String(
-              location || ''
-            ).toUpperCase() ===
-            String(
-              material.storageLocation || ''
-            ).toUpperCase()
-        ) || '';
-
       const fields = [];
 
       fields.push(`
@@ -2227,52 +2216,41 @@
           <label>
             Storage Location
 
-            <select
+            <input
               id="actionStorageLocation"
+              list="actionStorageLocationSuggestions"
+              autocomplete="off"
+              maxlength="100"
+              value="${
+                escapeAttributeV3_(
+                  material.storageLocation ||
+                  ''
+                )
+              }"
+              placeholder="Example: NORTH WAREHOUSE - RACK B14"
               ${required(
                 'storageLocation'
               )}>
 
-              <option value="">
-                ${
-                  required(
-                    'storageLocation'
-                  )
-                    ? 'Select a configured location'
-                    : 'No storage location'
-                }
-              </option>
-
+            <datalist id="actionStorageLocationSuggestions">
               ${storageLocations.map(location => `
                 <option
                   value="${
                     escapeAttributeV3_(
                       location
                     )
-                  }"
-                  ${
-                    location ===
-                    currentStorageLocation
-                      ? 'selected'
-                      : ''
-                  }>
-
-                  ${
-                    escapeHtmlV3_(
-                      location
-                    )
-                  }
+                  }">
                 </option>
               `).join('')}
-            </select>
+            </datalist>
 
             <span class="workflow-field-hint">
-              Only locations configured by the System Owner are accepted.
+              Enter the exact yard, warehouse, row, rack, or bin location.
+              Previous locations may appear as suggestions.
             </span>
           </label>
         `);
-      }
-      if (
+      }      if (
         hasField('reason')
       ) {
         fields.push(`

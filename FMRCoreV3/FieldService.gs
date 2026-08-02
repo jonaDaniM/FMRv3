@@ -31,7 +31,7 @@ function getFieldBootstrapFmrV3_(userEmail) {
         true,
 
       storageLocationMode:
-        'CONFIGURED_LIST',
+        'FREE_TEXT_WITH_SUGGESTIONS',
 
       storageLocationRequiredFor: [
         FMR_V3.ACTIONS
@@ -45,8 +45,13 @@ function getFieldBootstrapFmrV3_(userEmail) {
           .DIRECT_ISSUE
       ],
 
+      storageLocationMaximumLength:
+        FMR_V3_FIELD_METADATA
+          .storageMaximumLength,
+
       notesMaximumLength:
-        500
+        FMR_V3_FIELD_METADATA
+          .notesMaximumLength
     }
   };
 }
