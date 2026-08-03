@@ -82,7 +82,7 @@ const FMR_V3_BULK_IMPORT =
       }),
 
     parserVersion:
-      'ALPHA14_LINE_SUFFIX_V1',
+      'ALPHA16_FRACTION_SIZE_V1',
 
     settings:
       Object.freeze({
@@ -136,6 +136,9 @@ const FMR_V3_BULK_IMPORT =
 
         SIZE_MISSING:
           'SIZE_MISSING',
+
+        SIZE_DATE_COERCION_REPAIRED:
+          'SIZE_DATE_COERCION_REPAIRED',
 
         DESCRIPTION_MISSING:
           'DESCRIPTION_MISSING',
@@ -848,6 +851,75 @@ function splitBulkImportLineIdentityFmrV3_(
   };
 }
 
+function normalizeBulkImportSizeFmrV3_(
+  rawValue,
+  displayValue,
+  timezone
+) {
+  const displayed =
+    normalizeFmrV3_(
+      displayValue
+    );
+
+  if (
+    rawValue instanceof Date &&
+    !Number.isNaN(
+      rawValue.getTime()
+    )
+  ) {
+    const activeTimezone =
+      normalizeFmrV3_(
+        timezone
+      ) ||
+      Session.getScriptTimeZone() ||
+      'America/Indiana/Indianapolis';
+
+    const numerator =
+      Utilities.formatDate(
+        rawValue,
+        activeTimezone,
+        'd'
+      );
+
+    const denominator =
+      Utilities.formatDate(
+        rawValue,
+        activeTimezone,
+        'M'
+      );
+
+    return {
+      value:
+        numerator +
+        '/' +
+        denominator,
+
+      repaired:
+        true,
+
+      sourceDisplay:
+        displayed,
+
+      rule:
+        'DATE_OBJECT_TO_DAY_MONTH_FRACTION'
+    };
+  }
+
+  return {
+    value:
+      displayed,
+
+    repaired:
+      false,
+
+    sourceDisplay:
+      displayed,
+
+    rule:
+      'SOURCE_TEXT'
+  };
+}
+
 function normalizeBulkImportDateFmrV3_(
   value
 ) {
@@ -977,6 +1049,15 @@ function parseBulkImportWorksheetFmrV3_(
 
   const rawValues =
     range.getValues();
+
+  const sourceTimezone =
+    normalizeFmrV3_(
+      sheet
+        .getParent()
+        .getSpreadsheetTimeZone()
+    ) ||
+    Session.getScriptTimeZone() ||
+    'America/Indiana/Indianapolis';
 
   const issues = [];
 
@@ -1397,13 +1478,22 @@ function parseBulkImportWorksheetFmrV3_(
           ]
         );
 
-      const size =
-        normalizeFmrV3_(
+      const sizeNormalization =
+        normalizeBulkImportSizeFmrV3_(
+          rawRow[
+            header
+              .sizeColumn
+          ],
           displayRow[
             header
               .sizeColumn
-          ]
+          ],
+          sourceTimezone
         );
+
+      const size =
+        sizeNormalization
+          .value;
 
       const description =
         normalizeFmrV3_(
@@ -1453,6 +1543,32 @@ function parseBulkImportWorksheetFmrV3_(
         );
 
       const lineIssues = [];
+
+      if (
+        sizeNormalization
+          .repaired
+      ) {
+        lineIssues.push(
+          createBulkImportIssueObjectFmrV3_(
+            FMR_V3_BULK_IMPORT
+              .severity
+              .INFO,
+            FMR_V3_BULK_IMPORT
+              .issueCodes
+              .SIZE_DATE_COERCION_REPAIRED,
+            'Size',
+            lineNumber,
+            (
+              'Google conversion changed a fractional Size into a date. ' +
+              'The value was restored to "' +
+              size +
+              '".'
+            ),
+            sizeNormalization
+              .sourceDisplay
+          )
+        );
+      }
 
       if (!commodity) {
         lineIssues.push(
@@ -2324,17 +2440,20 @@ function persistBulkImportBatchFmrV3_(
           createBulkImportIssueObjectFmrV3_(
             FMR_V3_BULK_IMPORT
               .severity
-              .ERROR,
+              .WARNING,
             FMR_V3_BULK_IMPORT
               .issueCodes
               .ALREADY_STAGED,
             'Official FMR Number',
             0,
             (
-              'FMR Number already exists in staging: ' +
+              'FMR Number already exists in staging and will update ' +
+              'that staged record when selected: ' +
               officialFmrNumber
             ),
-            officialFmrNumber
+            normalizeFmrV3_(
+              staged.Staging_FMR_ID
+            )
           )
         );
       }
@@ -2459,7 +2578,11 @@ function persistBulkImportBatchFmrV3_(
             status,
 
           Staging_FMR_ID:
-            '',
+            staged
+              ? normalizeFmrV3_(
+                  staged.Staging_FMR_ID
+                )
+              : '',
 
           Existing_FMR_ID:
             published
@@ -4727,6 +4850,11 @@ function bulkImportStagePayloadFmrV3_(
   batch
 ) {
   return {
+    stagingFmrId:
+      normalizeFmrV3_(
+        item.Staging_FMR_ID
+      ),
+
     sourceFileId:
       batch.Source_File_ID,
 
@@ -5332,6 +5460,12 @@ function inspectFmrV3BulkImportContract() {
     sourceShtFieldMode:
       'IGNORED_SOURCE_EVIDENCE',
 
+    sizeDateCoercionMode:
+      'DATE_OBJECT_TO_DAY_MONTH_FRACTION',
+
+    existingStagingMode:
+      'EXPLICIT_UPDATE_IN_PLACE',
+
     sheets:
       sheets
   };
@@ -5406,7 +5540,7 @@ function migrateFmrV3BulkImport() {
         diagnostic.passed,
 
       migration:
-        'ALPHA14_LINE_NUMBER_SHEET_DERIVATION',
+        'ALPHA16_FRACTION_SIZE_NORMALIZATION',
 
       version:
         FMR_V3.VERSION,
@@ -5579,6 +5713,78 @@ function inspectFmrV3BulkImportBatch(
       }
     );
 
+  const batchIssues =
+    getUsedRowsFmrV3_(
+      FMR_V3_BULK_IMPORT
+        .sheets
+        .ISSUES
+    ).filter(
+      function (
+        row
+      ) {
+        return (
+          normalizeFmrV3_(
+            row.Batch_ID
+          ) ===
+          normalizeFmrV3_(
+            targetBatchId
+          )
+        );
+      }
+    );
+
+  const fractionRepairIssues =
+    batchIssues.filter(
+      function (
+        row
+      ) {
+        return (
+          normalizeUpperFmrV3_(
+            row.Issue_Code
+          ) ===
+          FMR_V3_BULK_IMPORT
+            .issueCodes
+            .SIZE_DATE_COERCION_REPAIRED
+        );
+      }
+    );
+
+  const repairedItemIds = {};
+
+  fractionRepairIssues.forEach(
+    function (
+      row
+    ) {
+      repairedItemIds[
+        normalizeFmrV3_(
+          row.Import_Item_ID
+        )
+      ] =
+        true;
+    }
+  );
+
+  const unrepairedDateLikeSizeCount =
+    lines.filter(
+      function (
+        line
+      ) {
+        const value =
+          normalizeFmrV3_(
+            line.Size
+          );
+
+        return (
+          /\b(?:GMT|STANDARD TIME|DAYLIGHT TIME)\b/i.test(
+            value
+          ) ||
+          /^(?:MON|TUE|WED|THU|FRI|SAT|SUN)\s/i.test(
+            value
+          )
+        );
+      }
+    ).length;
+
   const missingIsoSheetCount =
     items.filter(
       function (
@@ -5632,6 +5838,8 @@ function inspectFmrV3BulkImportBatch(
         lines.length &&
       derivedSheetCount ===
         items.length &&
+      unrepairedDateLikeSizeCount ===
+        0 &&
       items.every(
         function (
           item
@@ -5721,6 +5929,20 @@ function inspectFmrV3BulkImportBatch(
 
     operationalSheetComparison:
       'NUMERIC_EQUIVALENCE_TO_PRESERVED_SUFFIX',
+
+    fractionSizeRepairCount:
+      fractionRepairIssues.length,
+
+    fractionSizeRepairItemCount:
+      Object.keys(
+        repairedItemIds
+      ).length,
+
+    unrepairedDateLikeSizeCount:
+      unrepairedDateLikeSizeCount,
+
+    sizeDateCoercionMode:
+      'DATE_OBJECT_TO_DAY_MONTH_FRACTION',
 
     uomCounts: {
       EA:
