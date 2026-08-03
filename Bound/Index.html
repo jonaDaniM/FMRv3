@@ -978,6 +978,168 @@ Insert this entire block after the existing Sprint 4A
   </section>
 </section>
 
+
+<section class="panel bulk-import-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Bulk Import Wizard</h2>
+
+      <p>
+        Parse approved Excel workbooks or Google Sheets into a controlled
+        review batch. Each worksheet represents one official FMR.
+      </p>
+    </div>
+
+    <button
+      id="bulkImportRefreshButton"
+      type="button"
+      class="secondary">
+      Refresh Imports
+    </button>
+  </div>
+
+  <div class="bulk-import-source-grid">
+    <section class="bulk-import-source-card">
+      <h3>Excel Workbook</h3>
+
+      <p>
+        Accepted formats: .xlsx and .xls. Maximum file size: 8 MB.
+      </p>
+
+      <input
+        id="bulkImportFile"
+        type="file"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+
+      <button
+        id="bulkImportUploadButton"
+        type="button">
+        Upload and Parse
+      </button>
+    </section>
+
+    <section class="bulk-import-source-card">
+      <h3>Google Sheet</h3>
+
+      <p>
+        Paste a spreadsheet URL or ID accessible to the current Owner.
+      </p>
+
+      <input
+        id="bulkImportGoogleSheet"
+        autocomplete="off"
+        placeholder="https://docs.google.com/spreadsheets/d/...">
+
+      <button
+        id="bulkImportGoogleSheetButton"
+        type="button">
+        Parse Google Sheet
+      </button>
+    </section>
+
+    <section class="bulk-import-source-card bulk-import-rules-card">
+      <h3>Approved Parsing Rules</h3>
+
+      <ul>
+        <li>Maximum 35 material lines per FMR.</li>
+        <li>No missing source fields are auto-filled.</li>
+        <li>Description beginning with PIPE → LF.</li>
+        <li>PIPET and all other descriptions → EA.</li>
+        <li>Historical activity remains source evidence only.</li>
+        <li>PDF matching is optional and handled as manual review.</li>
+        <li>Operational sheet is derived from the final -## suffix in LINE NO.</li>
+        <li>The source SHT field is not used.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div
+    id="bulkImportStatusText"
+    class="status">
+  </div>
+
+  <div class="bulk-import-recent-section">
+    <h3>Recent Import Batches</h3>
+
+    <div
+      id="bulkImportRecentBatches"
+      class="bulk-import-batch-list">
+      <div class="register-empty">
+        Loading recent imports…
+      </div>
+    </div>
+  </div>
+
+  <div id="bulkImportBatchEmpty">
+    <div class="register-empty">
+      Upload a workbook, parse a Google Sheet, or open a recent batch.
+    </div>
+  </div>
+
+  <section
+    id="bulkImportBatchWorkspace"
+    class="bulk-import-workspace hidden">
+    <div class="section-heading">
+      <div>
+        <h3 id="bulkImportBatchTitle">
+          Bulk Import Batch
+        </h3>
+
+        <p id="bulkImportBatchMeta">
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="bulkImportSummary"
+      class="bulk-import-summary-grid">
+    </div>
+
+    <div class="bulk-import-actions">
+      <div class="button-row">
+        <button
+          id="bulkImportSelectAllButton"
+          type="button"
+          class="secondary">
+          Select All Unstaged
+        </button>
+
+        <button
+          id="bulkImportClearSelectionButton"
+          type="button"
+          class="secondary">
+          Clear Selection
+        </button>
+
+        <span
+          id="bulkImportSelectionStatus"
+          class="status">
+          0 selected
+        </span>
+      </div>
+
+      <div class="button-row bulk-import-stage-row">
+        <button
+          id="bulkImportStageButton"
+          type="button">
+          Stage Selected FMRs
+        </button>
+      </div>
+
+      <p class="muted">
+        Staging is reversible review work. This wizard never publishes an FMR
+        automatically.
+      </p>
+    </div>
+
+    <div id="bulkImportItems">
+      <div class="register-empty">
+        Loading parsed worksheets…
+      </div>
+    </div>
+  </section>
+</section>
+
       <section class="panel">
         <h2>Owner Intake</h2>
 

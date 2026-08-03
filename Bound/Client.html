@@ -20,6 +20,9 @@
       operationsCenterData: null,
       operationsBusy: false,
       recoveryPreview: null,
+      bulkImportData: null,
+      bulkImportBusy: false,
+      bulkImportSelectedIds: new Set(),
       fieldExpandedLineIds: new Set(),
       fieldFilterValues: {},
       fieldSearchSequence: 0,
@@ -111,6 +114,7 @@
             refreshStagingV3_();
             refreshSystemControlV3_();
             refreshOperationsCenterV3_();
+            refreshRecentBulkImportsV3_();
           }
         })
         .catch(
@@ -329,6 +333,37 @@
       byId('operationsRecoveryApplyButton').addEventListener(
         'click',
         applyRecoveryActionV3_
+      );
+
+      byId('bulkImportUploadButton').addEventListener(
+        'click',
+        startBulkImportUploadV3_
+      );
+
+      byId('bulkImportGoogleSheetButton').addEventListener(
+        'click',
+        startBulkImportGoogleSheetV3_
+      );
+
+      byId('bulkImportRefreshButton').addEventListener(
+        'click',
+        () =>
+          refreshRecentBulkImportsV3_()
+      );
+
+      byId('bulkImportSelectAllButton').addEventListener(
+        'click',
+        selectAllBulkImportItemsV3_
+      );
+
+      byId('bulkImportClearSelectionButton').addEventListener(
+        'click',
+        clearBulkImportSelectionV3_
+      );
+
+      byId('bulkImportStageButton').addEventListener(
+        'click',
+        stageSelectedBulkImportItemsV3_
       );
 
       byId('modalClose').addEventListener(
@@ -5334,6 +5369,1338 @@
         await refreshStagingV3_();
       } catch (error) {
         showErrorV3_(error);
+      }
+    }
+
+    async function refreshRecentBulkImportsV3_(
+      silent
+    ) {
+      if (
+        state.bulkImportBusy &&
+        !silent
+      ) {
+        return;
+      }
+
+      if (!silent) {
+        setBulkImportBusyV3_(
+          true,
+          'Loading recent bulk imports…'
+        );
+      }
+
+      try {
+        const batches =
+          await callServerV3_(
+            'getRecentBulkImportBatchesV3',
+            10
+          );
+
+        renderRecentBulkImportsV3_(
+          Array.isArray(
+            batches
+          )
+            ? batches
+            : []
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        if (!silent) {
+          setBulkImportBusyV3_(
+            false
+          );
+        }
+      }
+    }
+
+    function readBulkImportFileV3_(
+      file
+    ) {
+      return new Promise(
+        (
+          resolve,
+          reject
+        ) => {
+          const reader =
+            new FileReader();
+
+          reader.onload =
+            () => {
+              const result =
+                String(
+                  reader.result ||
+                  ''
+                );
+
+              const comma =
+                result.indexOf(
+                  ','
+                );
+
+              if (
+                comma < 0
+              ) {
+                reject(
+                  new Error(
+                    'Could not read the selected Excel file.'
+                  )
+                );
+
+                return;
+              }
+
+              resolve(
+                result.slice(
+                  comma + 1
+                )
+              );
+            };
+
+          reader.onerror =
+            () => {
+              reject(
+                new Error(
+                  'The selected Excel file could not be read.'
+                )
+              );
+            };
+
+          reader.readAsDataURL(
+            file
+          );
+        }
+      );
+    }
+
+    async function startBulkImportUploadV3_() {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      const input =
+        byId(
+          'bulkImportFile'
+        );
+
+      const file =
+        input.files &&
+        input.files[0];
+
+      if (!file) {
+        showErrorV3_(
+          'Select an Excel .xlsx or .xls file.'
+        );
+
+        return;
+      }
+
+      if (
+        !/\.(xlsx|xls)$/i.test(
+          file.name
+        )
+      ) {
+        showErrorV3_(
+          'Bulk import requires an Excel .xlsx or .xls file.'
+        );
+
+        return;
+      }
+
+      if (
+        file.size >
+        8 * 1024 * 1024
+      ) {
+        showErrorV3_(
+          'The selected file exceeds the 8 MB upload limit.'
+        );
+
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Uploading and parsing workbook…'
+      );
+
+      try {
+        const base64 =
+          await readBulkImportFileV3_(
+            file
+          );
+
+        const batch =
+          await callServerV3_(
+            'startBulkImportUploadV3',
+            {
+              fileName:
+                file.name,
+
+              mimeType:
+                file.type ||
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
+              base64:
+                base64,
+
+              notes:
+                ''
+            }
+          );
+
+        state.bulkImportSelectedIds =
+          new Set();
+
+        renderBulkImportBatchV3_(
+          batch
+        );
+
+        await refreshRecentBulkImportsV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Workbook parsed: ' +
+            batch.proposedFmrCount +
+            ' FMR(s), ' +
+            batch.totalLineCount +
+            ' material line(s).'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function startBulkImportGoogleSheetV3_() {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      const source =
+        byId(
+          'bulkImportGoogleSheet'
+        ).value.trim();
+
+      if (!source) {
+        showErrorV3_(
+          'Enter a Google Sheets URL or spreadsheet ID.'
+        );
+
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Reading and parsing Google Sheet…'
+      );
+
+      try {
+        const batch =
+          await callServerV3_(
+            'startBulkImportGoogleSheetV3',
+            source
+          );
+
+        state.bulkImportSelectedIds =
+          new Set();
+
+        renderBulkImportBatchV3_(
+          batch
+        );
+
+        await refreshRecentBulkImportsV3_(
+          true
+        );
+
+        showSuccessV3_(
+          (
+            'Google Sheet parsed: ' +
+            batch.proposedFmrCount +
+            ' FMR(s), ' +
+            batch.totalLineCount +
+            ' material line(s).'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function loadBulkImportBatchV3_(
+      batchId
+    ) {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Loading bulk-import batch…'
+      );
+
+      try {
+        const batch =
+          await callServerV3_(
+            'getBulkImportBatchV3',
+            batchId
+          );
+
+        state.bulkImportSelectedIds =
+          new Set();
+
+        renderBulkImportBatchV3_(
+          batch
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    function renderRecentBulkImportsV3_(
+      batches
+    ) {
+      const container =
+        byId(
+          'bulkImportRecentBatches'
+        );
+
+      if (!batches.length) {
+        container.innerHTML =
+          '<div class="register-empty">No bulk-import batches yet.</div>';
+
+        return;
+      }
+
+      container.innerHTML =
+        batches
+          .map(
+            batch => `
+              <button
+                type="button"
+                class="bulk-import-batch-card"
+                data-bulk-import-batch="${
+                  escapeAttributeV3_(
+                    batch.batchId
+                  )
+                }">
+                <strong>
+                  ${
+                    escapeHtmlV3_(
+                      batch.sourceFileName
+                    )
+                  }
+                </strong>
+
+                <span>
+                  ${
+                    formatQtyV3_(
+                      batch.proposedFmrCount
+                    )
+                  } FMR ·
+                  ${
+                    formatQtyV3_(
+                      batch.totalLineCount
+                    )
+                  } lines
+                </span>
+
+                <span class="bulk-import-status ${
+                  bulkImportStatusClassV3_(
+                    batch.status
+                  )
+                }">
+                  ${
+                    escapeHtmlV3_(
+                      batch.status
+                    )
+                  }
+                </span>
+
+                <span>
+                  ${
+                    escapeHtmlV3_(
+                      batch.createdAt
+                    )
+                  }
+                </span>
+              </button>
+            `
+          )
+          .join('');
+
+      container
+        .querySelectorAll(
+          '[data-bulk-import-batch]'
+        )
+        .forEach(
+          button => {
+            button.addEventListener(
+              'click',
+              () =>
+                loadBulkImportBatchV3_(
+                  button.dataset
+                    .bulkImportBatch
+                )
+            );
+          }
+        );
+    }
+
+    function bulkImportStatusClassV3_(
+      status
+    ) {
+      const value =
+        String(
+          status ||
+          ''
+        ).toUpperCase();
+
+      if (
+        [
+          'VALID',
+          'STAGED'
+        ].includes(
+          value
+        )
+      ) {
+        return 'is-valid';
+      }
+
+      if (
+        [
+          'WARNING',
+          'REVIEW',
+          'PARTIALLY_STAGED'
+        ].includes(
+          value
+        )
+      ) {
+        return 'is-warning';
+      }
+
+      return 'is-blocked';
+    }
+
+    function renderBulkImportBatchV3_(
+      batch
+    ) {
+      state.bulkImportData =
+        batch;
+
+      byId(
+        'bulkImportBatchEmpty'
+      ).classList.add(
+        'hidden'
+      );
+
+      byId(
+        'bulkImportBatchWorkspace'
+      ).classList.remove(
+        'hidden'
+      );
+
+      byId(
+        'bulkImportBatchTitle'
+      ).textContent =
+        batch.sourceFileName ||
+        batch.batchId;
+
+      byId(
+        'bulkImportBatchMeta'
+      ).textContent =
+        (
+          `${batch.sourceType} · ` +
+          `Parser ${batch.parserVersion || 'LEGACY'} · ` +
+          `${batch.worksheetCount} worksheet(s) · ` +
+          `${batch.totalLineCount} material line(s) · ` +
+          `Fingerprint ${batch.sourceFingerprint}`
+        );
+
+      const summary = [
+        [
+          'Proposed FMRs',
+          batch.proposedFmrCount
+        ],
+        [
+          'Valid',
+          batch.validItemCount
+        ],
+        [
+          'Warnings',
+          batch.warningItemCount
+        ],
+        [
+          'Blocked',
+          batch.errorItemCount
+        ],
+        [
+          'Max Lines',
+          batch.limits &&
+          batch.limits
+            .maxLinesPerFmr
+            ? batch.limits
+                .maxLinesPerFmr
+            : 35
+        ]
+      ];
+
+      byId(
+        'bulkImportSummary'
+      ).innerHTML =
+        summary
+          .map(
+            item => `
+              <div class="bulk-import-summary-card">
+                <span>
+                  ${
+                    escapeHtmlV3_(
+                      item[0]
+                    )
+                  }
+                </span>
+
+                <strong>
+                  ${
+                    formatQtyV3_(
+                      item[1]
+                    )
+                  }
+                </strong>
+              </div>
+            `
+          )
+          .join('');
+
+      renderBulkImportItemsV3_(
+        batch.items || []
+      );
+
+      byId(
+        'bulkImportStatusText'
+      ).textContent =
+        (
+          'Batch ' +
+          batch.batchId +
+          ' · ' +
+          batch.status +
+          ' · Updated ' +
+          batch.updatedAt
+        );
+    }
+
+    function renderBulkImportItemsV3_(
+      items
+    ) {
+      const container =
+        byId(
+          'bulkImportItems'
+        );
+
+      if (!items.length) {
+        container.innerHTML =
+          '<div class="register-empty">No worksheets were parsed.</div>';
+
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="bulk-import-table-wrap">
+          <table class="bulk-import-table">
+            <thead>
+              <tr>
+                <th>Select</th>
+                <th>Worksheet / FMR</th>
+                <th>IWP / ISO</th>
+                <th>Sheet / Rev</th>
+                <th>Lines</th>
+                <th>UOM</th>
+                <th>Status</th>
+                <th>Issues</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${items.map(item => {
+                const issueText =
+                  (item.issues || [])
+                    .filter(
+                      issue =>
+                        !issue.resolved
+                    )
+                    .slice(
+                      0,
+                      4
+                    )
+                    .map(
+                      issue =>
+                        `${issue.severity}: ${issue.message}`
+                    )
+                    .join(
+                      ' | '
+                    );
+
+                const canSelect =
+                  item.status !==
+                    'STAGED';
+
+                return `
+                  <tr class="${
+                    item.status ===
+                      'STAGED'
+                      ? 'is-staged'
+                      : ''
+                  }">
+                    <td>
+                      <input
+                        type="checkbox"
+                        data-bulk-import-select="${
+                          escapeAttributeV3_(
+                            item.importItemId
+                          )
+                        }"
+                        ${
+                          state.bulkImportSelectedIds.has(
+                            item.importItemId
+                          )
+                            ? 'checked'
+                            : ''
+                        }
+                        ${
+                          canSelect
+                            ? ''
+                            : 'disabled'
+                        }>
+                    </td>
+
+                    <td>
+                      <strong>
+                        ${
+                          escapeHtmlV3_(
+                            item.worksheetName
+                          )
+                        }
+                      </strong>
+
+                      <div class="muted">
+                        FMR ${
+                          escapeHtmlV3_(
+                            item.officialFmrNumber ||
+                            'Missing'
+                          )
+                        }
+                      </div>
+                    </td>
+
+                    <td>
+                      <strong>
+                        ${
+                          escapeHtmlV3_(
+                            item.iwpNumber ||
+                            'Missing IWP'
+                          )
+                        }
+                      </strong>
+
+                      <div class="muted">
+                        ${
+                          escapeHtmlV3_(
+                            item.isoNumber ||
+                            'Missing ISO'
+                          )
+                        }
+                      </div>
+                    </td>
+
+                    <td>
+                      <strong>
+                        ${
+                          escapeHtmlV3_(
+                            item.isoSheet ||
+                            'Missing'
+                          )
+                        }
+                      </strong>
+
+                      <div class="muted">
+                        Rev ${
+                          escapeHtmlV3_(
+                            item.isoRevision ||
+                            '—'
+                          )
+                        }
+                      </div>
+                    </td>
+
+                    <td>
+                      ${
+                        formatQtyV3_(
+                          item.parsedLineCount
+                        )
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        escapeHtmlV3_(
+                          bulkImportUomSummaryV3_(
+                            item
+                          )
+                        )
+                      }
+                    </td>
+
+                    <td>
+                      <span class="bulk-import-status ${
+                        bulkImportStatusClassV3_(
+                          item.status
+                        )
+                      }">
+                        ${
+                          escapeHtmlV3_(
+                            item.status
+                          )
+                        }
+                      </span>
+                    </td>
+
+                    <td title="${
+                      escapeAttributeV3_(
+                        issueText
+                      )
+                    }">
+                      ${
+                        formatQtyV3_(
+                          item.errorCount
+                        )
+                      } error(s) ·
+                      ${
+                        formatQtyV3_(
+                          item.warningCount
+                        )
+                      } warning(s)
+
+                      ${
+                        issueText
+                          ? `
+                            <div class="muted bulk-import-issue-preview">
+                              ${
+                                escapeHtmlV3_(
+                                  issueText
+                                )
+                              }
+                            </div>
+                          `
+                          : ''
+                      }
+                    </td>
+
+                    <td>
+                      <button
+                        type="button"
+                        class="secondary small"
+                        data-bulk-import-edit="${
+                          escapeAttributeV3_(
+                            item.importItemId
+                          )
+                        }">
+                        Review
+                      </button>
+
+                      ${
+                        item.stagingFmrId
+                          ? `
+                            <div class="muted">
+                              ${
+                                escapeHtmlV3_(
+                                  item.stagingFmrId
+                                )
+                              }
+                            </div>
+                          `
+                          : ''
+                      }
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container
+        .querySelectorAll(
+          '[data-bulk-import-select]'
+        )
+        .forEach(
+          checkbox => {
+            checkbox.addEventListener(
+              'change',
+              () => {
+                const id =
+                  checkbox.dataset
+                    .bulkImportSelect;
+
+                if (
+                  checkbox.checked
+                ) {
+                  state
+                    .bulkImportSelectedIds
+                    .add(
+                      id
+                    );
+                } else {
+                  state
+                    .bulkImportSelectedIds
+                    .delete(
+                      id
+                    );
+                }
+
+                updateBulkImportSelectionStatusV3_();
+              }
+            );
+          }
+        );
+
+      container
+        .querySelectorAll(
+          '[data-bulk-import-edit]'
+        )
+        .forEach(
+          button => {
+            button.addEventListener(
+              'click',
+              () =>
+                reviewBulkImportItemV3_(
+                  button.dataset
+                    .bulkImportEdit
+                )
+            );
+          }
+        );
+
+      updateBulkImportSelectionStatusV3_();
+    }
+
+    function bulkImportUomSummaryV3_(
+      item
+    ) {
+      const issues =
+        item.issues || [];
+
+      const pipeWarning =
+        issues.some(
+          issue =>
+            issue.code ===
+            'HISTORICAL_ACTIVITY_IGNORED'
+        );
+
+      return pipeWarning
+        ? 'EA/LF · legacy evidence'
+        : 'EA/LF inferred';
+    }
+
+    function updateBulkImportSelectionStatusV3_() {
+      byId(
+        'bulkImportSelectionStatus'
+      ).textContent =
+        (
+          state
+            .bulkImportSelectedIds
+            .size +
+          ' selected'
+        );
+    }
+
+    function selectAllBulkImportItemsV3_() {
+      const batch =
+        state.bulkImportData;
+
+      if (!batch) {
+        return;
+      }
+
+      (batch.items || [])
+        .filter(
+          item =>
+            item.status !==
+            'STAGED'
+        )
+        .forEach(
+          item =>
+            state
+              .bulkImportSelectedIds
+              .add(
+                item.importItemId
+              )
+        );
+
+      renderBulkImportItemsV3_(
+        batch.items || []
+      );
+    }
+
+    function clearBulkImportSelectionV3_() {
+      state.bulkImportSelectedIds =
+        new Set();
+
+      if (
+        state.bulkImportData
+      ) {
+        renderBulkImportItemsV3_(
+          state.bulkImportData
+            .items || []
+        );
+      }
+    }
+
+    async function reviewBulkImportItemV3_(
+      importItemId
+    ) {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Loading worksheet details…'
+      );
+
+      try {
+        const item =
+          await callServerV3_(
+            'getBulkImportItemV3',
+            importItemId
+          );
+
+        const sourceLineNumber =
+          window.prompt(
+            (
+              'LINE NO for ' +
+              item.officialFmrNumber +
+              '. The final -## is the operational sheet number.'
+            ),
+            item.sourceLineNumber ||
+            [
+              item.isoNumber,
+              item.isoSheet
+            ]
+              .filter(
+                Boolean
+              )
+              .join(
+                '-'
+              )
+          );
+
+        if (
+          sourceLineNumber === null
+        ) {
+          return;
+        }
+
+        const requestedBy =
+          window.prompt(
+            'Requested By — leave blank to preserve the source blank:',
+            item.requestedBy || ''
+          );
+
+        if (
+          requestedBy === null
+        ) {
+          return;
+        }
+
+        const result =
+          await callServerV3_(
+            'updateBulkImportItemV3',
+            importItemId,
+            {
+              sourceLineNumber:
+                sourceLineNumber.trim(),
+
+              requestedBy:
+                requestedBy.trim()
+            }
+          );
+
+        await reloadCurrentBulkImportBatchV3_();
+
+        showSuccessV3_(
+          (
+            'Worksheet review saved for FMR ' +
+            result.officialFmrNumber +
+            '.'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function reloadCurrentBulkImportBatchV3_() {
+      if (
+        !state.bulkImportData ||
+        !state.bulkImportData
+          .batchId
+      ) {
+        return;
+      }
+
+      const batch =
+        await callServerV3_(
+          'getBulkImportBatchV3',
+          state.bulkImportData
+            .batchId
+        );
+
+      state.bulkImportData =
+        batch;
+
+      renderBulkImportBatchV3_(
+        batch
+      );
+
+      await refreshRecentBulkImportsV3_(
+        true
+      );
+    }
+
+    async function applyBulkImportIsoSheetOverrideV3_() {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      const batch =
+        state.bulkImportData;
+
+      if (!batch) {
+        showErrorV3_(
+          'Load a bulk-import batch first.'
+        );
+
+        return;
+      }
+
+      const ids =
+        Array.from(
+          state
+            .bulkImportSelectedIds
+        );
+
+      if (!ids.length) {
+        showErrorV3_(
+          'Select at least one FMR item.'
+        );
+
+        return;
+      }
+
+      const value =
+        byId(
+          'bulkImportIsoSheetOverride'
+        ).value.trim();
+
+      if (!value) {
+        showErrorV3_(
+          'Enter the ISO Sheet value authorized by Material Management.'
+        );
+
+        return;
+      }
+
+      const expected =
+        'APPLY ' +
+        value.toUpperCase();
+
+      const confirmation =
+        window.prompt(
+          (
+            'This writes ISO Sheet "' +
+            value +
+            '" to ' +
+            ids.length +
+            ' selected FMR(s). Type ' +
+            expected +
+            ' to continue.'
+          ),
+          ''
+        );
+
+      if (
+        confirmation === null
+      ) {
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Applying explicit ISO Sheet override…'
+      );
+
+      try {
+        const updated =
+          await callServerV3_(
+            'applyBulkImportIsoSheetOverrideV3',
+            batch.batchId,
+            ids,
+            value,
+            confirmation
+          );
+
+        state.bulkImportData =
+          updated;
+
+        renderBulkImportBatchV3_(
+          updated
+        );
+
+        showSuccessV3_(
+          (
+            'ISO Sheet override applied to ' +
+            ids.length +
+            ' FMR(s).'
+          )
+        );
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    async function stageSelectedBulkImportItemsV3_() {
+      if (
+        state.bulkImportBusy
+      ) {
+        return;
+      }
+
+      const batch =
+        state.bulkImportData;
+
+      if (!batch) {
+        showErrorV3_(
+          'Load a bulk-import batch first.'
+        );
+
+        return;
+      }
+
+      const ids =
+        Array.from(
+          state
+            .bulkImportSelectedIds
+        );
+
+      if (!ids.length) {
+        showErrorV3_(
+          'Select at least one FMR item.'
+        );
+
+        return;
+      }
+
+      const selectedItems =
+        (batch.items || [])
+          .filter(
+            item =>
+              ids.includes(
+                item.importItemId
+              )
+          );
+
+      const blocked =
+        selectedItems.filter(
+          item =>
+            item.status ===
+            'BLOCKED'
+        );
+
+      if (
+        blocked.length
+      ) {
+        showErrorV3_(
+          (
+            blocked.length +
+            ' selected FMR(s) still have blocking issues.'
+          )
+        );
+
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          (
+            'Stage ' +
+            ids.length +
+            ' selected FMR(s)? This does not publish them.'
+          )
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setBulkImportBusyV3_(
+        true,
+        'Staging selected FMRs…'
+      );
+
+      try {
+        const result =
+          await callServerV3_(
+            'stageBulkImportItemsV3',
+            batch.batchId,
+            ids
+          );
+
+        state.bulkImportSelectedIds =
+          new Set();
+
+        state.bulkImportData =
+          result.batch;
+
+        renderBulkImportBatchV3_(
+          result.batch
+        );
+
+        refreshStagingV3_();
+
+        await refreshRecentBulkImportsV3_(
+          true
+        );
+
+        if (
+          result.failed &&
+          result.failed.length
+        ) {
+          showErrorV3_(
+            (
+              result.staged.length +
+              ' staged; ' +
+              result.failed.length +
+              ' failed. Review the batch for details.'
+            )
+          );
+        } else {
+          showSuccessV3_(
+            (
+              result.staged.length +
+              ' FMR(s) added to Owner staging. No FMR was published.'
+            )
+          );
+        }
+      } catch (
+        error
+      ) {
+        showErrorV3_(
+          error
+        );
+      } finally {
+        setBulkImportBusyV3_(
+          false
+        );
+      }
+    }
+
+    function setBulkImportBusyV3_(
+      busy,
+      message
+    ) {
+      state.bulkImportBusy =
+        Boolean(
+          busy
+        );
+
+      [
+        'bulkImportUploadButton',
+        'bulkImportGoogleSheetButton',
+        'bulkImportRefreshButton',
+        'bulkImportSelectAllButton',
+        'bulkImportClearSelectionButton',
+        'bulkImportStageButton'
+      ].forEach(
+        id => {
+          const element =
+            byId(
+              id
+            );
+
+          if (element) {
+            element.disabled =
+              state.bulkImportBusy;
+          }
+        }
+      );
+
+      if (
+        message &&
+        byId(
+          'bulkImportStatusText'
+        )
+      ) {
+        byId(
+          'bulkImportStatusText'
+        ).textContent =
+          message;
       }
     }
 

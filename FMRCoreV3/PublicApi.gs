@@ -431,3 +431,143 @@ function runFmrV3ScheduledOperations(
   );
 }
 
+function startFmrV3BulkImportUpload(
+  databaseId,
+  userEmail,
+  payload
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return beginBulkImportUploadFmrV3_(
+    userEmail,
+    payload || {}
+  );
+}
+
+function startFmrV3BulkImportGoogleSheet(
+  databaseId,
+  userEmail,
+  sourceValue
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return beginBulkImportGoogleSheetFmrV3_(
+    userEmail,
+    sourceValue
+  );
+}
+
+function getFmrV3BulkImportBatch(
+  databaseId,
+  userEmail,
+  batchId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return getBulkImportBatchFmrV3_(
+    userEmail,
+    batchId
+  );
+}
+
+function getFmrV3BulkImportItem(
+  databaseId,
+  userEmail,
+  importItemId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return getBulkImportItemFmrV3_(
+    userEmail,
+    importItemId
+  );
+}
+
+function updateFmrV3BulkImportItem(
+  databaseId,
+  userEmail,
+  importItemId,
+  payload
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return updateBulkImportItemFmrV3_(
+    userEmail,
+    importItemId,
+    payload || {}
+  );
+}
+
+function applyFmrV3BulkImportIsoSheetOverride(
+  databaseId,
+  userEmail,
+  batchId,
+  importItemIds,
+  isoSheet,
+  confirmation
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return applyBulkImportIsoSheetOverrideFmrV3_(
+    userEmail,
+    batchId,
+    importItemIds,
+    isoSheet,
+    confirmation
+  );
+}
+
+function stageFmrV3BulkImportItems(
+  databaseId,
+  userEmail,
+  batchId,
+  importItemIds
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return stageBulkImportItemsFmrV3_(
+    userEmail,
+    batchId,
+    importItemIds
+  );
+}
+
+function getFmrV3RecentBulkImportBatches(
+  databaseId,
+  userEmail,
+  maximumRows
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return getRecentBulkImportBatchesFmrV3_(
+    userEmail,
+    maximumRows
+  );
+}
+
+function getFmrV3BulkImportContract(
+  databaseId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return inspectFmrV3BulkImportContract();
+}
+

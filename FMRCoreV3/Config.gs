@@ -1,5 +1,5 @@
 const FMR_V3 = Object.freeze({
-  VERSION: '3.0.0-alpha.11',
+  VERSION: '3.0.0-alpha.14',
   DEFAULT_DATABASE_ID: '1nDEsty3PTVppEPAkKpN9RVXCl_P0pgQALyGPficjz68',
 
   SHEETS: Object.freeze({
@@ -20,7 +20,11 @@ const FMR_V3 = Object.freeze({
     AUDIT: 'Audit_Log',
     HEALTH_LOG: 'Operational_Health_Log',
     BACKUP_HISTORY: 'Backup_History',
-    RECOVERY_ACTIONS: 'Recovery_Actions'
+    RECOVERY_ACTIONS: 'Recovery_Actions',
+    BULK_IMPORT_BATCHES: 'Bulk_Import_Batches',
+    BULK_IMPORT_ITEMS: 'Bulk_Import_Items',
+    BULK_IMPORT_LINES: 'Bulk_Import_Lines',
+    BULK_IMPORT_ISSUES: 'Bulk_Import_Issues'
   }),
 
   ACTIONS: Object.freeze({
@@ -151,6 +155,37 @@ const FMR_V3_HEADERS = Object.freeze({
   'Previewed_By_Email', 'Previewed_At', 'Applied_By_Email',
   'Applied_At', 'Reason', 'Backup_ID', 'Before_JSON',
   'After_JSON', 'Error_Message'
+],
+  Bulk_Import_Batches: [
+  'Batch_ID', 'Source_Type', 'Source_File_ID', 'Source_File_Name',
+  'Source_Mime_Type', 'Source_Fingerprint', 'Source_Modified_At',
+  'Converted_File_ID', 'Worksheet_Count', 'Proposed_FMR_Count',
+  'Total_Line_Count', 'Valid_Item_Count', 'Warning_Item_Count',
+  'Error_Item_Count', 'Status', 'Created_By', 'Created_At',
+  'Updated_At', 'Notes', 'Active', 'Parser_Version'
+],
+Bulk_Import_Items: [
+  'Import_Item_ID', 'Batch_ID', 'Worksheet_ID', 'Worksheet_Name',
+  'Official_FMR_Number', 'IWP_Number', 'Destination', 'Warehouse',
+  'Requested_By', 'Craft', 'Deliver_To', 'Date_Required',
+  'ISO_Number', 'ISO_Sheet', 'ISO_Revision', 'Priority',
+  'Parsed_Line_Count', 'Status', 'Staging_FMR_ID',
+  'Existing_FMR_ID', 'Content_Fingerprint', 'Source_Header_JSON',
+  'Error_Count', 'Warning_Count', 'Selected', 'Created_At',
+  'Updated_At', 'Notes'
+],
+Bulk_Import_Lines: [
+  'Import_Line_ID', 'Batch_ID', 'Import_Item_ID', 'Line_Number',
+  'Source_Row_Number', 'Commodity_Code', 'Size', 'Qty_Requested',
+  'Material_Description', 'Inferred_UOM', 'UOM_Rule',
+  'Legacy_Issued', 'Legacy_Backordered', 'Legacy_Action_Taken',
+  'Status', 'Validation_Errors', 'Created_At', 'Updated_At', 'Notes'
+],
+Bulk_Import_Issues: [
+  'Import_Issue_ID', 'Batch_ID', 'Import_Item_ID', 'Worksheet_Name',
+  'Severity', 'Issue_Code', 'Field_Name', 'Line_Number', 'Message',
+  'Source_Value', 'Resolution_Value', 'Resolved', 'Resolved_By',
+  'Resolved_At', 'Created_At', 'Notes'
 ]
 });
 

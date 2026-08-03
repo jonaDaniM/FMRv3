@@ -747,6 +747,112 @@ function removeBoundDailyOperationsV3() {
   };
 }
 
+function startBulkImportUploadV3(
+  payload
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.startFmrV3BulkImportUpload(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      payload || {}
+    )
+  );
+}
+
+function startBulkImportGoogleSheetV3(
+  sourceValue
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.startFmrV3BulkImportGoogleSheet(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      sourceValue
+    )
+  );
+}
+
+function getBulkImportBatchV3(
+  batchId
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.getFmrV3BulkImportBatch(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      batchId
+    )
+  );
+}
+
+function getBulkImportItemV3(
+  importItemId
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.getFmrV3BulkImportItem(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      importItemId
+    )
+  );
+}
+
+function updateBulkImportItemV3(
+  importItemId,
+  payload
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.updateFmrV3BulkImportItem(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      importItemId,
+      payload || {}
+    )
+  );
+}
+
+function applyBulkImportIsoSheetOverrideV3(
+  batchId,
+  importItemIds,
+  isoSheet,
+  confirmation
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.applyFmrV3BulkImportIsoSheetOverride(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      batchId,
+      importItemIds || [],
+      isoSheet,
+      confirmation
+    )
+  );
+}
+
+function stageBulkImportItemsV3(
+  batchId,
+  importItemIds
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.stageFmrV3BulkImportItems(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      batchId,
+      importItemIds || []
+    )
+  );
+}
+
+function getRecentBulkImportBatchesV3(
+  maximumRows
+) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.getFmrV3RecentBulkImportBatches(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      maximumRows || 10
+    )
+  );
+}
+
 function verifyBoundFmrV3Connection() {
   const result =
     getPortalBootstrapV3();
@@ -2484,6 +2590,121 @@ function verifyBoundOperationalReadinessV3() {
   if (!output.passed) {
     throw new Error(
       'Bound Sprint 4B operational-readiness contract failed.'
+    );
+  }
+
+  return output;
+}
+
+function verifyBoundBulkImportContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const contract =
+    FMRCoreV3.getFmrV3BulkImportContract(
+      boundDatabaseIdFmrV3_()
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        14
+      ) &&
+      Boolean(
+        contract
+      ) &&
+      contract.passed ===
+        true &&
+      contract.parserVersion ===
+        'ALPHA14_LINE_SUFFIX_V1' &&
+      contract.operationalSheetSource ===
+        'LINE_NO_FINAL_TWO_DIGIT_SUFFIX' &&
+      contract.sourceShtFieldMode ===
+        'IGNORED_SOURCE_EVIDENCE' &&
+      contract.maxLinesPerFmr ===
+        35 &&
+      contract.autoFillMissingFields ===
+        false &&
+      contract.historicalActivityMode ===
+        'SOURCE_EVIDENCE_ONLY' &&
+      contract.uomRules &&
+      contract.uomRules
+        .descriptionStartsWithPipe ===
+        'LF' &&
+      contract.uomRules.pipet ===
+        'EA' &&
+      contract.uomRules
+        .allOtherDescriptions ===
+        'EA',
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    parserVersion:
+      contract
+        .parserVersion,
+
+    operationalSheetSource:
+      contract
+        .operationalSheetSource,
+
+    sourceShtFieldMode:
+      contract
+        .sourceShtFieldMode,
+
+    maxLinesPerFmr:
+      contract
+        .maxLinesPerFmr,
+
+    maxWorksheets:
+      contract
+        .maxWorksheets,
+
+    maxUploadBytes:
+      contract
+        .maxUploadBytes,
+
+    autoFillMissingFields:
+      contract
+        .autoFillMissingFields,
+
+    historicalActivityMode:
+      contract
+        .historicalActivityMode,
+
+    uomRules:
+      contract.uomRules,
+
+    sheetCount:
+      Array.isArray(
+        contract.sheets
+      )
+        ? contract.sheets.length
+        : 0
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound Sprint 5A bulk-import contract failed.'
     );
   }
 
