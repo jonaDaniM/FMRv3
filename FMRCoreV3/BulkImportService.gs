@@ -82,7 +82,7 @@ const FMR_V3_BULK_IMPORT =
       }),
 
     parserVersion:
-      'ALPHA18_FRACTION_SIZE_V3',
+      'ALPHA19_FRACTION_STORAGE_V1',
 
     settings:
       Object.freeze({
@@ -239,6 +239,255 @@ function bulkImportSheetDefinitionsFmrV3_() {
         ]
     }
   ];
+}
+
+function fmrV3SizeStorageDefinitionsFmrV3_() {
+  return Object.keys(
+    FMR_V3_HEADERS
+  )
+    .map(
+      function (
+        sheetName
+      ) {
+        const headers =
+          FMR_V3_HEADERS[
+            sheetName
+          ] ||
+          [];
+
+        const sizeIndex =
+          headers.indexOf(
+            'Size'
+          );
+
+        if (
+          sizeIndex <
+          0
+        ) {
+          return null;
+        }
+
+        return {
+          sheetName:
+            sheetName,
+
+          sizeColumn:
+            sizeIndex +
+            1
+        };
+      }
+    )
+    .filter(
+      Boolean
+    );
+}
+
+function inspectFmrV3SizeTextStorageFmrV3_() {
+  const database =
+    fmrV3Database_();
+
+  const sheets =
+    fmrV3SizeStorageDefinitionsFmrV3_()
+      .map(
+        function (
+          definition
+        ) {
+          const sheet =
+            database.getSheetByName(
+              definition.sheetName
+            );
+
+          if (!sheet) {
+            return {
+              sheetName:
+                definition.sheetName,
+
+              sizeColumn:
+                definition.sizeColumn,
+
+              exists:
+                false,
+
+              numberFormat:
+                '',
+
+              plainText:
+                false
+            };
+          }
+
+          const numberFormat =
+            sheet
+              .getRange(
+                2,
+                definition.sizeColumn
+              )
+              .getNumberFormat();
+
+          return {
+            sheetName:
+              definition.sheetName,
+
+            sizeColumn:
+              definition.sizeColumn,
+
+            exists:
+              true,
+
+            numberFormat:
+              numberFormat,
+
+            plainText:
+              numberFormat ===
+              '@'
+          };
+        }
+      );
+
+  return {
+    passed:
+      sheets.length >
+        0 &&
+      sheets.every(
+        function (
+          result
+        ) {
+          return (
+            !result.exists ||
+            result.plainText
+          );
+        }
+      ),
+
+    mode:
+      'PLAIN_TEXT_ALL_SIZE_COLUMNS',
+
+    sheetCount:
+      sheets.filter(
+        function (
+          result
+        ) {
+          return result.exists;
+        }
+      ).length,
+
+    sheets:
+      sheets
+  };
+}
+
+function ensureFmrV3SizeTextStorageFmrV3_() {
+  const database =
+    fmrV3Database_();
+
+  const results =
+    fmrV3SizeStorageDefinitionsFmrV3_()
+      .map(
+        function (
+          definition
+        ) {
+          const sheet =
+            database.getSheetByName(
+              definition.sheetName
+            );
+
+          if (!sheet) {
+            return {
+              sheetName:
+                definition.sheetName,
+
+              sizeColumn:
+                definition.sizeColumn,
+
+              exists:
+                false,
+
+              numberFormat:
+                '',
+
+              plainText:
+                false
+            };
+          }
+
+          const rowCount =
+            Math.max(
+              1,
+              sheet.getMaxRows() -
+                1
+            );
+
+          sheet
+            .getRange(
+              2,
+              definition.sizeColumn,
+              rowCount,
+              1
+            )
+            .setNumberFormat(
+              '@'
+            );
+
+          const numberFormat =
+            sheet
+              .getRange(
+                2,
+                definition.sizeColumn
+              )
+              .getNumberFormat();
+
+          return {
+            sheetName:
+              definition.sheetName,
+
+            sizeColumn:
+              definition.sizeColumn,
+
+            exists:
+              true,
+
+            numberFormat:
+              numberFormat,
+
+            plainText:
+              numberFormat ===
+              '@'
+          };
+        }
+      );
+
+  SpreadsheetApp.flush();
+
+  return {
+    passed:
+      results.length >
+        0 &&
+      results.every(
+        function (
+          result
+        ) {
+          return (
+            !result.exists ||
+            result.plainText
+          );
+        }
+      ),
+
+    mode:
+      'PLAIN_TEXT_ALL_SIZE_COLUMNS',
+
+    sheetCount:
+      results.filter(
+        function (
+          result
+        ) {
+          return result.exists;
+        }
+      ).length,
+
+    sheets:
+      results
+  };
 }
 
 function ensureBulkImportSheetFmrV3_(
@@ -2477,6 +2726,17 @@ function persistBulkImportBatchFmrV3_(
 
   const now =
     nowFmrV3_();
+
+  const sizeStorage =
+    ensureFmrV3SizeTextStorageFmrV3_();
+
+  if (
+    !sizeStorage.passed
+  ) {
+    throw new Error(
+      'Size storage columns are not configured as plain text.'
+    );
+  }
 
   const sheets =
     spreadsheet.getSheets();
@@ -5217,6 +5477,17 @@ function stageBulkImportItemsFmrV3_(
     'Bulk import staging'
   );
 
+  const sizeStorage =
+    ensureFmrV3SizeTextStorageFmrV3_();
+
+  if (
+    !sizeStorage.passed
+  ) {
+    throw new Error(
+      'Size storage columns are not configured as plain text.'
+    );
+  }
+
   const ids =
     Array.isArray(
       importItemIds
@@ -5679,6 +5950,9 @@ function inspectFmrV3BulkImportContract() {
         }
       );
 
+  const sizeStorage =
+    inspectFmrV3SizeTextStorageFmrV3_();
+
   const output = {
     passed:
       sheets.every(
@@ -5691,7 +5965,8 @@ function inspectFmrV3BulkImportContract() {
       FMR_V3_BULK_IMPORT
         .limits
         .MAX_LINES_PER_FMR ===
-        35,
+        35 &&
+      sizeStorage.passed,
 
     readOnly:
       true,
@@ -5749,6 +6024,18 @@ function inspectFmrV3BulkImportContract() {
 
     unresolvedSizeDatePolicy:
       'BLOCK_ITEM',
+
+    fractionStorageMode:
+      sizeStorage.mode,
+
+    fractionStoragePassed:
+      sizeStorage.passed,
+
+    fractionStorageSheetCount:
+      sizeStorage.sheetCount,
+
+    fractionStorageSheets:
+      sizeStorage.sheets,
 
     existingStagingMode:
       'EXPLICIT_UPDATE_IN_PLACE',
@@ -5817,6 +6104,9 @@ function migrateFmrV3BulkImport() {
     const configuration =
       ensureBulkImportConfigurationFmrV3_();
 
+    const sizeStorage =
+      ensureFmrV3SizeTextStorageFmrV3_();
+
     SpreadsheetApp.flush();
 
     const diagnostic =
@@ -5827,7 +6117,7 @@ function migrateFmrV3BulkImport() {
         diagnostic.passed,
 
       migration:
-        'ALPHA18_DATE_TEXT_TOKEN_FRACTION_NORMALIZATION',
+        'ALPHA19_PLAIN_TEXT_SIZE_STORAGE',
 
       version:
         FMR_V3.VERSION,
@@ -5837,6 +6127,9 @@ function migrateFmrV3BulkImport() {
 
       configuration:
         configuration,
+
+      sizeStorage:
+        sizeStorage,
 
       postDiagnostic:
         diagnostic
@@ -6269,6 +6562,9 @@ function inspectFmrV3BulkImportBatch(
 
     unresolvedSizeDatePolicy:
       'BLOCK_ITEM',
+
+    fractionStorage:
+      inspectFmrV3SizeTextStorageFmrV3_(),
 
     uomCounts: {
       EA:

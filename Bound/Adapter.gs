@@ -2612,7 +2612,7 @@ function verifyBoundBulkImportContractV3() {
     passed:
       isCompatibleFmrV3Alpha_(
         coreVersion,
-        18
+        19
       ) &&
       Boolean(
         contract
@@ -2620,11 +2620,17 @@ function verifyBoundBulkImportContractV3() {
       contract.passed ===
         true &&
       contract.parserVersion ===
-        'ALPHA18_FRACTION_SIZE_V3' &&
+        'ALPHA19_FRACTION_STORAGE_V1' &&
       contract.sizeDateCoercionMode ===
         'DATE_OBJECT_OR_DATE_TEXT_TOKEN_TO_DAY_MONTH_FRACTION' &&
       contract.unresolvedSizeDatePolicy ===
         'BLOCK_ITEM' &&
+      contract.fractionStorageMode ===
+        'PLAIN_TEXT_ALL_SIZE_COLUMNS' &&
+      contract.fractionStoragePassed ===
+        true &&
+      contract.fractionStorageSheetCount >=
+        2 &&
       contract.existingStagingMode ===
         'EXPLICIT_UPDATE_IN_PLACE' &&
       contract.operationalSheetSource ===
@@ -2668,6 +2674,22 @@ function verifyBoundBulkImportContractV3() {
     unresolvedSizeDatePolicy:
       contract
         .unresolvedSizeDatePolicy,
+
+    fractionStorageMode:
+      contract
+        .fractionStorageMode,
+
+    fractionStoragePassed:
+      contract
+        .fractionStoragePassed,
+
+    fractionStorageSheetCount:
+      contract
+        .fractionStorageSheetCount,
+
+    fractionStorageSheets:
+      contract
+        .fractionStorageSheets,
 
     existingStagingMode:
       contract
