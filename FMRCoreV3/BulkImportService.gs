@@ -82,7 +82,7 @@ const FMR_V3_BULK_IMPORT =
       }),
 
     parserVersion:
-      'ALPHA16_FRACTION_SIZE_V1',
+      'ALPHA17_FRACTION_SIZE_V2',
 
     settings:
       Object.freeze({
@@ -851,6 +851,66 @@ function splitBulkImportLineIdentityFmrV3_(
   };
 }
 
+function isBulkImportDateObjectFmrV3_(
+  value
+) {
+  return Boolean(
+    value &&
+    typeof value ===
+      'object' &&
+    typeof value.getTime ===
+      'function' &&
+    !Number.isNaN(
+      value.getTime()
+    )
+  );
+}
+
+function parseBulkImportSerializedDateFmrV3_(
+  value
+) {
+  const source =
+    normalizeFmrV3_(
+      value
+    );
+
+  if (!source) {
+    return null;
+  }
+
+  const fullDatePattern =
+    /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT[+-]\d{4}(?:\s+\(.+\))?$/i;
+
+  const slashDatePattern =
+    /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+
+  if (
+    !fullDatePattern.test(
+      source
+    ) &&
+    !slashDatePattern.test(
+      source
+    )
+  ) {
+    return null;
+  }
+
+  const parsed =
+    new Date(
+      source
+    );
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function normalizeBulkImportSizeFmrV3_(
   rawValue,
   displayValue,
@@ -861,29 +921,87 @@ function normalizeBulkImportSizeFmrV3_(
       displayValue
     );
 
+  const rawText =
+    normalizeFmrV3_(
+      rawValue
+    );
+
+  const activeTimezone =
+    normalizeFmrV3_(
+      timezone
+    ) ||
+    Session.getScriptTimeZone() ||
+    'America/Indiana/Indianapolis';
+
+  let dateValue =
+    null;
+
+  let repairRule =
+    '';
+
+  let sourceEvidence =
+    displayed ||
+    rawText;
+
   if (
-    rawValue instanceof Date &&
-    !Number.isNaN(
-      rawValue.getTime()
+    isBulkImportDateObjectFmrV3_(
+      rawValue
     )
   ) {
-    const activeTimezone =
-      normalizeFmrV3_(
-        timezone
-      ) ||
-      Session.getScriptTimeZone() ||
-      'America/Indiana/Indianapolis';
+    dateValue =
+      rawValue;
 
+    repairRule =
+      'DATE_OBJECT_TO_DAY_MONTH_FRACTION';
+
+    sourceEvidence =
+      rawText ||
+      displayed;
+  } else {
+    const rawDate =
+      parseBulkImportSerializedDateFmrV3_(
+        rawText
+      );
+
+    const displayedDate =
+      parseBulkImportSerializedDateFmrV3_(
+        displayed
+      );
+
+    if (rawDate) {
+      dateValue =
+        rawDate;
+
+      repairRule =
+        'SERIALIZED_RAW_DATE_TO_DAY_MONTH_FRACTION';
+
+      sourceEvidence =
+        rawText;
+    } else if (
+      displayedDate
+    ) {
+      dateValue =
+        displayedDate;
+
+      repairRule =
+        'SERIALIZED_DISPLAY_DATE_TO_DAY_MONTH_FRACTION';
+
+      sourceEvidence =
+        displayed;
+    }
+  }
+
+  if (dateValue) {
     const numerator =
       Utilities.formatDate(
-        rawValue,
+        dateValue,
         activeTimezone,
         'd'
       );
 
     const denominator =
       Utilities.formatDate(
-        rawValue,
+        dateValue,
         activeTimezone,
         'M'
       );
@@ -898,22 +1016,23 @@ function normalizeBulkImportSizeFmrV3_(
         true,
 
       sourceDisplay:
-        displayed,
+        sourceEvidence,
 
       rule:
-        'DATE_OBJECT_TO_DAY_MONTH_FRACTION'
+        repairRule
     };
   }
 
   return {
     value:
-      displayed,
+      displayed ||
+      rawText,
 
     repaired:
       false,
 
     sourceDisplay:
-      displayed,
+      sourceEvidence,
 
     rule:
       'SOURCE_TEXT'
@@ -5461,7 +5580,7 @@ function inspectFmrV3BulkImportContract() {
       'IGNORED_SOURCE_EVIDENCE',
 
     sizeDateCoercionMode:
-      'DATE_OBJECT_TO_DAY_MONTH_FRACTION',
+      'DATE_OBJECT_OR_SERIALIZED_DATE_TO_DAY_MONTH_FRACTION',
 
     existingStagingMode:
       'EXPLICIT_UPDATE_IN_PLACE',
@@ -5540,7 +5659,7 @@ function migrateFmrV3BulkImport() {
         diagnostic.passed,
 
       migration:
-        'ALPHA16_FRACTION_SIZE_NORMALIZATION',
+        'ALPHA17_SERIALIZED_FRACTION_SIZE_NORMALIZATION',
 
       version:
         FMR_V3.VERSION,
@@ -5942,7 +6061,7 @@ function inspectFmrV3BulkImportBatch(
       unrepairedDateLikeSizeCount,
 
     sizeDateCoercionMode:
-      'DATE_OBJECT_TO_DAY_MONTH_FRACTION',
+      'DATE_OBJECT_OR_SERIALIZED_DATE_TO_DAY_MONTH_FRACTION',
 
     uomCounts: {
       EA:
