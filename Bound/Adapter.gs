@@ -2612,7 +2612,7 @@ function verifyBoundBulkImportContractV3() {
     passed:
       isCompatibleFmrV3Alpha_(
         coreVersion,
-        14
+        15
       ) &&
       Boolean(
         contract

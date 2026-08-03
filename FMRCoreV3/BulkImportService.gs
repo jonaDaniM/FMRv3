@@ -5441,6 +5441,42 @@ function migrateFmrV3BulkImport() {
   }
 }
 
+function bulkImportOperationalSheetMatchesSourceFmrV3_(
+  item
+) {
+  const sourceHeader =
+    bulkImportSourceHeaderFromRowFmrV3_(
+      item
+    );
+
+  const identity =
+    splitBulkImportLineIdentityFmrV3_(
+      sourceHeader
+        .sourceLineNumber
+    );
+
+  const storedSheet =
+    normalizeFmrV3_(
+      item.ISO_Sheet
+    );
+
+  if (
+    !identity.valid ||
+    !storedSheet
+  ) {
+    return false;
+  }
+
+  return (
+    numberFmrV3_(
+      storedSheet
+    ) ===
+    numberFmrV3_(
+      identity.isoSheet
+    )
+  );
+}
+
 function inspectFmrV3BulkImportBatch(
   batchId
 ) {
@@ -5520,7 +5556,7 @@ function inspectFmrV3BulkImportBatch(
 
   const items =
     bulkImportItemsForBatchFmrV3_(
-      batchId
+      targetBatchId
     );
 
   const lines =
@@ -5537,7 +5573,7 @@ function inspectFmrV3BulkImportBatch(
             row.Batch_ID
           ) ===
           normalizeFmrV3_(
-            batchId
+            targetBatchId
           )
         );
       }
@@ -5561,19 +5597,8 @@ function inspectFmrV3BulkImportBatch(
       function (
         item
       ) {
-        const sourceHeader =
-          bulkImportSourceHeaderFromRowFmrV3_(
-            item
-          );
-
-        return Boolean(
-          normalizeFmrV3_(
-            sourceHeader
-              .sourceLineNumber
-          ) &&
-          normalizeFmrV3_(
-            item.ISO_Sheet
-          )
+        return bulkImportOperationalSheetMatchesSourceFmrV3_(
+          item
         );
       }
     ).length;
@@ -5601,8 +5626,12 @@ function inspectFmrV3BulkImportBatch(
     passed:
       batch.proposedFmrCount ===
         batch.worksheetCount &&
+      items.length ===
+        batch.proposedFmrCount &&
       batch.totalLineCount ===
         lines.length &&
+      derivedSheetCount ===
+        items.length &&
       items.every(
         function (
           item
@@ -5624,10 +5653,8 @@ function inspectFmrV3BulkImportBatch(
                 item.ISO_Number
               )
             ) &&
-            /^[0-9]{2}$/.test(
-              normalizeFmrV3_(
-                item.ISO_Sheet
-              )
+            bulkImportOperationalSheetMatchesSourceFmrV3_(
+              item
             )
           );
         }
@@ -5657,6 +5684,12 @@ function inspectFmrV3BulkImportBatch(
     totalLineCount:
       batch.totalLineCount,
 
+    inspectedItemCount:
+      items.length,
+
+    inspectedLineCount:
+      lines.length,
+
     maxParsedLineCount:
       items.reduce(
         function (
@@ -5685,6 +5718,9 @@ function inspectFmrV3BulkImportBatch(
 
     operationalSheetSource:
       'LINE_NO_FINAL_TWO_DIGIT_SUFFIX',
+
+    operationalSheetComparison:
+      'NUMERIC_EQUIVALENCE_TO_PRESERVED_SUFFIX',
 
     uomCounts: {
       EA:
