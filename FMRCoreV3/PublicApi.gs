@@ -342,6 +342,17 @@ function getFmrV3AdminIsoSummaryContract(
   return inspectFmrV3AdminIsoSummaryContract();
 }
 
+
+function getFmrV3AdminDecisionContract(
+  databaseId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return inspectFmrV3AdminDecisionContract();
+}
+
 function getFmrV3AdminActiveBags(
   databaseId,
   userEmail,

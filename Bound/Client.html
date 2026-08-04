@@ -283,12 +283,31 @@
         environment.transactionMode ||
         'ENABLED';
 
+      const pageTitle =
+        document.querySelector(
+          '.topbar h1'
+        );
+
+      if (
+        pageTitle
+      ) {
+        pageTitle.textContent =
+          projectName;
+      }
+
+      document.title =
+        (
+          projectName +
+          ' · ' +
+          environmentName
+        );
+
       byId(
         'pageSubtitle'
       ).textContent =
         (
           `${user.name || user.email} · ` +
-          `${user.role} · ${projectName} · ` +
+          `${user.role} · ` +
           `${environmentName} · ${transactionMode} · ` +
           `FMRCore ${source.version}`
         );
@@ -5387,22 +5406,81 @@
                 'Explain what the Field ' +
                 'team should review:'
               )
-            : 'Admin notes:',
+            : (
+                decision ===
+                  'REJECT'
+                  ? 'Explain why this backorder is being rejected:'
+                  : 'Optional Admin notes:'
+              ),
           ''
         );
 
       if (
+        notes ===
+        null
+      ) {
+        return;
+      }
+
+      const normalizedNotes =
+        notes.trim();
+
+      if (
+        decision ===
+          'REJECT' &&
+        !normalizedNotes
+      ) {
+        showErrorV3_(
+          'A rejection reason is required.'
+        );
+
+        return;
+      }
+
+      if (
         decision ===
           'RETURN' &&
-        (
-          !notes ||
-          !notes.trim()
-        )
+        !normalizedNotes
       ) {
         showErrorV3_(
           'A return-for-review reason is required.'
         );
 
+        return;
+      }
+
+      const decisionLabel =
+        decision ===
+          'CONFIRM'
+          ? 'Confirm'
+          : (
+              decision ===
+                'REJECT'
+                ? 'Reject'
+                : 'Return for Field Review'
+            );
+
+      const quantityText =
+        decision ===
+          'CONFIRM'
+          ? (
+              ' Quantity: ' +
+              formatQtyV3_(
+                quantity
+              ) +
+              '.'
+            )
+          : '';
+
+      if (
+        !window.confirm(
+          (
+            decisionLabel +
+            ' this backorder request?' +
+            quantityText
+          )
+        )
+      ) {
         return;
       }
 
@@ -5425,7 +5503,7 @@
               quantity,
 
             notes:
-              notes || ''
+              normalizedNotes
           }
         );
 

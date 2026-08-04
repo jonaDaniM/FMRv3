@@ -421,6 +421,127 @@ function verifyBoundAdminIsoSummaryContractV3() {
   return output;
 }
 
+
+function verifyBoundAdminDecisionContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const contract =
+    FMRCoreV3.getFmrV3AdminDecisionContract(
+      boundDatabaseIdFmrV3_()
+    );
+
+  const samples =
+    contract.validationSamples ||
+    [];
+
+  const rejectSample =
+    samples.find(
+      sample =>
+        sample.decision ===
+        'REJECT'
+    ) || {};
+
+  const returnSample =
+    samples.find(
+      sample =>
+        sample.decision ===
+        'RETURN'
+    ) || {};
+
+  const confirmSample =
+    samples.find(
+      sample =>
+        sample.decision ===
+        'CONFIRM'
+    ) || {};
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        22
+      ) &&
+      Boolean(
+        contract
+      ) &&
+      contract.passed ===
+        true &&
+      contract.cancelBehavior ===
+        'CLIENT_CANCEL_ABORTS_WITHOUT_SERVER_CALL' &&
+      contract.confirmationBehavior ===
+        'FINAL_CONFIRMATION_REQUIRED' &&
+      contract.rejectNotes ===
+        'REQUIRED' &&
+      contract.returnNotes ===
+        'REQUIRED' &&
+      contract.confirmNotes ===
+        'OPTIONAL' &&
+      contract.enforcement ===
+        'CLIENT_AND_SERVER' &&
+      rejectSample.blankRejected ===
+        true &&
+      returnSample.blankRejected ===
+        true &&
+      confirmSample.blankAllowed ===
+        true,
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    cancelBehavior:
+      contract.cancelBehavior,
+
+    confirmationBehavior:
+      contract.confirmationBehavior,
+
+    rejectNotes:
+      contract.rejectNotes,
+
+    returnNotes:
+      contract.returnNotes,
+
+    confirmNotes:
+      contract.confirmNotes,
+
+    emptyNoteNormalization:
+      contract
+        .emptyNoteNormalization,
+
+    enforcement:
+      contract.enforcement,
+
+    validationSamples:
+      samples
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound alpha.22 Admin decision contract failed.'
+    );
+  }
+
+  return output;
+}
+
 function getAdminActiveBagsV3(
   request
 ) {

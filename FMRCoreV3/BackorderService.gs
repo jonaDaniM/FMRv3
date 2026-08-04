@@ -1,3 +1,220 @@
+const FMR_V3_ADMIN_DECISION_POLICY =
+  Object.freeze({
+    cancelBehavior:
+      'CLIENT_CANCEL_ABORTS_WITHOUT_SERVER_CALL',
+
+    confirmationBehavior:
+      'FINAL_CONFIRMATION_REQUIRED',
+
+    rejectNotes:
+      'REQUIRED',
+
+    returnNotes:
+      'REQUIRED',
+
+    confirmNotes:
+      'OPTIONAL',
+
+    emptyNoteNormalization:
+      'TRIMMED_EMPTY_STRING',
+
+    enforcement:
+      'CLIENT_AND_SERVER'
+  });
+
+function normalizeAdminDecisionNotesFmrV3_(
+  decision,
+  notes
+) {
+  const normalizedDecision =
+    normalizeUpperFmrV3_(
+      decision
+    );
+
+  const normalizedNotes =
+    normalizeFmrV3_(
+      notes
+    );
+
+  if (
+    normalizedDecision ===
+      FMR_V3
+        .BACKORDER_DECISIONS
+        .REJECT &&
+    !normalizedNotes
+  ) {
+    throw new Error(
+      'A rejection reason is required.'
+    );
+  }
+
+  if (
+    normalizedDecision ===
+      FMR_V3
+        .BACKORDER_DECISIONS
+        .RETURN &&
+    !normalizedNotes
+  ) {
+    throw new Error(
+      'A return-for-review reason is required.'
+    );
+  }
+
+  return normalizedNotes;
+}
+
+function inspectFmrV3AdminDecisionContract() {
+  const output = {
+    passed:
+      true,
+
+    readOnly:
+      true,
+
+    version:
+      FMR_V3.VERSION,
+
+    cancelBehavior:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .cancelBehavior,
+
+    confirmationBehavior:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .confirmationBehavior,
+
+    rejectNotes:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .rejectNotes,
+
+    returnNotes:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .returnNotes,
+
+    confirmNotes:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .confirmNotes,
+
+    emptyNoteNormalization:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .emptyNoteNormalization,
+
+    enforcement:
+      FMR_V3_ADMIN_DECISION_POLICY
+        .enforcement,
+
+    validationSamples: [
+      {
+        decision:
+          'REJECT',
+
+        blankRejected:
+          false
+      },
+      {
+        decision:
+          'RETURN',
+
+        blankRejected:
+          false
+      },
+      {
+        decision:
+          'CONFIRM',
+
+        blankAllowed:
+          false
+      }
+    ]
+  };
+
+  try {
+    normalizeAdminDecisionNotesFmrV3_(
+      FMR_V3
+        .BACKORDER_DECISIONS
+        .REJECT,
+      ''
+    );
+  } catch (
+    error
+  ) {
+    output
+      .validationSamples[0]
+      .blankRejected =
+      (
+        normalizeFmrV3_(
+          error &&
+          error.message
+        ) ===
+        'A rejection reason is required.'
+      );
+  }
+
+  try {
+    normalizeAdminDecisionNotesFmrV3_(
+      FMR_V3
+        .BACKORDER_DECISIONS
+        .RETURN,
+      ''
+    );
+  } catch (
+    error
+  ) {
+    output
+      .validationSamples[1]
+      .blankRejected =
+      (
+        normalizeFmrV3_(
+          error &&
+          error.message
+        ) ===
+        'A return-for-review reason is required.'
+      );
+  }
+
+  output
+    .validationSamples[2]
+    .blankAllowed =
+    (
+      normalizeAdminDecisionNotesFmrV3_(
+        FMR_V3
+          .BACKORDER_DECISIONS
+          .CONFIRM,
+        ''
+      ) ===
+      ''
+    );
+
+  output.passed =
+    (
+      output
+        .validationSamples[0]
+        .blankRejected ===
+        true &&
+      output
+        .validationSamples[1]
+        .blankRejected ===
+        true &&
+      output
+        .validationSamples[2]
+        .blankAllowed ===
+        true
+    );
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  return output;
+}
+
+function runFmrV3AdminDecisionContractDiagnostic() {
+  return inspectFmrV3AdminDecisionContract();
+}
+
 function getBackorderQueueFmrV3_(
   userEmail
 ) {
@@ -231,6 +448,12 @@ function reviewBackorderFmrV3_(
       );
     }
 
+    const adminNotes =
+      normalizeAdminDecisionNotesFmrV3_(
+        decision,
+        payload.notes
+      );
+
     const indexEntries =
       lookupOperationalRowsFmrV3_(
         'BACKORDER',
@@ -455,9 +678,7 @@ function reviewBackorderFmrV3_(
           decision,
 
         Admin_Notes:
-          normalizeFmrV3_(
-            payload.notes
-          ),
+          adminNotes,
 
         Decided_By_Email:
           user.email,
@@ -476,9 +697,7 @@ function reviewBackorderFmrV3_(
                 .RETURN &&
             splitReturnedQuantity <= 0
           )
-            ? normalizeFmrV3_(
-                payload.notes
-              )
+            ? adminNotes
             : '',
 
         Active:
@@ -518,9 +737,7 @@ function reviewBackorderFmrV3_(
             decision,
 
           Admin_Notes:
-            normalizeFmrV3_(
-              payload.notes
-            ),
+            adminNotes,
 
           Returned_Review_Reason:
             (
@@ -530,9 +747,7 @@ function reviewBackorderFmrV3_(
                   .RETURN &&
               splitReturnedQuantity <= 0
             )
-              ? normalizeFmrV3_(
-                  payload.notes
-                )
+              ? adminNotes
               : '',
 
           Active:
@@ -561,9 +776,7 @@ function reviewBackorderFmrV3_(
             : null,
 
         reasonOverride:
-          normalizeFmrV3_(
-            payload.notes
-          ),
+          adminNotes,
 
         timestamp:
           now
@@ -582,9 +795,7 @@ function reviewBackorderFmrV3_(
         backorder,
         line,
         pending,
-        normalizeFmrV3_(
-          payload.notes
-        ),
+        adminNotes,
         correlationId,
         now
       );
@@ -655,9 +866,7 @@ function reviewBackorderFmrV3_(
               decision,
 
             Admin_Notes:
-              normalizeFmrV3_(
-                payload.notes
-              ),
+              adminNotes,
 
             Decided_By_Email:
               user.email,
@@ -669,9 +878,7 @@ function reviewBackorderFmrV3_(
               now,
 
             Returned_Review_Reason:
-              normalizeFmrV3_(
-                payload.notes
-              ),
+              adminNotes,
 
             Active:
               FMR_V3.YES,
@@ -801,14 +1008,10 @@ function reviewBackorderFmrV3_(
             'Returned for Review',
 
           Admin_Notes:
-            normalizeFmrV3_(
-              payload.notes
-            ),
+            adminNotes,
 
           Returned_Review_Reason:
-            normalizeFmrV3_(
-              payload.notes
-            ),
+            adminNotes,
 
           Active:
             FMR_V3.YES,
@@ -822,9 +1025,7 @@ function reviewBackorderFmrV3_(
             splitReturnedQuantity,
 
           reasonOverride:
-            normalizeFmrV3_(
-              payload.notes
-            ),
+            adminNotes,
 
           timestamp:
             now
@@ -852,9 +1053,7 @@ function reviewBackorderFmrV3_(
               splitReturnedQuantity,
 
             reason:
-              normalizeFmrV3_(
-                payload.notes
-              )
+              adminNotes
           }
         }
       );
@@ -889,9 +1088,7 @@ function reviewBackorderFmrV3_(
           user.name,
 
         notes:
-          normalizeFmrV3_(
-            payload.notes
-          )
+          adminNotes
       }
     );
 
@@ -935,9 +1132,7 @@ function reviewBackorderFmrV3_(
             splitReturnedQuantity,
 
           notes:
-            normalizeFmrV3_(
-              payload.notes
-            )
+            adminNotes
         }
       }
     );
