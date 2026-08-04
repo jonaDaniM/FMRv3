@@ -87,6 +87,7 @@
 
     function initializePortalV3_() {
       activateRequestedViewV3_();
+      configureAdminHierarchyViewV3_();
       bindPortalEventsV3_();
 
       callServerV3_(
@@ -169,6 +170,93 @@
         .catch(
           showErrorV3_
         );
+    }
+
+
+    function configureAdminHierarchyViewV3_() {
+      const sortSelect =
+        byId(
+          'adminRegisterSortBy'
+        );
+
+      if (!sortSelect) {
+        return;
+      }
+
+      const dateRequiredOption =
+        Array.from(
+          sortSelect.options || []
+        ).find(
+          option =>
+            option.value ===
+            'DATE_REQUIRED'
+        );
+
+      if (
+        dateRequiredOption
+      ) {
+        dateRequiredOption.remove();
+      }
+
+      const adminIsoOption =
+        Array.from(
+          byId(
+            'adminRegisterQueryType'
+          )?.options || []
+        ).find(
+          option =>
+            option.value ===
+            'ISO'
+        );
+
+      if (
+        adminIsoOption
+      ) {
+        adminIsoOption.textContent =
+          'ISO -##';
+      }
+
+      const fieldIsoOption =
+        Array.from(
+          byId(
+            'searchMode'
+          )?.options || []
+        ).find(
+          option =>
+            option.value ===
+            'ISO'
+        );
+
+      if (
+        fieldIsoOption
+      ) {
+        fieldIsoOption.textContent =
+          'ISO -##';
+      }
+
+      const adminQuery =
+        byId(
+          'adminRegisterQuery'
+        );
+
+      if (
+        adminQuery
+      ) {
+        adminQuery.placeholder =
+          'FMR number, ISO-##, IWP, requester, or notes';
+      }
+
+      const fieldQuery =
+        byId(
+          'searchQuery'
+        );
+
+      if (
+        fieldQuery
+      ) {
+        fieldQuery.placeholder =
+          'FMR number or LP131-PV-180003-17';
+      }
     }
 
     function applyPortalEnvironmentV3_(
@@ -3791,6 +3879,113 @@
           );
     }
 
+
+    function renderAdminIsoSummaryV3_(
+      record
+    ) {
+      const references =
+        Array.isArray(
+          record?.isoReferences
+        )
+          ? record.isoReferences
+          : [];
+
+      if (!references.length) {
+        return `
+          <span class="muted">
+            No indexed ISO
+          </span>
+        `;
+      }
+
+      const maximumVisible =
+        Number(
+          state.adminRegisterData
+            ?.isoSummaryPolicy
+            ?.maximumDisplayedReferences ||
+          3
+        );
+
+      const visible =
+        references.slice(
+          0,
+          maximumVisible
+        );
+
+      const remaining =
+        Math.max(
+          0,
+          references.length -
+          visible.length
+        );
+
+      const title =
+        references
+          .map(
+            reference =>
+              reference.display ||
+              reference.searchValue ||
+              (
+                `${reference.isoNumber || ''}` +
+                (
+                  reference.displaySheet ||
+                  reference.isoSheet
+                    ? `-${reference.displaySheet || reference.isoSheet}`
+                    : ''
+                )
+              )
+          )
+          .filter(Boolean)
+          .join(', ');
+
+      return `
+        <div
+          class="button-row"
+          title="${
+            escapeAttributeV3_(
+              title
+            )
+          }">
+
+          ${
+            visible
+              .map(
+                reference => `
+                  <span class="status-badge">
+                    ${
+                      escapeHtmlV3_(
+                        reference.display ||
+                        reference.searchValue ||
+                        (
+                          `${reference.isoNumber || ''}` +
+                          (
+                            reference.displaySheet ||
+                            reference.isoSheet
+                              ? `-${reference.displaySheet || reference.isoSheet}`
+                              : ''
+                          )
+                        )
+                      )
+                    }
+                  </span>
+                `
+              )
+              .join('')
+          }
+
+          ${
+            remaining > 0
+              ? `
+                <span class="status-badge">
+                  +${formatQtyV3_(remaining)} more
+                </span>
+              `
+              : ''
+          }
+        </div>
+      `;
+    }
+
     function renderAdminRegisterV3_(
       data
     ) {
@@ -3862,11 +4057,11 @@
       container.innerHTML = `
         <div class="register-meta">
           <span>
-            Header summaries only
+            Header summaries with indexed ISO-## children
           </span>
 
           <span>
-            Material lines load when
+            Material lines still load only when
             Open is selected
           </span>
 
@@ -3885,10 +4080,10 @@
           <table class="register-table">
             <thead>
               <tr>
-                <th>FMR Number</th>
+                <th>FMR #</th>
                 <th>IWP</th>
+                <th>ISO</th>
                 <th>Requested By</th>
-                <th>Date Required</th>
                 <th>Priority</th>
                 <th>Status</th>
                 <th>Lines</th>
@@ -3943,10 +4138,10 @@
                         }
                       </td>
 
-                      <td>
+                      <td class="fmr-cell">
                         ${
-                          escapeHtmlV3_(
-                            record.requestedBy
+                          renderAdminIsoSummaryV3_(
+                            record
                           )
                         }
                       </td>
@@ -3954,7 +4149,7 @@
                       <td>
                         ${
                           escapeHtmlV3_(
-                            record.dateRequired
+                            record.requestedBy
                           )
                         }
                       </td>

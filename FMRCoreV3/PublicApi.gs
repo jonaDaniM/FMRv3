@@ -42,6 +42,176 @@ function getFmrV3Bootstrap(
   };
 }
 
+
+function isoSuffixSearchCandidatesFmrV3_(
+  query,
+  mode
+) {
+  const normalizedMode =
+    normalizeUpperFmrV3_(
+      mode ||
+      'AUTO'
+    );
+
+  const raw =
+    normalizeUpperFmrV3_(
+      query
+    );
+
+  if (
+    !raw ||
+    ![
+      'AUTO',
+      'ISO'
+    ].includes(
+      normalizedMode
+    )
+  ) {
+    return [
+      raw
+    ];
+  }
+
+  const hasIsoPrefix =
+    raw.indexOf(
+      'ISO:'
+    ) ===
+    0;
+
+  const body =
+    hasIsoPrefix
+      ? raw.slice(
+          4
+        )
+      : raw;
+
+  if (
+    body.includes(
+      '|'
+    ) ||
+    body.includes(
+      '/'
+    ) ||
+    /\b(?:SHT|SHEET)\b/.test(
+      body
+    )
+  ) {
+    return [
+      raw
+    ];
+  }
+
+  const match =
+    body.match(
+      /^(.*)-([0-9]{2})$/
+    );
+
+  if (
+    !match
+  ) {
+    return [
+      raw
+    ];
+  }
+
+  const isoNumber =
+    normalizeUpperFmrV3_(
+      match[1]
+    );
+
+  const preservedSheet =
+    normalizeUpperFmrV3_(
+      match[2]
+    );
+
+  if (
+    !isoNumber ||
+    !preservedSheet
+  ) {
+    return [
+      raw
+    ];
+  }
+
+  const numericSheet =
+    Number(
+      preservedSheet
+    );
+
+  const canonicalSheet =
+    (
+      Number.isInteger(
+        numericSheet
+      ) &&
+      numericSheet >=
+        0
+    )
+      ? String(
+          numericSheet
+        )
+      : preservedSheet;
+
+  const prefix =
+    hasIsoPrefix
+      ? 'ISO:'
+      : '';
+
+  return Array.from(
+    new Set([
+      (
+        prefix +
+        isoNumber +
+        '|' +
+        canonicalSheet
+      ),
+      (
+        prefix +
+        isoNumber +
+        '|' +
+        preservedSheet
+      )
+    ])
+  );
+}
+
+function normalizeAdminRegisterIsoSearchCandidatesFmrV3_(
+  request
+) {
+  const source =
+    Object.assign(
+      {},
+      request ||
+      {}
+    );
+
+  const queryType =
+    normalizeUpperFmrV3_(
+      source.queryType ||
+      'AUTO'
+    );
+
+  const candidates =
+    isoSuffixSearchCandidatesFmrV3_(
+      source.query,
+      queryType
+    );
+
+  return candidates.map(
+    function (
+      candidate
+    ) {
+      return Object.assign(
+        {},
+        source,
+        {
+          query:
+            candidate
+        }
+      );
+    }
+  );
+}
+
 function searchFmrV3(
   databaseId,
   userEmail,
@@ -52,11 +222,37 @@ function searchFmrV3(
     databaseId
   );
 
-  return searchPublishedFmrV3_(
-    userEmail,
-    query,
-    mode
+  const candidates =
+    isoSuffixSearchCandidatesFmrV3_(
+      query,
+      mode
+    );
+
+  let result =
+    null;
+
+  candidates.some(
+    function (
+      candidate
+    ) {
+      result =
+        searchPublishedFmrV3_(
+          userEmail,
+          candidate,
+          mode
+        );
+
+      return (
+        numberFmrV3_(
+          result &&
+          result.resultCount
+        ) >
+        0
+      );
+    }
   );
+
+  return result;
 }
 
 function performFmrV3FieldAction(
@@ -100,10 +296,50 @@ function getFmrV3AdminRegister(
     databaseId
   );
 
-  return getAdminFmrRegisterFmrV3_(
-    userEmail,
-    request || {}
+  const candidates =
+    normalizeAdminRegisterIsoSearchCandidatesFmrV3_(
+      request
+    );
+
+  let register =
+    null;
+
+  candidates.some(
+    function (
+      candidate
+    ) {
+      register =
+        getAdminFmrRegisterFmrV3_(
+          userEmail,
+          candidate
+        );
+
+      return (
+        numberFmrV3_(
+          register &&
+          register.pagination &&
+          register.pagination
+            .totalRecords
+        ) >
+        0
+      );
+    }
   );
+
+  return enrichAdminRegisterWithIsoSummariesFmrV3_(
+    register
+  );
+}
+
+
+function getFmrV3AdminIsoSummaryContract(
+  databaseId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return inspectFmrV3AdminIsoSummaryContract();
 }
 
 function getFmrV3AdminActiveBags(

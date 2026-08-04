@@ -302,6 +302,125 @@ function getAdminFmrRegisterV3(
   );
 }
 
+
+function verifyBoundAdminIsoSummaryContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const contract =
+    FMRCoreV3.getFmrV3AdminIsoSummaryContract(
+      boundDatabaseIdFmrV3_()
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        21
+      ) &&
+      Boolean(
+        contract
+      ) &&
+      contract.passed ===
+        true &&
+      contract.summarySource ===
+        'SEARCH_INDEX_VISIBLE_PAGE_ONLY' &&
+      contract.displayMode ===
+        'ISO_NUMBER_WITH_FINAL_TWO_DIGIT_SUFFIX' &&
+      contract.maximumDisplayedReferences ===
+        3 &&
+      contract.materialLineLoadingPolicy ===
+        'DETAIL_ONLY' &&
+      contract.replacedColumn ===
+        'DATE_REQUIRED' &&
+      contract.visibleColumn ===
+        'ISO_CHILDREN' &&
+      contract.searchInputMode ===
+        'HYPHEN_SUFFIX_WITH_CANONICAL_AND_PRESERVED_FALLBACK',
+
+    dataPassed:
+      Boolean(
+        contract &&
+        contract.dataPassed
+      ),
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    summarySource:
+      contract.summarySource,
+
+    displayMode:
+      contract.displayMode,
+
+    maximumDisplayedReferences:
+      contract
+        .maximumDisplayedReferences,
+
+    materialLineLoadingPolicy:
+      contract
+        .materialLineLoadingPolicy,
+
+    replacedColumn:
+      contract.replacedColumn,
+
+    visibleColumn:
+      contract.visibleColumn,
+
+    searchInputMode:
+      contract.searchInputMode,
+
+    searchCandidateSamples:
+      contract.searchCandidateSamples,
+
+    inspectedFmrCount:
+      contract.inspectedFmrCount,
+
+    missingIsoSummaryCount:
+      contract
+        .missingIsoSummaryCount,
+
+    missingIsoSummarySamples:
+      contract
+        .missingIsoSummarySamples,
+
+    multiIsoFmrCount:
+      contract.multiIsoFmrCount,
+
+    multiIsoSamples:
+      contract.multiIsoSamples,
+
+    sample:
+      contract.sample
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound alpha.21 Admin ISO summary contract failed.'
+    );
+  }
+
+  return output;
+}
+
 function getAdminActiveBagsV3(
   request
 ) {
