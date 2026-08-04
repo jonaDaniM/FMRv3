@@ -5638,6 +5638,12 @@ function stageBulkImportItemsFmrV3_(
           );
         }
 
+        const activation =
+          prepareStagingActivationForUpdateFmrV3_(
+            item.Staging_FMR_ID,
+            item.Official_FMR_Number
+          );
+
         const result =
           saveStagedFmrFmrV3_(
             owner.email,
@@ -5647,6 +5653,17 @@ function stageBulkImportItemsFmrV3_(
               batch
             )
           );
+
+        recordStagingActivationFromUpdateFmrV3_(
+          owner.email,
+          activation,
+          (
+            'Archived staging record restored from bulk-import batch ' +
+            batchId +
+            '.'
+          ),
+          'OWNER'
+        );
 
         if (!result.valid) {
           throw new Error(

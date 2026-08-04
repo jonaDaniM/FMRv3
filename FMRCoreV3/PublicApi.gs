@@ -153,10 +153,29 @@ function saveFmrV3Staging(
     'Owner staging change'
   );
 
-  return saveStagedFmrFmrV3_(
+  const source =
+    payload || {};
+
+  const activation =
+    prepareStagingActivationForUpdateFmrV3_(
+      source.stagingFmrId,
+      source.officialFmrNumber
+    );
+
+  const result =
+    saveStagedFmrFmrV3_(
+      userEmail,
+      source
+    );
+
+  recordStagingActivationFromUpdateFmrV3_(
     userEmail,
-    payload || {}
+    activation,
+    'Archived staging record restored by Owner edit.',
+    'OWNER'
   );
+
+  return result;
 }
 
 function getFmrV3StagingList(
@@ -172,6 +191,74 @@ function getFmrV3StagingList(
     userEmail,
     maximumRows
   );
+}
+
+
+function getFmrV3StagingWorkspace(
+  databaseId,
+  userEmail,
+  maximumRows
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return getOwnerStagingWorkspaceFmrV3_(
+    userEmail,
+    maximumRows
+  );
+}
+
+function archiveFmrV3StagedFmr(
+  databaseId,
+  userEmail,
+  stagingFmrId,
+  reason
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  assertWriteEnabledFmrV3_(
+    'Staging archive'
+  );
+
+  return archiveStagedFmrFmrV3_(
+    userEmail,
+    stagingFmrId,
+    reason
+  );
+}
+
+function restoreFmrV3StagedFmr(
+  databaseId,
+  userEmail,
+  stagingFmrId,
+  reason
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  assertWriteEnabledFmrV3_(
+    'Staging restore'
+  );
+
+  return restoreStagedFmrFmrV3_(
+    userEmail,
+    stagingFmrId,
+    reason
+  );
+}
+
+function getFmrV3StagingArchiveContract(
+  databaseId
+) {
+  setFmrV3DatabaseContext_(
+    databaseId
+  );
+
+  return inspectFmrV3StagingArchiveContract();
 }
 
 function getFmrV3StagedFmr(
@@ -204,7 +291,7 @@ function publishFmrV3StagedFmr(
     'FMR publication'
   );
 
-  return publishStagedFmrFmrV3_(
+  return publishStagedFmrAlpha20FmrV3_(
     userEmail,
     stagingFmrId
   );

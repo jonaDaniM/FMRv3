@@ -34,6 +34,55 @@
 
     const byId = id => document.getElementById(id);
 
+    function captureWindowScrollV3_() {
+      return {
+        left:
+          window.scrollX || 0,
+
+        top:
+          window.scrollY || 0
+      };
+    }
+
+    function restoreWindowScrollV3_(
+      position
+    ) {
+      const source =
+        position || {};
+
+      requestAnimationFrame(
+        () => {
+          window.scrollTo({
+            left:
+              Number(
+                source.left || 0
+              ),
+
+            top:
+              Number(
+                source.top || 0
+              ),
+
+            behavior:
+              'auto'
+          });
+        }
+      );
+    }
+
+    function renderWithPreservedScrollV3_(
+      renderAction
+    ) {
+      const position =
+        captureWindowScrollV3_();
+
+      renderAction();
+
+      restoreWindowScrollV3_(
+        position
+      );
+    }
+
     document.addEventListener('DOMContentLoaded', initializePortalV3_);
 
     function initializePortalV3_() {
@@ -6273,8 +6322,12 @@
               )
         );
 
-      renderBulkImportItemsV3_(
-        batch.items || []
+      renderWithPreservedScrollV3_(
+        () => {
+          renderBulkImportItemsV3_(
+            batch.items || []
+          );
+        }
       );
     }
 
@@ -6285,9 +6338,13 @@
       if (
         state.bulkImportData
       ) {
-        renderBulkImportItemsV3_(
-          state.bulkImportData
-            .items || []
+        renderWithPreservedScrollV3_(
+          () => {
+            renderBulkImportItemsV3_(
+              state.bulkImportData
+                .items || []
+            );
+          }
         );
       }
     }
@@ -6395,6 +6452,9 @@
         return;
       }
 
+      const position =
+        captureWindowScrollV3_();
+
       const batch =
         await callServerV3_(
           'getBulkImportBatchV3',
@@ -6407,6 +6467,10 @@
 
       renderBulkImportBatchV3_(
         batch
+      );
+
+      restoreWindowScrollV3_(
+        position
       );
 
       await refreshRecentBulkImportsV3_(
@@ -6488,6 +6552,9 @@
         'Applying explicit ISO Sheet override…'
       );
 
+      const position =
+        captureWindowScrollV3_();
+
       try {
         const updated =
           await callServerV3_(
@@ -6503,6 +6570,10 @@
 
         renderBulkImportBatchV3_(
           updated
+        );
+
+        restoreWindowScrollV3_(
+          position
         );
 
         showSuccessV3_(
@@ -6599,6 +6670,9 @@
         return;
       }
 
+      const position =
+        captureWindowScrollV3_();
+
       setBulkImportBusyV3_(
         true,
         'Staging selected FMRs…'
@@ -6622,7 +6696,14 @@
           result.batch
         );
 
-        refreshStagingV3_();
+        restoreWindowScrollV3_(
+          position
+        );
+
+        refreshStagingV3_({
+          preserveScroll:
+            true
+        });
 
         await refreshRecentBulkImportsV3_(
           true
@@ -8925,116 +9006,228 @@
       });
     }
 
-    async function refreshStagingV3_() {
+    async function refreshStagingV3_(
+      options
+    ) {
+      const settings =
+        options || {};
+
+      const position =
+        settings.preserveScroll
+          ? captureWindowScrollV3_()
+          : null;
+
       byId('stagingList').innerHTML =
         '<div class="muted">' +
         'Loading staging records…' +
         '</div>';
 
       try {
-        const items =
+        const workspace =
           await callServerV3_(
-            'getStagingListV3',
+            'getStagingWorkspaceV3',
             100
           );
 
         renderStagingV3_(
-          items || []
+          workspace || {}
         );
+
+        if (position) {
+          restoreWindowScrollV3_(
+            position
+          );
+        }
       } catch (error) {
         showErrorV3_(error);
       }
     }
 
-    function renderStagingV3_(items) {
+    function stagingQueueCardV3_(
+      item,
+      archived
+    ) {
+      const label =
+        item.officialFmrNumber ||
+        item.stagingFmrId;
+
+      return `
+        <article class="queue-item ${
+          archived
+            ? 'is-archived'
+            : ''
+        }">
+          <div class="queue-title">
+            ${escapeHtmlV3_(label)}
+          </div>
+
+          <div class="queue-meta">
+            IWP
+            ${escapeHtmlV3_(item.iwpNumber || '—')} ·
+            ${escapeHtmlV3_(item.status)} ·
+            ${formatQtyV3_(item.lineCount || 0)} line(s) ·
+            ${escapeHtmlV3_(item.updatedAt || '')}
+
+            ${
+              item.sourceFileName
+                ? `
+                  <br>
+                  Source:
+                  ${escapeHtmlV3_(item.sourceFileName)}
+                `
+                : ''
+            }
+
+            ${
+              item.validationErrors
+                ? `
+                  <br>
+                  ${escapeHtmlV3_(item.validationErrors)}
+                `
+                : ''
+            }
+          </div>
+
+          <div class="queue-actions">
+            ${
+              archived
+                ? `
+                  <button
+                    class="small"
+                    data-restore-staging="${
+                      escapeAttributeV3_(
+                        item.stagingFmrId
+                      )
+                    }"
+                    data-staging-label="${
+                      escapeAttributeV3_(
+                        label
+                      )
+                    }">
+                    Restore to Queue
+                  </button>
+                `
+                : `
+                  <button
+                    class="small secondary"
+                    data-edit-staging="${
+                      escapeAttributeV3_(
+                        item.stagingFmrId
+                      )
+                    }">
+                    Edit
+                  </button>
+
+                  <button
+                    class="small"
+                    data-publish-staging="${
+                      escapeAttributeV3_(
+                        item.stagingFmrId
+                      )
+                    }"
+                    ${
+                      item.validationErrors
+                        ? 'disabled'
+                        : ''
+                    }>
+                    Publish
+                  </button>
+
+                  <button
+                    class="small secondary"
+                    data-archive-staging="${
+                      escapeAttributeV3_(
+                        item.stagingFmrId
+                      )
+                    }"
+                    data-staging-label="${
+                      escapeAttributeV3_(
+                        label
+                      )
+                    }">
+                    Archive
+                  </button>
+                `
+            }
+          </div>
+        </article>
+      `;
+    }
+
+    function renderStagingV3_(
+      workspace
+    ) {
       const container =
         byId('stagingList');
 
-      if (!items.length) {
-        container.innerHTML =
-          '<div class="muted">' +
-          'No unpublished staging records.' +
-          '</div>';
+      const active =
+        workspace.active || [];
 
-        return;
-      }
+      const archived =
+        workspace.archived || [];
 
-      container.innerHTML =
-        items.map(item => `
-          <article class="queue-item">
-            <div class="queue-title">
-              ${
-                escapeHtmlV3_(
-                  item.officialFmrNumber ||
-                  item.stagingFmrId
-                )
-              }
-            </div>
-
-            <div class="queue-meta">
-              IWP
-              ${
-                escapeHtmlV3_(
-                  item.iwpNumber
-                )
-              } ·
-
-              ${
-                escapeHtmlV3_(
-                  item.status
-                )
-              } ·
-
-              ${
-                escapeHtmlV3_(
-                  item.updatedAt
-                )
-              }
-
-              ${
-                item.validationErrors
-                  ? `
-                    <br>
-                    ${
-                      escapeHtmlV3_(
-                        item.validationErrors
-                      )
-                    }
-                  `
-                  : ''
-              }
-            </div>
-
-            <div class="queue-actions">
-              <button
-                class="small secondary"
-                data-edit-staging="${
-                  escapeAttributeV3_(
-                    item.stagingFmrId
+      const activeMarkup =
+        active.length
+          ? active
+              .map(
+                item =>
+                  stagingQueueCardV3_(
+                    item,
+                    false
                   )
-                }">
+              )
+              .join('')
+          : (
+              '<div class="muted">' +
+              'No unpublished staging records.' +
+              '</div>'
+            );
 
-                Edit
-              </button>
-
-              <button
-                class="small"
-                data-publish-staging="${
-                  escapeAttributeV3_(
-                    item.stagingFmrId
+      const archivedMarkup =
+        archived.length
+          ? archived
+              .map(
+                item =>
+                  stagingQueueCardV3_(
+                    item,
+                    true
                   )
-                }"
-                ${
-                  item.validationErrors
-                    ? 'disabled'
-                    : ''
-                }>
+              )
+              .join('')
+          : (
+              '<div class="muted">' +
+              'No archived staging records.' +
+              '</div>'
+            );
 
-                Publish
-              </button>
-            </div>
-          </article>
-        `).join('');
+      container.innerHTML = `
+        <div class="staging-workspace-summary muted">
+          ${formatQtyV3_(workspace.activeCount || 0)}
+          active ·
+          ${formatQtyV3_(workspace.archivedCount || 0)}
+          archived
+        </div>
+
+        <div class="staging-active-queue">
+          ${activeMarkup}
+        </div>
+
+        <details class="staging-archived-section">
+          <summary>
+            Archived Staging
+            (${formatQtyV3_(workspace.archivedCount || 0)})
+          </summary>
+
+          <p class="muted">
+            Archived records are removed from the active queue but retained
+            with the same staging ID and full audit history.
+          </p>
+
+          <div class="staging-archived-list">
+            ${archivedMarkup}
+          </div>
+        </details>
+      `;
 
       container
         .querySelectorAll(
@@ -9067,6 +9260,173 @@
             }
           );
         });
+
+      container
+        .querySelectorAll(
+          '[data-archive-staging]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              archiveStagingV3_(
+                button.dataset
+                  .archiveStaging,
+                button.dataset
+                  .stagingLabel
+              );
+            }
+          );
+        });
+
+      container
+        .querySelectorAll(
+          '[data-restore-staging]'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              restoreStagingV3_(
+                button.dataset
+                  .restoreStaging,
+                button.dataset
+                  .stagingLabel
+              );
+            }
+          );
+        });
+    }
+
+    async function archiveStagingV3_(
+      stagingFmrId,
+      label
+    ) {
+      const reason =
+        window.prompt(
+          (
+            'Archive unpublished FMR ' +
+            (label || stagingFmrId) +
+            '. Enter the reason. The record will not be deleted.'
+          ),
+          ''
+        );
+
+      if (reason === null) {
+        return;
+      }
+
+      if (
+        reason.trim().length <
+        3
+      ) {
+        showErrorV3_(
+          'Archive reason must contain at least 3 characters.'
+        );
+
+        return;
+      }
+
+      if (
+        !window.confirm(
+          (
+            'Remove unpublished FMR ' +
+            (label || stagingFmrId) +
+            ' from the active staging queue?'
+          )
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const result =
+          await callServerV3_(
+            'archiveStagedFmrV3',
+            stagingFmrId,
+            reason.trim()
+          );
+
+        if (
+          state.editingStagingFmrId ===
+          stagingFmrId
+        ) {
+          clearOwnerFormV3_();
+        }
+
+        await refreshStagingV3_({
+          preserveScroll:
+            true
+        });
+
+        showSuccessV3_(
+          result.message
+        );
+      } catch (error) {
+        showErrorV3_(error);
+      }
+    }
+
+    async function restoreStagingV3_(
+      stagingFmrId,
+      label
+    ) {
+      const reason =
+        window.prompt(
+          (
+            'Restore unpublished FMR ' +
+            (label || stagingFmrId) +
+            ' to the active staging queue. Enter the reason.'
+          ),
+          ''
+        );
+
+      if (reason === null) {
+        return;
+      }
+
+      if (
+        reason.trim().length <
+        3
+      ) {
+        showErrorV3_(
+          'Restore reason must contain at least 3 characters.'
+        );
+
+        return;
+      }
+
+      if (
+        !window.confirm(
+          (
+            'Restore unpublished FMR ' +
+            (label || stagingFmrId) +
+            ' using the same staging ID?'
+          )
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const result =
+          await callServerV3_(
+            'restoreStagedFmrV3',
+            stagingFmrId,
+            reason.trim()
+          );
+
+        await refreshStagingV3_({
+          preserveScroll:
+            true
+        });
+
+        showSuccessV3_(
+          result.message
+        );
+      } catch (error) {
+        showErrorV3_(error);
+      }
     }
 
     async function loadStagingForEditV3_(
@@ -9154,9 +9514,22 @@
         ).textContent =
           'Update Staging';
 
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
+        const ownerEditor =
+          byId(
+            'ownerFmrNumber'
+          ).closest(
+            '.panel'
+          ) ||
+          byId(
+            'ownerFmrNumber'
+          );
+
+        ownerEditor.scrollIntoView({
+          behavior:
+            'smooth',
+
+          block:
+            'start'
         });
       } catch (error) {
         showErrorV3_(error);

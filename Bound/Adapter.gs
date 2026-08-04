@@ -342,6 +342,41 @@ function getStagingListV3(
   );
 }
 
+
+function getStagingWorkspaceV3(
+  maximumRows
+) {
+  return FMRCoreV3.getFmrV3StagingWorkspace(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    maximumRows || 100
+  );
+}
+
+function archiveStagedFmrV3(
+  stagingFmrId,
+  reason
+) {
+  return FMRCoreV3.archiveFmrV3StagedFmr(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    stagingFmrId,
+    reason
+  );
+}
+
+function restoreStagedFmrV3(
+  stagingFmrId,
+  reason
+) {
+  return FMRCoreV3.restoreFmrV3StagedFmr(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    stagingFmrId,
+    reason
+  );
+}
+
 function getStagedFmrV3(
   stagingFmrId
 ) {
@@ -2596,6 +2631,109 @@ function verifyBoundOperationalReadinessV3() {
   return output;
 }
 
+
+function verifyBoundStagingArchiveContractV3() {
+  const started =
+    Date.now();
+
+  const coreVersion =
+    FMRCoreV3.getFmrV3Version();
+
+  const contract =
+    FMRCoreV3.getFmrV3StagingArchiveContract(
+      boundDatabaseIdFmrV3_()
+    );
+
+  const output = {
+    passed:
+      isCompatibleFmrV3Alpha_(
+        coreVersion,
+        20
+      ) &&
+      Boolean(
+        contract
+      ) &&
+      contract.passed ===
+        true &&
+      contract.archiveStatus ===
+        'ARCHIVED' &&
+      contract.archiveMode ===
+        'STATUS_ONLY_NO_PHYSICAL_DELETE' &&
+      contract.restoreMode ===
+        'SAME_STAGING_ID' &&
+      contract.publicationPolicy ===
+        'BLOCK_ARCHIVED' &&
+      contract.workspaceMode ===
+        'ACTIVE_AND_ARCHIVED' &&
+      contract.bulkRestageMode ===
+        'UPDATE_IN_PLACE_AND_RESTORE',
+
+    dataPassed:
+      Boolean(
+        contract &&
+        contract.dataPassed
+      ),
+
+    readOnly:
+      true,
+
+    elapsedMs:
+      Date.now() -
+      started,
+
+    coreVersion:
+      coreVersion,
+
+    archiveStatus:
+      contract.archiveStatus,
+
+    archiveMode:
+      contract.archiveMode,
+
+    restoreMode:
+      contract.restoreMode,
+
+    publicationPolicy:
+      contract.publicationPolicy,
+
+    workspaceMode:
+      contract.workspaceMode,
+
+    bulkRestageMode:
+      contract.bulkRestageMode,
+
+    activeCount:
+      contract.activeCount,
+
+    archivedCount:
+      contract.archivedCount,
+
+    duplicateActiveOfficialNumberCount:
+      contract
+        .duplicateActiveOfficialNumberCount,
+
+    duplicateActiveOfficialNumbers:
+      contract
+        .duplicateActiveOfficialNumbers
+  };
+
+  console.log(
+    JSON.stringify(
+      output,
+      null,
+      2
+    )
+  );
+
+  if (!output.passed) {
+    throw new Error(
+      'Bound alpha.20 staging archive contract failed.'
+    );
+  }
+
+  return output;
+}
+
 function verifyBoundBulkImportContractV3() {
   const started =
     Date.now();
@@ -2612,7 +2750,7 @@ function verifyBoundBulkImportContractV3() {
     passed:
       isCompatibleFmrV3Alpha_(
         coreVersion,
-        19
+        20
       ) &&
       Boolean(
         contract
