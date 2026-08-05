@@ -16,6 +16,7 @@
     <header class="topbar">
       <div>
         <h1>FMR Operations v3</h1>
+
         <p id="pageSubtitle">
           Loading protected services…
         </p>
@@ -32,14 +33,16 @@
         <a
           href="<?= webAppUrl ?>?view=admin"
           target="_top"
-          id="adminNav">
+          id="adminNav"
+          class="hidden">
           Admin
         </a>
 
         <a
           href="<?= webAppUrl ?>?view=owner"
           target="_top"
-          id="ownerNav">
+          id="ownerNav"
+          class="hidden">
           Owner
         </a>
       </nav>
@@ -56,7 +59,10 @@
     </div>
 
     <!-- FIELD VIEW -->
-    <section id="fieldView" class="hidden">
+    <section
+      id="fieldView"
+      class="hidden">
+
       <section class="panel">
         <h2>Field Search</h2>
 
@@ -75,14 +81,14 @@
             </option>
 
             <option value="ISO">
-              ISO + Sheet
+              ISO -##
             </option>
           </select>
 
           <input
             id="searchQuery"
             autocomplete="off"
-            placeholder="FMR-2026-00001 or FG-70912_001|3">
+            placeholder="FMR number or LP131-PV-180003-17">
 
           <button
             id="searchButton"
@@ -101,14 +107,16 @@
     </section>
 
     <!-- ADMIN VIEW -->
-    <section id="adminView" class="hidden">
+    <section
+      id="adminView"
+      class="hidden">
+
       <section
         id="kpiGrid"
         class="kpi-grid">
       </section>
 
       <div class="admin-workspace">
-        <!-- ADMIN MAIN COLUMN -->
         <div class="admin-main-column">
           <section class="panel admin-register-panel">
             <div class="section-heading">
@@ -116,9 +124,9 @@
                 <h2>All Published FMRs</h2>
 
                 <p>
-                  Review every published FMR without loading all
-                  material lines. Open one record to retrieve its
-                  indexed material details.
+                  Review every published FMR without loading all material
+                  lines. Open one record to retrieve its indexed material
+                  details.
                 </p>
               </div>
 
@@ -143,7 +151,7 @@
                   </option>
 
                   <option value="ISO">
-                    ISO + Sheet
+                    ISO -##
                   </option>
 
                   <option value="IWP">
@@ -158,7 +166,7 @@
                 <input
                   id="adminRegisterQuery"
                   autocomplete="off"
-                  placeholder="FMR number, ISO|sheet, IWP, requester, or notes">
+                  placeholder="FMR number, ISO-##, IWP, requester, or notes">
               </label>
 
               <label>
@@ -329,7 +337,6 @@
           </section>
         </div>
 
-        <!-- ADMIN OPERATIONAL RAIL -->
         <aside
           class="admin-operational-rail"
           aria-label="Admin operational queues">
@@ -340,8 +347,8 @@
                 <h2>Backorders Awaiting Review</h2>
 
                 <p>
-                  Confirm, reject, or return a request when
-                  material availability may have changed.
+                  Confirm, reject, or return a request when material
+                  availability may have changed.
                 </p>
               </div>
             </div>
@@ -368,7 +375,10 @@
     </section>
 
     <!-- OWNER VIEW -->
-    <section id="ownerView" class="hidden">
+    <section
+      id="ownerView"
+      class="hidden">
+
 <section class="panel system-control-panel">
   <div class="section-heading">
     <div>
@@ -620,13 +630,6 @@
     </div>
   </section>
 </section>
-
-<!--
-Sprint 4B Index.html patch
-
-Insert this entire block after the existing Sprint 4A
-"Production Controls" panel and before the existing "Owner Intake" panel.
--->
 
 <section class="panel operations-center-panel">
   <div class="section-heading">
@@ -978,7 +981,6 @@ Insert this entire block after the existing Sprint 4A
   </section>
 </section>
 
-
 <section class="panel bulk-import-panel">
   <div class="section-heading">
     <div>
@@ -1043,12 +1045,12 @@ Insert this entire block after the existing Sprint 4A
       <ul>
         <li>Maximum 35 material lines per FMR.</li>
         <li>No missing source fields are auto-filled.</li>
+        <li>Operational sheet is derived from the final -## suffix in LINE NO.</li>
+        <li>The source SHT field is not used.</li>
         <li>Description beginning with PIPE → LF.</li>
         <li>PIPET and all other descriptions → EA.</li>
         <li>Historical activity remains source evidence only.</li>
         <li>PDF matching is optional and handled as manual review.</li>
-        <li>Operational sheet is derived from the final -## suffix in LINE NO.</li>
-        <li>The source SHT field is not used.</li>
       </ul>
     </section>
   </div>
@@ -1140,12 +1142,15 @@ Insert this entire block after the existing Sprint 4A
   </section>
 </section>
 
-      <section class="panel">
+      <section
+        id="ownerIntakePanel"
+        class="panel">
+
         <h2>Owner Intake</h2>
 
         <p>
-          Stage the final reviewed FMR. Publication requires the
-          official number assigned by Material Management.
+          Stage the final reviewed FMR. Publication requires the official
+          number assigned by Material Management.
         </p>
 
         <div class="owner-grid">
@@ -1237,6 +1242,7 @@ Insert this entire block after the existing Sprint 4A
 
       <section class="panel">
         <h2>Unpublished Staging</h2>
+
         <div id="stagingList"></div>
       </section>
 
@@ -1283,8 +1289,10 @@ Insert this entire block after the existing Sprint 4A
     </section>
   </main>
 
-  <!-- FIELD ACTION MODAL -->
-  <div id="actionModal" class="modal hidden">
+  <div
+    id="actionModal"
+    class="modal hidden">
+
     <div class="modal-card">
       <button
         id="modalClose"

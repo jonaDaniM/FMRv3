@@ -34,6 +34,166 @@
 
     const byId = id => document.getElementById(id);
 
+    function formatFieldIsoV3_(
+      isoNumber,
+      isoSheet,
+      isoKey
+    ) {
+      let number =
+        String(
+          isoNumber || ''
+        ).trim();
+
+      let sheet =
+        String(
+          isoSheet || ''
+        ).trim();
+
+      if (
+        (!number || !sheet) &&
+        isoKey
+      ) {
+        const key =
+          String(
+            isoKey
+          ).trim();
+
+        const splitIndex =
+          Math.max(
+            key.lastIndexOf('|'),
+            key.lastIndexOf('/')
+          );
+
+        if (
+          splitIndex >
+          0
+        ) {
+          number =
+            number ||
+            key.slice(
+              0,
+              splitIndex
+            ).trim();
+
+          sheet =
+            sheet ||
+            key.slice(
+              splitIndex + 1
+            ).trim();
+        }
+      }
+
+      if (!number) {
+        return '';
+      }
+
+      if (!sheet) {
+        return number;
+      }
+
+      const numericSheet =
+        Number(
+          sheet
+        );
+
+      const displaySheet =
+        (
+          Number.isInteger(
+            numericSheet
+          ) &&
+          numericSheet >=
+            0 &&
+          numericSheet <=
+            99
+        )
+          ? String(
+              numericSheet
+            ).padStart(
+              2,
+              '0'
+            )
+          : sheet;
+
+      return (
+        number +
+        '-' +
+        displaySheet
+      );
+    }
+
+    function fieldIsoSummaryV3_(
+      materials
+    ) {
+      const values =
+        Array.from(
+          new Set(
+            (
+              materials ||
+              []
+            )
+              .map(
+                material =>
+                  formatFieldIsoV3_(
+                    material.isoNumber,
+                    material.isoSheet,
+                    material.isoKey
+                  )
+              )
+              .filter(
+                Boolean
+              )
+          )
+        );
+
+      const visible =
+        values.slice(
+          0,
+          3
+        );
+
+      const remaining =
+        Math.max(
+          0,
+          values.length -
+          visible.length
+        );
+
+      return {
+        values:
+          values,
+
+        label:
+          values.length ===
+            1
+            ? 'ISO'
+            : 'ISOs',
+
+        text:
+          visible.length
+            ? (
+                visible.join(
+                  ' · '
+                ) +
+                (
+                  remaining >
+                    0
+                    ? (
+                        ' · +' +
+                        remaining +
+                        ' more'
+                      )
+                    : ''
+                )
+              )
+            : 'Not listed',
+
+        title:
+          values.join(
+            ', '
+          )
+      };
+    }
+
     function captureWindowScrollV3_() {
       return {
         left:
@@ -86,7 +246,6 @@
     document.addEventListener('DOMContentLoaded', initializePortalV3_);
 
     function initializePortalV3_() {
-      activateRequestedViewV3_();
       configureAdminHierarchyViewV3_();
       bindPortalEventsV3_();
 
@@ -151,6 +310,8 @@
               'Your account does not have System Owner access.'
             );
           }
+
+          activateRequestedViewV3_();
 
           if (
             REQUESTED_VIEW ===
@@ -718,6 +879,11 @@
           const materials =
             card.materials || [];
 
+          const isoSummary =
+            fieldIsoSummaryV3_(
+              materials
+            );
+
           return `
             <article
               class="fmr-card field-fmr-card"
@@ -730,8 +896,33 @@
 
               <div class="section-heading field-fmr-heading">
                 <div>
-                  <h3>
-                    ${escapeHtmlV3_(card.fmrNumber)}
+                  <h3
+                    title="${
+                      escapeAttributeV3_(
+                        isoSummary.title
+                      )
+                    }">
+
+                    FMR:
+                    ${
+                      escapeHtmlV3_(
+                        card.fmrNumber
+                      )
+                    }
+
+                    ·
+
+                    ${
+                      escapeHtmlV3_(
+                        isoSummary.label
+                      )
+                    }:
+
+                    ${
+                      escapeHtmlV3_(
+                        isoSummary.text
+                      )
+                    }
                   </h3>
 
                   <div class="muted">
@@ -1535,6 +1726,13 @@
     function renderFieldMaterialCardV3_(
       material
     ) {
+      const displayIso =
+        formatFieldIsoV3_(
+          material.isoNumber,
+          material.isoSheet,
+          material.isoKey
+        );
+
       const workflow =
         fieldWorkflowForMaterialV3_(
           material
@@ -1636,6 +1834,7 @@
         material.description,
         material.commodityCode,
         material.size,
+        displayIso,
         material.isoKey,
         material.lineNumber,
         material.lineStatus,
@@ -1686,7 +1885,7 @@
                   )
                 } · ISO ${
                   escapeHtmlV3_(
-                    material.isoKey
+                    displayIso
                   )
                 }
               </div>
@@ -2536,10 +2735,19 @@
           ? state.activeWorkflowAction.label
           : actionLabelV3_(action);
 
+      const displayIso =
+        formatFieldIsoV3_(
+          material.isoNumber,
+          material.isoSheet,
+          material.isoKey
+        );
+
       byId('modalContext').textContent =
-        `${card.fmrNumber} · ` +
-        `${material.isoKey} · ` +
-        `${material.commodityCode}`;
+        (
+          `FMR: ${card.fmrNumber} · ` +
+          `ISO: ${displayIso} · ` +
+          `${material.commodityCode}`
+        );
 
       byId('modalFields').innerHTML =
         buildActionFieldsV3_(
@@ -4603,7 +4811,11 @@
                         <td>
                           ${
                             escapeHtmlV3_(
-                              material.isoKey
+                              formatFieldIsoV3_(
+                                material.isoNumber,
+                                material.isoSheet,
+                                material.isoKey
+                              )
                             )
                           }
                         </td>
