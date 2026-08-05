@@ -9,6 +9,7 @@
 
   <?!= includeFmrV3_('Styles'); ?>
   <?!= includeFmrV3_('FieldWorkflowStyles'); ?>
+  <?!= includeFmrV3_('AdminQueueStyles'); ?>
 </head>
 
 <body>
@@ -312,63 +313,136 @@
             </div>
           </section>
 
-          <section
-            id="adminFmrDetailPanel"
-            class="panel hidden admin-detail-panel">
-
-            <div class="section-heading">
-              <div>
-                <h2 id="adminFmrDetailTitle">
-                  FMR Detail
-                </h2>
-
-                <p id="adminFmrDetailSubtitle"></p>
-              </div>
-
-              <button
-                id="adminFmrDetailCloseButton"
-                type="button"
-                class="secondary">
-                Close Detail
-              </button>
-            </div>
-
-            <div id="adminFmrDetail"></div>
-          </section>
         </div>
 
         <aside
           class="admin-operational-rail"
           aria-label="Admin operational queues">
 
-          <section class="panel rail-panel">
-            <div class="section-heading">
+          <section
+            id="adminOperationalWorkspace"
+            class="panel rail-panel operational-queue-panel">
+
+            <div class="section-heading operational-queue-heading">
               <div>
-                <h2>Backorders Awaiting Review</h2>
+                <h2>Operational Queues</h2>
 
                 <p>
-                  Confirm, reject, or return a request when material
-                  availability may have changed.
+                  Search and review backorders or reserved material
+                  without losing your position in the FMR register.
                 </p>
               </div>
+
+              <button
+                id="adminOperationalClear"
+                type="button"
+                class="small secondary">
+                Clear
+              </button>
             </div>
 
-            <div id="backorderQueue"></div>
-          </section>
+            <div
+              class="operational-tabs"
+              role="tablist"
+              aria-label="Operational queue type">
 
-          <section class="panel rail-panel">
-            <div class="section-heading">
-              <div>
-                <h2>Active Bag &amp; Tags</h2>
+              <button
+                id="adminOperationalBackordersTab"
+                type="button"
+                class="operational-tab is-active"
+                role="tab"
+                aria-selected="true">
+                Backorders (0)
+              </button>
 
-                <p>
-                  Material currently reserved for Field issuance,
-                  including partially issued tags.
-                </p>
-              </div>
+              <button
+                id="adminOperationalBagsTab"
+                type="button"
+                class="operational-tab"
+                role="tab"
+                aria-selected="false">
+                Active Bags (0)
+              </button>
             </div>
 
-            <div id="activeBagQueue"></div>
+            <div class="operational-controls">
+              <label class="operational-search">
+                Search
+
+                <input
+                  id="adminOperationalSearch"
+                  autocomplete="off"
+                  placeholder="Search operational queues">
+              </label>
+
+              <label>
+                Sort
+
+                <select id="adminOperationalSort">
+                  <option value="OLDEST">
+                    Oldest first
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Page size
+
+                <select id="adminOperationalPageSize">
+                  <option value="5">
+                    5
+                  </option>
+
+                  <option
+                    value="10"
+                    selected>
+                    10
+                  </option>
+
+                  <option value="25">
+                    25
+                  </option>
+
+                  <option value="50">
+                    50
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div
+              id="adminOperationalStatus"
+              class="status operational-status">
+              Loading operational queues…
+            </div>
+
+            <div
+              id="adminOperationalList"
+              class="operational-queue-list"
+              aria-live="polite">
+            </div>
+
+            <div class="operational-pagination">
+              <button
+                id="adminOperationalPrevious"
+                type="button"
+                class="small secondary">
+                Previous
+              </button>
+
+              <span
+                id="adminOperationalPageText"
+                class="register-page-text">
+                Page 1 of 1
+              </span>
+
+              <button
+                id="adminOperationalNext"
+                type="button"
+                class="small secondary">
+                Next
+              </button>
+            </div>
           </section>
         </aside>
       </div>
