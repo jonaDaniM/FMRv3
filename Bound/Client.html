@@ -4393,13 +4393,7 @@
       );
     }
 
-
-
-
-
-
-
-    function operationalSearchTextV3_(
+   function operationalSearchTextV3_(
       group,
       tab
     ) {
@@ -4453,11 +4447,6 @@
         .join(' ')
         .toLowerCase();
     }
-
-
-
-
-
 
     function sortedOperationalGroupsV3_(
       groups,
@@ -4581,263 +4570,7 @@
       );
     }
 
-
-
-
-
-    function renderBackorderGroupCardV3_(
-      group
-    ) {
-      const expanded =
-        state
-          .adminExpandedQueueKeys
-          .has(
-            group.key
-          );
-
-      return `
-        <article
-          class="operational-card ${
-            expanded
-              ? 'is-expanded'
-              : ''
-          }"
-          data-operational-card="${
-            escapeAttributeV3_(
-              group.key
-            )
-          }">
-
-          <div class="operational-card-heading">
-            <div>
-              <div class="queue-title">
-                FMR ${
-                  escapeHtmlV3_(
-                    group.fmrNumber
-                  )
-                }
-              </div>
-
-              <div class="queue-meta">
-                ${
-                  escapeHtmlV3_(
-                    operationalIsoSummaryV3_(
-                      group.isoValues
-                    )
-                  )
-                }
-              </div>
-            </div>
-
-            <span class="status-badge status-sourcing">
-              ${
-                formatQtyV3_(
-                  group.requests.length
-                )
-              }
-
-              request${
-                group.requests.length ===
-                  1
-                  ? ''
-                  : 's'
-              }
-            </span>
-          </div>
-
-          <div class="operational-summary-grid">
-            <div>
-              <span class="label">
-                Pending
-              </span>
-
-              <strong>
-                ${
-                  formatQtyV3_(
-                    group.pendingTotal
-                  )
-                }
-              </strong>
-            </div>
-
-            <div>
-              <span class="label">
-                Requested
-              </span>
-
-              <strong>
-                ${
-                  formatQtyV3_(
-                    group.requestedTotal
-                  )
-                }
-              </strong>
-            </div>
-          </div>
-
-          <div class="queue-actions">
-            <button
-              type="button"
-              class="small secondary"
-              data-operational-expand="${
-                escapeAttributeV3_(
-                  group.key
-                )
-              }">
-
-              ${
-                expanded
-                  ? 'Hide Requests'
-                  : 'View Requests'
-              }
-            </button>
-          </div>
-
-          ${
-            expanded
-              ? `
-                <div class="operational-card-items">
-                  ${
-                    group.requests
-                      .map(
-                        request => `
-                          <section class="operational-item">
-                            <div class="operational-item-heading">
-                              <strong>
-                                ${
-                                  escapeHtmlV3_(
-                                    request.commodityCode
-                                  )
-                                }
-                              </strong>
-
-                              <span>
-                                ${
-                                  formatQtyV3_(
-                                    request.qtyPending
-                                  )
-                                }
-
-                                pending
-                              </span>
-                            </div>
-
-                            <div class="queue-meta">
-                              ISO
-                              ${
-                                escapeHtmlV3_(
-                                  formatFieldIsoV3_(
-                                    request.isoNumber,
-                                    request.isoSheet,
-                                    request.isoKey
-                                  )
-                                )
-                              }
-
-                              <br>
-
-                              ${
-                                escapeHtmlV3_(
-                                  request.reason
-                                )
-                              }
-
-                              <br>
-
-                              Reported by
-                              ${
-                                escapeHtmlV3_(
-                                  request.reportedBy
-                                )
-                              }
-                              ·
-                              ${
-                                escapeHtmlV3_(
-                                  request.reportedAt
-                                )
-                              }
-
-                              ${
-                                request.fieldNotes
-                                  ? `
-                                    <br>
-                                    ${
-                                      escapeHtmlV3_(
-                                        request.fieldNotes
-                                      )
-                                    }
-                                  `
-                                  : ''
-                              }
-                            </div>
-
-                            ${
-                              state
-                                .adminCanReviewBackorders
-                                ? `
-                                  <div class="queue-actions">
-                                    <button
-                                      class="small"
-                                      data-backorder-decision="CONFIRM"
-                                      data-request-id="${
-                                        escapeAttributeV3_(
-                                          request.requestId
-                                        )
-                                      }"
-                                      data-pending="${
-                                        escapeAttributeV3_(
-                                          request.qtyPending
-                                        )
-                                      }">
-
-                                      Confirm
-                                    </button>
-
-                                    <button
-                                      class="small danger"
-                                      data-backorder-decision="REJECT"
-                                      data-request-id="${
-                                        escapeAttributeV3_(
-                                          request.requestId
-                                        )
-                                      }">
-
-                                      Reject
-                                    </button>
-
-                                    <button
-                                      class="small warning"
-                                      data-backorder-decision="RETURN"
-                                      data-request-id="${
-                                        escapeAttributeV3_(
-                                          request.requestId
-                                        )
-                                      }">
-
-                                      Return
-                                    </button>
-                                  </div>
-                                `
-                                : `
-                                  <div class="muted">
-                                    Read-only queue.
-                                  </div>
-                                `
-                            }
-                          </section>
-                        `
-                      )
-                      .join('')
-                  }
-                </div>
-              `
-              : ''
-          }
-        </article>
-      `;
-    }
-
-function operationalDisplayValueV3_(
+    function operationalDisplayValueV3_(
       value,
       fallback
     ) {
@@ -5591,8 +5324,6 @@ function operationalDisplayValueV3_(
         </article>
       `;
     }
-
-
 
     function renderAdminOperationalQueueV3_(
       options
@@ -10750,6 +10481,22 @@ function operationalDisplayValueV3_(
       const summary =
         source.summary || {};
 
+      const systemUsers =
+        Array.isArray(
+          source.users
+        )
+          ? source.users
+          : [];
+
+      const activeOwnerCount =
+        systemUsers.filter(
+          user =>
+            Boolean(
+              user.active &&
+              user.canOwnerEdit
+            )
+        ).length;
+
       byId(
         'systemEnvironmentBadge'
       ).textContent =
@@ -10802,7 +10549,12 @@ function operationalDisplayValueV3_(
           )} Field · ` +
           `${Number(
             summary.admins || 0
-          )} Admin`
+          )} Admin · ` +
+          `${activeOwnerCount} System Owner${
+            activeOwnerCount === 1
+              ? ''
+              : 's'
+          }`
         );
 
       byId(
@@ -10946,6 +10698,21 @@ function operationalDisplayValueV3_(
         return;
       }
 
+      const primaryOwnerEmail =
+        String(
+          state.systemControlData &&
+          state.systemControlData.environment
+            ? (
+                state.systemControlData
+                  .environment
+                  .ownerEmail ||
+                ''
+              )
+            : ''
+        )
+          .trim()
+          .toLowerCase();
+
       container.innerHTML = `
         <div class="system-user-table-wrap">
           <table class="system-user-table">
@@ -10962,6 +10729,18 @@ function operationalDisplayValueV3_(
 
             <tbody>
               ${users.map(user => {
+                const isPrimaryOwner =
+                  Boolean(
+                    primaryOwnerEmail &&
+                    String(
+                      user.email ||
+                      ''
+                    )
+                      .trim()
+                      .toLowerCase() ===
+                      primaryOwnerEmail
+                  );
+
                 const permissions = [
                   user.canSearch
                     ? 'Search'
@@ -11008,6 +10787,20 @@ function operationalDisplayValueV3_(
                           user.role ||
                           user.profile
                         )
+                      }
+
+                      ${
+                        user.canOwnerEdit
+                          ? `
+                            <div class="muted">
+                              ${
+                                isPrimaryOwner
+                                  ? 'Primary owner'
+                                  : 'Delegated owner'
+                              }
+                            </div>
+                          `
+                          : ''
                       }
                     </td>
 
@@ -11080,8 +10873,12 @@ function operationalDisplayValueV3_(
                         </button>
 
                         ${
-                          user.canOwnerEdit
-                            ? ''
+                          isPrimaryOwner
+                            ? `
+                              <span class="muted">
+                                Protected primary owner
+                              </span>
+                            `
                             : user.active
                               ? `
                                 <button

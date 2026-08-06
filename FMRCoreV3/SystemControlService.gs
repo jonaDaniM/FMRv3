@@ -1251,6 +1251,7 @@ function getSystemControlFmrV3_(
   };
 }
 
+
 function upsertSystemUserFmrV3_(
   userEmail,
   payload
@@ -1289,7 +1290,7 @@ function upsertSystemUserFmrV3_(
     );
   }
 
-  const ownerEmail =
+  const primaryOwnerEmail =
     normalizeEmailFmrV3_(
       getConfigurationFmrV3_()
         .OWNER_EMAIL
@@ -1301,19 +1302,16 @@ function upsertSystemUserFmrV3_(
     ) ||
     'READ_ONLY';
 
+  /**
+   * The configured primary owner cannot be demoted.
+   * Other users may now receive the OWNER profile.
+   */
   if (
     email ===
-    ownerEmail
+    primaryOwnerEmail
   ) {
     requestedProfile =
       'OWNER';
-  } else if (
-    requestedProfile ===
-    'OWNER'
-  ) {
-    throw new Error(
-      'The OWNER profile is reserved for the configured System Owner.'
-    );
   }
 
   const profile =
@@ -1352,6 +1350,31 @@ function upsertSystemUserFmrV3_(
         FMR_V3.SHEETS.USERS,
         rows[0]
       );
+
+    const existingActive =
+      yesFmrV3_(
+        existing.Active
+      );
+
+    const existingIsOwner =
+      existingActive &&
+      yesFmrV3_(
+        existing.Can_Owner_Edit
+      );
+
+    const nextIsOwner =
+      existingActive &&
+      profile.canOwnerEdit;
+
+    if (
+      existingIsOwner &&
+      !nextIsOwner
+    ) {
+      assertSystemOwnerContinuityFmrV3_(
+        email,
+        false
+      );
+    }
 
     record =
       updateRowObjectFmrV3_(
@@ -1517,6 +1540,18 @@ function upsertSystemUserFmrV3_(
         active:
           yesFmrV3_(
             record.Active
+          ),
+
+        primaryOwner:
+          email ===
+          primaryOwnerEmail,
+
+        delegatedOwner:
+          (
+            profile.key ===
+              'OWNER' &&
+            email !==
+              primaryOwnerEmail
           )
       }
     }
@@ -1531,8 +1566,18 @@ function upsertSystemUserFmrV3_(
     message:
       action ===
       'SYSTEM_USER_CREATED'
-        ? 'User access created.'
-        : 'User access updated.',
+        ? (
+            profile.key ===
+              'OWNER'
+              ? 'System Owner access created.'
+              : 'User access created.'
+          )
+        : (
+            profile.key ===
+              'OWNER'
+              ? 'System Owner access updated.'
+              : 'User access updated.'
+          ),
 
     user:
       serializeSystemUserFmrV3_(
@@ -1540,6 +1585,7 @@ function upsertSystemUserFmrV3_(
       )
   };
 }
+
 
 function setSystemUserActiveFmrV3_(
   userEmail,
@@ -1557,7 +1603,7 @@ function setSystemUserActiveFmrV3_(
       targetEmail
     );
 
-  const ownerEmail =
+  const primaryOwnerEmail =
     normalizeEmailFmrV3_(
       getConfigurationFmrV3_()
         .OWNER_EMAIL
@@ -1565,11 +1611,11 @@ function setSystemUserActiveFmrV3_(
 
   if (
     email ===
-    ownerEmail &&
+    primaryOwnerEmail &&
     !active
   ) {
     throw new Error(
-      'The configured System Owner cannot be deactivated.'
+      'The primary System Owner cannot be deactivated.'
     );
   }
 
@@ -1587,6 +1633,27 @@ function setSystemUserActiveFmrV3_(
       'Expected one Users row for ' +
       email +
       '.'
+    );
+  }
+
+  const existing =
+    readRowObjectFmrV3_(
+      FMR_V3.SHEETS.USERS,
+      rows[0]
+    );
+
+  if (
+    !active &&
+    yesFmrV3_(
+      existing.Active
+    ) &&
+    yesFmrV3_(
+      existing.Can_Owner_Edit
+    )
+  ) {
+    assertSystemOwnerContinuityFmrV3_(
+      email,
+      false
     );
   }
 
@@ -1624,10 +1691,7 @@ function setSystemUserActiveFmrV3_(
             reason
           ) ||
           normalizeFmrV3_(
-            readRowObjectFmrV3_(
-              FMR_V3.SHEETS.USERS,
-              rows[0]
-            ).Notes
+            existing.Notes
           )
       }
     );
@@ -1659,6 +1723,11 @@ function setSystemUserActiveFmrV3_(
             active
           ),
 
+        wasSystemOwner:
+          yesFmrV3_(
+            existing.Can_Owner_Edit
+          ),
+
         reason:
           normalizeFmrV3_(
             reason
@@ -1684,6 +1753,178 @@ function setSystemUserActiveFmrV3_(
       )
   };
 }
+
+
+
+function setSystemUserActiveFmrV3_(
+  userEmail,
+  targetEmail,
+  active,
+  reason
+) {
+  const owner =
+    assertOwnerFmrV3_(
+      userEmail
+    );
+
+  const email =
+    normalizeEmailFmrV3_(
+      targetEmail
+    );
+
+  const primaryOwnerEmail =
+    normalizeEmailFmrV3_(
+      getConfigurationFmrV3_()
+        .OWNER_EMAIL
+    );
+
+  if (
+    email ===
+    primaryOwnerEmail &&
+    !active
+  ) {
+    throw new Error(
+      'The primary System Owner cannot be deactivated.'
+    );
+  }
+
+  const rows =
+    findRowsByExactValueFmrV3_(
+      FMR_V3.SHEETS.USERS,
+      2,
+      email
+    );
+
+  if (
+    rows.length !== 1
+  ) {
+    throw new Error(
+      'Expected one Users row for ' +
+      email +
+      '.'
+    );
+  }
+
+  const existing =
+    readRowObjectFmrV3_(
+      FMR_V3.SHEETS.USERS,
+      rows[0]
+    );
+
+  if (
+    !active &&
+    yesFmrV3_(
+      existing.Active
+    ) &&
+    yesFmrV3_(
+      existing.Can_Owner_Edit
+    )
+  ) {
+    assertSystemOwnerContinuityFmrV3_(
+      email,
+      false
+    );
+  }
+
+  const now =
+    nowFmrV3_();
+
+  const record =
+    updateRowObjectFmrV3_(
+      FMR_V3.SHEETS.USERS,
+      rows[0],
+      {
+        Active:
+          active
+            ? FMR_V3.YES
+            : FMR_V3.NO,
+
+        Updated_By:
+          owner.email,
+
+        Updated_At:
+          now,
+
+        Deactivated_By:
+          active
+            ? ''
+            : owner.email,
+
+        Deactivated_At:
+          active
+            ? ''
+            : now,
+
+        Notes:
+          normalizeFmrV3_(
+            reason
+          ) ||
+          normalizeFmrV3_(
+            existing.Notes
+          )
+      }
+    );
+
+  invalidateUserCacheFmrV3_(
+    email
+  );
+
+  appendAuditFmrV3_(
+    'USER',
+    record.User_ID,
+    active
+      ? 'SYSTEM_USER_REACTIVATED'
+      : 'SYSTEM_USER_DEACTIVATED',
+    owner,
+    uuidFmrV3_(
+      'CORR'
+    ),
+    {
+      sourceInterface:
+        'OWNER',
+
+      payload: {
+        email:
+          email,
+
+        active:
+          Boolean(
+            active
+          ),
+
+        wasSystemOwner:
+          yesFmrV3_(
+            existing.Can_Owner_Edit
+          ),
+
+        reason:
+          normalizeFmrV3_(
+            reason
+          )
+      }
+    }
+  );
+
+  SpreadsheetApp.flush();
+
+  return {
+    success:
+      true,
+
+    message:
+      active
+        ? 'User access reactivated.'
+        : 'User access deactivated.',
+
+    user:
+      serializeSystemUserFmrV3_(
+        record
+      )
+  };
+}
+
+
+
 
 function updateSystemConfigurationFmrV3_(
   userEmail,

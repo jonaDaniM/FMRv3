@@ -185,6 +185,13 @@ function assertBackorderAdminFmrV3_(
   return user;
 }
 
+/**
+ * Owner authorization is permission-based.
+ *
+ * OWNER_EMAIL remains the protected primary owner used for
+ * bootstrap and continuity, but any active Users row carrying
+ * Can_Owner_Edit = YES receives System Owner access.
+ */
 function assertOwnerFmrV3_(
   email
 ) {
@@ -193,19 +200,11 @@ function assertOwnerFmrV3_(
       email
     );
 
-  const ownerEmail =
-    normalizeEmailFmrV3_(
-      getConfigurationFmrV3_()
-        .OWNER_EMAIL
-    );
-
   if (
-    !user.canOwnerEdit ||
-    user.email !==
-      ownerEmail
+    !user.canOwnerEdit
   ) {
     throw new Error(
-      'Only the configured System Owner may change FMR master data.'
+      'System Owner access is required.'
     );
   }
 
