@@ -1,10 +1,10 @@
 <style>
   /*
-   * FMR Operations v3 — Alpha 24
-   * Operational Queue Material Clarity
+   * FMR Operations v3 — Alpha 27.1
+   * Operational Queue text formatting
    *
-   * Add this as a new Bound HTML file named:
-   * OperationalQueueMaterialStyles
+   * Complete replacement for:
+   * Bound/OperationalQueueMaterialStyles.html
    */
 
   .admin-operational-rail,
@@ -91,6 +91,7 @@
     font-weight: 800;
     line-height: 1.2;
     letter-spacing: 0.04em;
+    text-align: left;
     text-transform: uppercase;
   }
 
@@ -135,6 +136,7 @@
 
   .operational-detail-field {
     display: grid;
+    align-content: start;
     gap: 5px;
     min-height: 60px;
     padding: 10px 11px;
@@ -142,6 +144,7 @@
       #d7e3ee;
     border-radius: 8px;
     background: #f8fbfe;
+    text-align: left;
   }
 
   .operational-detail-field.is-wide {
@@ -155,6 +158,7 @@
     font-size: 14px;
     font-weight: 750;
     line-height: 1.35;
+    text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -174,31 +178,77 @@
     font-weight: 850;
   }
 
-  .operational-text-block {
+  /*
+   * Compact natural-flow text blocks.
+   *
+   * These selectors are intentionally more specific than legacy queue
+   * selectors so descriptions and reasons cannot inherit centered,
+   * vertically stretched, or fixed-height formatting.
+   */
+  .operational-item .operational-text-block {
+    display: block;
+    align-content: initial;
+    align-items: initial;
+    justify-content: initial;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     margin-top: 10px;
-    padding: 11px 12px;
+    padding: 10px 12px;
     border: 1px solid
       #d7e3ee;
     border-radius: 8px;
     background: #ffffff;
-    overflow: hidden;
+    overflow: visible;
+    text-align: left;
   }
 
-  .operational-text-block.is-emphasis {
-    border-left: 4px solid #8eb9da;
-    background: #f9fcff;
+  .operational-item
+    .operational-text-block.is-emphasis {
+    border-color: #c8ddeb;
+    border-left: 4px solid #79aed3;
+    background: #f5faff;
+    padding-left: 12px;
   }
 
-  .operational-text-value {
+  .operational-item
+    .operational-text-block
+    .operational-detail-label {
+    display: block;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .operational-item .operational-text-value {
+    display: block;
+    align-self: auto;
+    justify-self: stretch;
+    place-self: auto stretch;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     max-width: 100%;
-    margin-top: 6px;
+    margin: 5px 0 0;
+    padding: 0;
     color: var(--text, #18263a);
     font-size: 14px;
-    font-weight: 600;
-    line-height: 1.45;
+    font-weight: 650;
+    line-height: 1.42;
+    text-align: left;
     white-space: pre-wrap;
+    overflow: visible;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .operational-item
+    .operational-text-block.is-emphasis
+    .operational-text-value {
+    color: var(--navy, #143b5d);
+    font-size: 15px;
+    font-weight: 760;
+    line-height: 1.38;
   }
 
   .operational-reporting-grid {
@@ -215,12 +265,18 @@
 
   .operational-metric {
     display: grid;
+    align-content: start;
     gap: 5px;
     padding: 10px 8px;
     border: 1px solid
       #d7e3ee;
     border-radius: 8px;
     background: #eef5fb;
+    text-align: center;
+  }
+
+  .operational-metric
+    .operational-detail-label {
     text-align: center;
   }
 
@@ -279,6 +335,12 @@
     .operational-detail-field.is-wide {
       grid-column: auto;
     }
+
+    .operational-item
+      .operational-text-block.is-emphasis
+      .operational-text-value {
+      font-size: 14px;
+    }
   }
 
   @media (max-width: 520px) {
@@ -293,6 +355,10 @@
 
     .operational-card-actions button {
       width: 100%;
+    }
+
+    .operational-item .operational-text-block {
+      padding: 9px 10px;
     }
   }
 </style>
