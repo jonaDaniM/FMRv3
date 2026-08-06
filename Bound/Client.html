@@ -4029,7 +4029,7 @@
       ).placeholder =
         isBackorders
           ? (
-              'Search FMR, ISO, commodity, size, material, reporter, or reason'
+              'Search FMR, ISO, commodity, reporter, or reason'
             )
           : (
               'Search tag, FMR, ISO, commodity, or location'
@@ -4410,9 +4410,6 @@
           ).flatMap(
             request => [
               request.commodityCode,
-              request.size,
-              request.materialDescription,
-              request.uom,
               request.reason,
               request.reportedBy,
               request.fieldNotes
@@ -4569,151 +4566,6 @@
       );
     }
 
-    function operationalDisplayValueV3_(
-      value,
-      fallback
-    ) {
-      const normalized =
-        String(
-          value == null
-            ? ''
-            : value
-        ).trim();
-
-      const fallbackValue =
-        arguments.length >=
-          2
-          ? String(
-              fallback == null
-                ? ''
-                : fallback
-            )
-          : 'Not listed';
-
-      return normalized ||
-        fallbackValue;
-    }
-
-    function renderOperationalContextRowV3_(
-      label,
-      value
-    ) {
-      const displayValue =
-        operationalDisplayValueV3_(
-          value
-        );
-
-      return `
-        <div class="operational-context-row">
-          <span class="operational-context-label">
-            ${escapeHtmlV3_(label)}
-          </span>
-
-          <span
-            class="operational-context-value"
-            title="${
-              escapeAttributeV3_(
-                displayValue
-              )
-            }">
-
-            ${escapeHtmlV3_(displayValue)}
-          </span>
-        </div>
-      `;
-    }
-
-    function renderOperationalFieldV3_(
-      label,
-      value,
-      options
-    ) {
-      const settings =
-        options || {};
-
-      const displayValue =
-        operationalDisplayValueV3_(
-          value,
-          settings.fallback
-        );
-
-      return `
-        <div class="operational-field ${
-          settings.wide
-            ? 'operational-field--wide'
-            : ''
-        }">
-          <span class="operational-field-label">
-            ${escapeHtmlV3_(label)}
-          </span>
-
-          <span
-            class="operational-field-value"
-            title="${
-              escapeAttributeV3_(
-                displayValue
-              )
-            }">
-
-            ${escapeHtmlV3_(displayValue)}
-          </span>
-        </div>
-      `;
-    }
-
-    function renderOperationalDescriptionV3_(
-      description
-    ) {
-      return `
-        <div class="operational-description">
-          <span class="operational-field-label">
-            Material description
-          </span>
-
-          <div class="operational-description-value">
-            ${
-              escapeHtmlV3_(
-                operationalDisplayValueV3_(
-                  description
-                )
-              )
-            }
-          </div>
-        </div>
-      `;
-    }
-
-    function renderOperationalQuantityMetricV3_(
-      label,
-      quantity,
-      uom,
-      extraClass
-    ) {
-      return `
-        <div class="operational-quantity-metric ${
-          escapeAttributeV3_(
-            extraClass || ''
-          )
-        }">
-          <span class="operational-field-label">
-            ${escapeHtmlV3_(label)}
-          </span>
-
-          <strong>
-            ${formatQtyV3_(quantity)}
-            ${
-              escapeHtmlV3_(
-                operationalDisplayValueV3_(
-                  uom,
-                  ''
-                )
-              )
-            }
-          </strong>
-        </div>
-      `;
-    }
-
     function renderBackorderGroupCardV3_(
       group
     ) {
@@ -4738,7 +4590,7 @@
           }">
 
           <div class="operational-card-heading">
-            <div class="operational-card-heading-copy">
+            <div>
               <div class="queue-title">
                 FMR ${
                   escapeHtmlV3_(
@@ -4747,10 +4599,9 @@
                 }
               </div>
 
-              <div class="operational-context-list">
+              <div class="queue-meta">
                 ${
-                  renderOperationalContextRowV3_(
-                    'ISO',
+                  escapeHtmlV3_(
                     operationalIsoSummaryV3_(
                       group.isoValues
                     )
@@ -4778,7 +4629,7 @@
           <div class="operational-summary-grid">
             <div>
               <span class="label">
-                Pending qty
+                Pending
               </span>
 
               <strong>
@@ -4792,7 +4643,7 @@
 
             <div>
               <span class="label">
-                Requested qty
+                Requested
               </span>
 
               <strong>
@@ -4830,178 +4681,132 @@
                   ${
                     group.requests
                       .map(
-                        request => {
-                          const isoDisplay =
-                            formatFieldIsoV3_(
-                              request.isoNumber,
-                              request.isoSheet,
-                              request.isoKey
-                            );
-
-                          const uom =
-                            operationalDisplayValueV3_(
-                              request.uom,
-                              ''
-                            );
-
-                          const reportedBy =
-                            operationalDisplayValueV3_(
-                              request.reportedBy
-                            );
-
-                          const reportedAt =
-                            operationalDisplayValueV3_(
-                              request.reportedAt
-                            );
-
-                          return `
-                            <section class="operational-item operational-item--backorder">
-                              <div class="operational-item-heading">
-                                <div class="operational-item-title">
-                                  <span class="operational-item-kicker">
-                                    Commodity code
-                                  </span>
-
-                                  <strong class="operational-item-code">
-                                    ${
-                                      escapeHtmlV3_(
-                                        operationalDisplayValueV3_(
-                                          request.commodityCode
-                                        )
-                                      )
-                                    }
-                                  </strong>
-                                </div>
-
-                                <span class="operational-quantity-badge operational-quantity-badge--pending">
-                                  ${
-                                    formatQtyV3_(
-                                      request.qtyPending
-                                    )
-                                  }
-                                  ${escapeHtmlV3_(uom)}
-                                  pending
-                                </span>
-                              </div>
-
-                              <div class="operational-field-grid">
+                        request => `
+                          <section class="operational-item">
+                            <div class="operational-item-heading">
+                              <strong>
                                 ${
-                                  renderOperationalFieldV3_(
-                                    'Size',
-                                    request.size
+                                  escapeHtmlV3_(
+                                    request.commodityCode
+                                  )
+                                }
+                              </strong>
+
+                              <span>
+                                ${
+                                  formatQtyV3_(
+                                    request.qtyPending
                                   )
                                 }
 
-                                ${
-                                  renderOperationalFieldV3_(
-                                    'ISO',
-                                    isoDisplay
-                                  )
-                                }
-                              </div>
+                                pending
+                              </span>
+                            </div>
 
+                            <div class="queue-meta">
+                              ISO
                               ${
-                                renderOperationalDescriptionV3_(
-                                  request.materialDescription
+                                escapeHtmlV3_(
+                                  formatFieldIsoV3_(
+                                    request.isoNumber,
+                                    request.isoSheet,
+                                    request.isoKey
+                                  )
                                 )
                               }
 
-                              <div class="operational-field-grid operational-request-details">
-                                ${
-                                  renderOperationalFieldV3_(
-                                    'Reason',
-                                    request.reason,
-                                    {
-                                      wide:
-                                        true
-                                    }
-                                  )
-                                }
-
-                                ${
-                                  renderOperationalFieldV3_(
-                                    'Reported by',
-                                    reportedBy
-                                  )
-                                }
-
-                                ${
-                                  renderOperationalFieldV3_(
-                                    'Reported at',
-                                    reportedAt
-                                  )
-                                }
-
-                                ${
-                                  request.fieldNotes
-                                    ? renderOperationalFieldV3_(
-                                        'Field notes',
-                                        request.fieldNotes,
-                                        {
-                                          wide:
-                                            true
-                                        }
-                                      )
-                                    : ''
-                                }
-                              </div>
+                              <br>
 
                               ${
-                                state
-                                  .adminCanReviewBackorders
-                                  ? `
-                                    <div class="queue-actions">
-                                      <button
-                                        class="small"
-                                        data-backorder-decision="CONFIRM"
-                                        data-request-id="${
-                                          escapeAttributeV3_(
-                                            request.requestId
-                                          )
-                                        }"
-                                        data-pending="${
-                                          escapeAttributeV3_(
-                                            request.qtyPending
-                                          )
-                                        }">
-
-                                        Confirm
-                                      </button>
-
-                                      <button
-                                        class="small danger"
-                                        data-backorder-decision="REJECT"
-                                        data-request-id="${
-                                          escapeAttributeV3_(
-                                            request.requestId
-                                          )
-                                        }">
-
-                                        Reject
-                                      </button>
-
-                                      <button
-                                        class="small warning"
-                                        data-backorder-decision="RETURN"
-                                        data-request-id="${
-                                          escapeAttributeV3_(
-                                            request.requestId
-                                          )
-                                        }">
-
-                                        Return
-                                      </button>
-                                    </div>
-                                  `
-                                  : `
-                                    <div class="muted">
-                                      Read-only queue.
-                                    </div>
-                                  `
+                                escapeHtmlV3_(
+                                  request.reason
+                                )
                               }
-                            </section>
-                          `;
-                        }
+
+                              <br>
+
+                              Reported by
+                              ${
+                                escapeHtmlV3_(
+                                  request.reportedBy
+                                )
+                              }
+                              ·
+                              ${
+                                escapeHtmlV3_(
+                                  request.reportedAt
+                                )
+                              }
+
+                              ${
+                                request.fieldNotes
+                                  ? `
+                                    <br>
+                                    ${
+                                      escapeHtmlV3_(
+                                        request.fieldNotes
+                                      )
+                                    }
+                                  `
+                                  : ''
+                              }
+                            </div>
+
+                            ${
+                              state
+                                .adminCanReviewBackorders
+                                ? `
+                                  <div class="queue-actions">
+                                    <button
+                                      class="small"
+                                      data-backorder-decision="CONFIRM"
+                                      data-request-id="${
+                                        escapeAttributeV3_(
+                                          request.requestId
+                                        )
+                                      }"
+                                      data-pending="${
+                                        escapeAttributeV3_(
+                                          request.qtyPending
+                                        )
+                                      }">
+
+                                      Confirm
+                                    </button>
+
+                                    <button
+                                      class="small danger"
+                                      data-backorder-decision="REJECT"
+                                      data-request-id="${
+                                        escapeAttributeV3_(
+                                          request.requestId
+                                        )
+                                      }">
+
+                                      Reject
+                                    </button>
+
+                                    <button
+                                      class="small warning"
+                                      data-backorder-decision="RETURN"
+                                      data-request-id="${
+                                        escapeAttributeV3_(
+                                          request.requestId
+                                        )
+                                      }">
+
+                                      Return
+                                    </button>
+                                  </div>
+                                `
+                                : `
+                                  <div class="muted">
+                                    Read-only queue.
+                                  </div>
+                                `
+                            }
+                          </section>
+                        `
                       )
                       .join('')
                   }
@@ -5012,6 +4817,7 @@
         </article>
       `;
     }
+
     function renderActiveBagGroupCardV3_(
       group
     ) {
@@ -5024,17 +4830,20 @@
 
       const fmrSummary =
         group.fmrNumbers.length
-          ? group.fmrNumbers.join(
-              ', '
+          ? (
+              'FMR ' +
+              group.fmrNumbers.join(
+                ', '
+              )
             )
-          : 'Not listed';
+          : 'FMR not listed';
 
       const locationSummary =
         group.locations.length
           ? group.locations.join(
               ' · '
             )
-          : 'Not recorded';
+          : 'Location not recorded';
 
       return `
         <article
@@ -5050,7 +4859,7 @@
           }">
 
           <div class="operational-card-heading">
-            <div class="operational-card-heading-copy">
+            <div>
               <div class="queue-title">
                 ${
                   escapeHtmlV3_(
@@ -5059,27 +4868,18 @@
                 }
               </div>
 
-              <div class="operational-context-list">
+              <div class="queue-meta">
                 ${
-                  renderOperationalContextRowV3_(
-                    'FMR',
+                  escapeHtmlV3_(
                     fmrSummary
                   )
                 }
-
+                ·
                 ${
-                  renderOperationalContextRowV3_(
-                    'ISO',
+                  escapeHtmlV3_(
                     operationalIsoSummaryV3_(
                       group.isoValues
                     )
-                  )
-                }
-
-                ${
-                  renderOperationalContextRowV3_(
-                    'Storage',
-                    locationSummary
                   )
                 }
               </div>
@@ -5101,10 +4901,18 @@
             </span>
           </div>
 
+          <div class="queue-meta operational-location">
+            ${
+              escapeHtmlV3_(
+                locationSummary
+              )
+            }
+          </div>
+
           <div class="operational-summary-grid">
             <div>
               <span class="label">
-                Material lines
+                Items
               </span>
 
               <strong>
@@ -5118,7 +4926,7 @@
 
             <div>
               <span class="label">
-                Qty remaining
+                Remaining
               </span>
 
               <strong>
@@ -5156,121 +4964,98 @@
                   ${
                     group.items
                       .map(
-                        item => {
-                          const isoDisplay =
-                            formatFieldIsoV3_(
-                              item.isoNumber,
-                              item.isoSheet,
-                              item.isoKey
-                            );
+                        item => `
+                          <section class="operational-item">
+                            <div class="operational-item-heading">
+                              <strong>
+                                ${
+                                  escapeHtmlV3_(
+                                    item.commodityCode
+                                  )
+                                }
 
-                          const uom =
-                            operationalDisplayValueV3_(
-                              item.uom,
-                              ''
-                            );
-
-                          return `
-                            <section class="operational-item operational-item--bag">
-                              <div class="operational-item-heading">
-                                <div class="operational-item-title">
-                                  <span class="operational-item-kicker">
-                                    Commodity code
-                                  </span>
-
-                                  <strong class="operational-item-code">
-                                    ${
-                                      escapeHtmlV3_(
-                                        operationalDisplayValueV3_(
-                                          item.commodityCode
+                                ${
+                                  item.size
+                                    ? `
+                                      ·
+                                      ${
+                                        escapeHtmlV3_(
+                                          item.size
                                         )
-                                      )
-                                    }
-                                  </strong>
-                                </div>
+                                      }
+                                    `
+                                    : ''
+                                }
+                              </strong>
 
-                                <span class="operational-quantity-badge operational-quantity-badge--remaining">
-                                  ${
-                                    formatQtyV3_(
-                                      item.qtyRemaining
-                                    )
-                                  }
-                                  ${escapeHtmlV3_(uom)}
-                                  remaining
-                                </span>
-                              </div>
-
-                              <div class="operational-field-grid">
+                              <span>
                                 ${
-                                  renderOperationalFieldV3_(
-                                    'Size',
-                                    item.size
+                                  formatQtyV3_(
+                                    item.qtyRemaining
                                   )
                                 }
 
                                 ${
-                                  renderOperationalFieldV3_(
-                                    'ISO',
-                                    isoDisplay
+                                  escapeHtmlV3_(
+                                    item.uom
                                   )
                                 }
-                              </div>
+
+                                remaining
+                              </span>
+                            </div>
+
+                            <div class="queue-meta">
+                              ISO
+                              ${
+                                escapeHtmlV3_(
+                                  formatFieldIsoV3_(
+                                    item.isoNumber,
+                                    item.isoSheet,
+                                    item.isoKey
+                                  )
+                                )
+                              }
+
+                              <br>
 
                               ${
-                                renderOperationalDescriptionV3_(
+                                escapeHtmlV3_(
                                   item.materialDescription
                                 )
                               }
 
-                              <div class="operational-quantity-grid">
-                                ${
-                                  renderOperationalQuantityMetricV3_(
-                                    'Bagged',
-                                    item.qtyBagged,
-                                    uom
-                                  )
-                                }
+                              <br>
 
-                                ${
-                                  renderOperationalQuantityMetricV3_(
-                                    'Issued',
-                                    item.qtyIssued,
-                                    uom
-                                  )
-                                }
-
-                                ${
-                                  renderOperationalQuantityMetricV3_(
-                                    'Remaining',
-                                    item.qtyRemaining,
-                                    uom,
-                                    'operational-quantity-metric--remaining'
-                                  )
-                                }
-                              </div>
+                              Bagged
+                              ${
+                                formatQtyV3_(
+                                  item.qtyBagged
+                                )
+                              }
+                              ·
+                              Issued
+                              ${
+                                formatQtyV3_(
+                                  item.qtyIssued
+                                )
+                              }
 
                               ${
                                 item.notes
                                   ? `
-                                    <div class="operational-note">
-                                      <span class="operational-field-label">
-                                        Notes
-                                      </span>
-
-                                      <div class="operational-note-value">
-                                        ${
-                                          escapeHtmlV3_(
-                                            item.notes
-                                          )
-                                        }
-                                      </div>
-                                    </div>
+                                    <br>
+                                    ${
+                                      escapeHtmlV3_(
+                                        item.notes
+                                      )
+                                    }
                                   `
                                   : ''
                               }
-                            </section>
-                          `;
-                        }
+                            </div>
+                          </section>
+                        `
                       )
                       .join('')
                   }
@@ -5281,6 +5066,7 @@
         </article>
       `;
     }
+
     function renderAdminOperationalQueueV3_(
       options
     ) {
