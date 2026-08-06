@@ -1,0 +1,45 @@
+{
+  "release": "3.0.0-alpha.24",
+  "package_name": "FMRv3_Alpha24_Operational_Queue_Material_Clarity.zip",
+  "baseline": {
+    "repository": "jonaDaniM/FMRv3",
+    "branch": "main",
+    "files": {
+      "Bound/Client.html": "11812885869a383ac851949b95d7a1f60f422702",
+      "Bound/AdminQueueStyles.html": "f462ebbf673064d14a939bd92f0c01c162e0cfbd",
+      "FMRCoreV3/BackorderService.gs": "c7358deed68c537d7a00424275d5f67d8c1b1b24",
+      "Bound/appsscript.json": "c0b0013bee1eb6375ae546b3a9ffd3daef6e37cb"
+    }
+  },
+  "expected_core_library_version": 24,
+  "database_migration_required": false,
+  "adapter_change_required": false,
+  "files_to_replace": [
+    "FMRCoreV3/BackorderService.gs",
+    "Bound/Client.html",
+    "Bound/AdminQueueStyles.html",
+    "Bound/appsscript.json"
+  ],
+  "manual_patch": [
+    "FMRCoreV3/Config.gs semantic version only"
+  ],
+  "checks": {
+    "baseline_client_sha_matches_github": true,
+    "baseline_css_sha_matches_github": true,
+    "baseline_backorder_sha_matches_github": true,
+    "baseline_manifest_sha_matches_github": true,
+    "core_returns_size": true,
+    "core_returns_description": true,
+    "core_returns_uom": true,
+    "backorder_search_includes_description": true,
+    "backorder_labels_size": true,
+    "backorder_labels_description": true,
+    "bag_labels_size": true,
+    "bag_quantity_grid": true,
+    "css_wraps_long_text": true,
+    "css_mobile_layout": true,
+    "library_version_24": true,
+    "client_syntax_pass": true,
+    "core_syntax_pass": true
+  }
+}

@@ -1,4 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpha 24 Operational Queue Preview</title>
 <style>
+:root { --border:#cbd9e6; --light:#edf4fb; --muted:#64748b; --text:#17233a; --blue:#1767b1; --danger:#d9281c; }
+* { box-sizing:border-box; }
+body { margin:0; padding:24px; background:#f5f8fb; color:var(--text); font-family:Arial,sans-serif; }
+.preview { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; max-width:1100px; margin:auto; }
+.preview-panel { background:white; border:1px solid var(--border); border-radius:14px; padding:16px; }
+.queue-title { font-size:22px; font-weight:800; }
+.queue-actions { display:flex; gap:8px; margin-top:10px; }
+button { border:0; border-radius:8px; padding:8px 12px; background:#23679c; color:white; font-weight:700; }
+button.danger { background:#dc2d23; } button.warning { background:#b87800; }
+.status-badge,.readiness-badge { padding:7px 10px; border-radius:999px; background:#fff0c7; font-weight:800; font-size:12px; }
+.operational-card-items { border-top:0; padding-top:0; }
+
   .admin-operational-rail {
     position: sticky;
     top: 14px;
@@ -538,4 +556,51 @@
       animation-duration: 1.8s;
     }
   }
+
+
 </style>
+</head>
+<body>
+<div class="preview">
+  <section class="preview-panel">
+    <h2>Backorder request</h2>
+    <section class="operational-item operational-item--backorder">
+      <div class="operational-item-heading">
+        <div class="operational-item-title"><span class="operational-item-kicker">Commodity code</span><strong class="operational-item-code">5717306L0</strong></div>
+        <span class="operational-quantity-badge operational-quantity-badge--pending">1 EA pending</span>
+      </div>
+      <div class="operational-field-grid">
+        <div class="operational-field"><span class="operational-field-label">Size</span><span class="operational-field-value">4</span></div>
+        <div class="operational-field"><span class="operational-field-label">ISO</span><span class="operational-field-value">LP131-PV-180003-17</span></div>
+      </div>
+      <div class="operational-description"><span class="operational-field-label">Material description</span><div class="operational-description-value">ELL 90 DEG LR SCH 10S HASTELLOY C22 B366-W — deliberately extended preview text to demonstrate safe wrapping inside the operational queue card without overlapping the action controls.</div></div>
+      <div class="operational-field-grid operational-request-details">
+        <div class="operational-field operational-field--wide"><span class="operational-field-label">Reason</span><span class="operational-field-value">Not found in laydown yard</span></div>
+        <div class="operational-field"><span class="operational-field-label">Reported by</span><span class="operational-field-value">Jonathan - Tester</span></div>
+        <div class="operational-field"><span class="operational-field-label">Reported at</span><span class="operational-field-value">2026-08-06 08:43</span></div>
+      </div>
+      <div class="queue-actions"><button>Confirm</button><button class="danger">Reject</button><button class="warning">Return</button></div>
+    </section>
+  </section>
+  <section class="preview-panel">
+    <h2>Active bag item</h2>
+    <section class="operational-item operational-item--bag">
+      <div class="operational-item-heading">
+        <div class="operational-item-title"><span class="operational-item-kicker">Commodity code</span><strong class="operational-item-code">5469601L</strong></div>
+        <span class="operational-quantity-badge operational-quantity-badge--remaining">3 EA remaining</span>
+      </div>
+      <div class="operational-field-grid">
+        <div class="operational-field"><span class="operational-field-label">Size</span><span class="operational-field-value">4</span></div>
+        <div class="operational-field"><span class="operational-field-label">ISO</span><span class="operational-field-value">LP131-PVAC-381022-07</span></div>
+      </div>
+      <div class="operational-description"><span class="operational-field-label">Material description</span><div class="operational-description-value">ELL 90 DEG LR SCH 10S HASTELLOY C22 B366-W</div></div>
+      <div class="operational-quantity-grid">
+        <div class="operational-quantity-metric"><span class="operational-field-label">Bagged</span><strong>3 EA</strong></div>
+        <div class="operational-quantity-metric"><span class="operational-field-label">Issued</span><strong>0 EA</strong></div>
+        <div class="operational-quantity-metric operational-quantity-metric--remaining"><span class="operational-field-label">Remaining</span><strong>3 EA</strong></div>
+      </div>
+    </section>
+  </section>
+</div>
+</body>
+</html>

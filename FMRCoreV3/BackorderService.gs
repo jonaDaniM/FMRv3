@@ -215,6 +215,113 @@ function runFmrV3AdminDecisionContractDiagnostic() {
   return inspectFmrV3AdminDecisionContract();
 }
 
+function backorderQueueLineMetadataByIdFmrV3_(
+  requests
+) {
+  const metadataById = {};
+
+  (
+    requests ||
+    []
+  ).forEach(
+    function (
+      request
+    ) {
+      const lineId =
+        normalizeFmrV3_(
+          request.FMR_Line_ID
+        );
+
+      if (
+        !lineId ||
+        Object.prototype
+          .hasOwnProperty.call(
+            metadataById,
+            lineId
+          )
+      ) {
+        return;
+      }
+
+      try {
+        const line =
+          getLineByIdFmrV3_(
+            lineId
+          );
+
+        metadataById[
+          lineId
+        ] = {
+          lineNumber:
+            normalizeFmrV3_(
+              line.Line_Number
+            ),
+
+          isoNumber:
+            normalizeFmrV3_(
+              line.ISO_Number
+            ),
+
+          isoSheet:
+            normalizeFmrV3_(
+              line.ISO_Sheet
+            ),
+
+          isoKey:
+            normalizeFmrV3_(
+              line.ISO_Key
+            ),
+
+          commodityCode:
+            normalizeFmrV3_(
+              line.Commodity_Code
+            ),
+
+          size:
+            normalizeFmrV3_(
+              line.Size
+            ),
+
+          materialDescription:
+            normalizeFmrV3_(
+              line.Material_Description
+            ),
+
+          uom:
+            normalizeFmrV3_(
+              line.UOM
+            )
+        };
+      } catch (
+        error
+      ) {
+        /**
+         * Keep the Admin queue available when a legacy or damaged
+         * request references a line that cannot be read. The request's
+         * original commodity, ISO key, quantities, and decision controls
+         * are still returned; the new presentation fields use safe
+         * fallbacks in the client.
+         */
+        metadataById[
+          lineId
+        ] = {};
+
+        console.warn(
+          'Unable to enrich backorder queue line ' +
+          lineId +
+          ': ' +
+          normalizeFmrV3_(
+            error &&
+            error.message
+          )
+        );
+      }
+    }
+  );
+
+  return metadataById;
+}
+
 function getBackorderQueueFmrV3_(
   userEmail
 ) {
@@ -244,7 +351,7 @@ function getBackorderQueueFmrV3_(
     }
   );
 
-  const requests =
+  const requestRows =
     readRowsObjectsFmrV3_(
       FMR_V3.SHEETS
         .BACKORDERS,
@@ -299,10 +406,28 @@ function getBackorderQueueFmrV3_(
           ).getTime()
         );
       }
-    ).map(
+    );
+
+  const lineMetadataById =
+    backorderQueueLineMetadataByIdFmrV3_(
+      requestRows
+    );
+
+  const requests =
+    requestRows.map(
       function (
         request
       ) {
+        const lineId =
+          normalizeFmrV3_(
+            request.FMR_Line_ID
+          );
+
+        const line =
+          lineMetadataById[
+            lineId
+          ] || {};
+
         return {
           requestId:
             normalizeFmrV3_(
@@ -316,19 +441,45 @@ function getBackorderQueueFmrV3_(
             ),
 
           fmrLineId:
-            normalizeFmrV3_(
-              request.FMR_Line_ID
-            ),
+            lineId,
+
+          lineNumber:
+            line.lineNumber ||
+            '',
+
+          isoNumber:
+            line.isoNumber ||
+            '',
+
+          isoSheet:
+            line.isoSheet ||
+            '',
 
           isoKey:
             normalizeFmrV3_(
               request.ISO_Key
-            ),
+            ) ||
+            line.isoKey ||
+            '',
 
           commodityCode:
             normalizeFmrV3_(
               request.Commodity_Code
-            ),
+            ) ||
+            line.commodityCode ||
+            '',
+
+          size:
+            line.size ||
+            '',
+
+          materialDescription:
+            line.materialDescription ||
+            '',
+
+          uom:
+            line.uom ||
+            '',
 
           qtyRequested:
             numberFmrV3_(
@@ -390,11 +541,13 @@ function getBackorderQueueFmrV3_(
     count:
       requests.length,
 
+    presentationContract:
+      'OPERATIONAL_QUEUE_MATERIAL_CLARITY_V24',
+
     requests:
       requests
   };
 }
-
 function reviewBackorderFmrV3_(
   userEmail,
   request
