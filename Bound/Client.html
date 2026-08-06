@@ -4393,6 +4393,12 @@
       );
     }
 
+
+
+
+
+
+
     function operationalSearchTextV3_(
       group,
       tab
@@ -4410,6 +4416,9 @@
           ).flatMap(
             request => [
               request.commodityCode,
+              request.size,
+              request.materialDescription,
+              request.uom,
               request.reason,
               request.reportedBy,
               request.fieldNotes
@@ -4434,6 +4443,7 @@
             item.commodityCode,
             item.materialDescription,
             item.size,
+            item.uom,
             item.baggedBy,
             item.notes
           ]
@@ -4443,6 +4453,11 @@
         .join(' ')
         .toLowerCase();
     }
+
+
+
+
+
 
     function sortedOperationalGroupsV3_(
       groups,
@@ -4565,6 +4580,10 @@
         )
       );
     }
+
+
+
+
 
     function renderBackorderGroupCardV3_(
       group
@@ -4818,6 +4837,439 @@
       `;
     }
 
+function operationalDisplayValueV3_(
+      value,
+      fallback
+    ) {
+      const normalized =
+        String(
+          value == null
+            ? ''
+            : value
+        ).trim();
+
+      return normalized ||
+        fallback ||
+        'Not listed';
+    }
+
+    function renderOperationalDetailFieldV3_(
+      label,
+      value,
+      options
+    ) {
+      const settings =
+        options || {};
+
+      const displayValue =
+        operationalDisplayValueV3_(
+          value,
+          settings.fallback
+        );
+
+      return `
+        <div class="operational-detail-field ${
+          settings.wide
+            ? 'is-wide'
+            : ''
+        }">
+          <span class="operational-detail-label">
+            ${escapeHtmlV3_(label)}
+          </span>
+
+          <span class="operational-detail-value">
+            ${escapeHtmlV3_(displayValue)}
+          </span>
+        </div>
+      `;
+    }
+
+    function renderOperationalTextBlockV3_(
+      label,
+      value,
+      options
+    ) {
+      const settings =
+        options || {};
+
+      const displayValue =
+        operationalDisplayValueV3_(
+          value,
+          settings.fallback
+        );
+
+      return `
+        <div class="operational-text-block ${
+          settings.emphasis
+            ? 'is-emphasis'
+            : ''
+        }">
+          <span class="operational-detail-label">
+            ${escapeHtmlV3_(label)}
+          </span>
+
+          <div class="operational-text-value">
+            ${escapeHtmlV3_(displayValue)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderOperationalMetricV3_(
+      label,
+      quantity,
+      uom
+    ) {
+      const normalizedUom =
+        operationalDisplayValueV3_(
+          uom,
+          ''
+        );
+
+      return `
+        <div class="operational-metric">
+          <span class="operational-detail-label">
+            ${escapeHtmlV3_(label)}
+          </span>
+
+          <strong>
+            ${formatQtyV3_(quantity)}
+            ${
+              normalizedUom
+                ? ` ${escapeHtmlV3_(normalizedUom)}`
+                : ''
+            }
+          </strong>
+        </div>
+      `;
+    }
+
+    function renderBackorderGroupCardV3_(
+      group
+    ) {
+      const expanded =
+        state
+          .adminExpandedQueueKeys
+          .has(
+            group.key
+          );
+
+      return `
+        <article
+          class="operational-card ${
+            expanded
+              ? 'is-expanded'
+              : ''
+          }"
+          data-operational-card="${
+            escapeAttributeV3_(
+              group.key
+            )
+          }">
+
+          <div class="operational-card-heading">
+            <div>
+              <div class="queue-title">
+                FMR ${
+                  escapeHtmlV3_(
+                    group.fmrNumber
+                  )
+                }
+              </div>
+
+              <div class="queue-meta">
+                ${
+                  escapeHtmlV3_(
+                    operationalIsoSummaryV3_(
+                      group.isoValues
+                    )
+                  )
+                }
+              </div>
+            </div>
+
+            <span class="status-badge status-sourcing">
+              ${
+                formatQtyV3_(
+                  group.requests.length
+                )
+              }
+
+              request${
+                group.requests.length ===
+                  1
+                  ? ''
+                  : 's'
+              }
+            </span>
+          </div>
+
+          <div class="operational-summary-grid">
+            <div>
+              <span class="label">
+                Pending
+              </span>
+
+              <strong>
+                ${
+                  formatQtyV3_(
+                    group.pendingTotal
+                  )
+                }
+              </strong>
+            </div>
+
+            <div>
+              <span class="label">
+                Requested
+              </span>
+
+              <strong>
+                ${
+                  formatQtyV3_(
+                    group.requestedTotal
+                  )
+                }
+              </strong>
+            </div>
+          </div>
+
+          <div class="queue-actions operational-card-actions">
+            <button
+              type="button"
+              class="small secondary"
+              data-operational-expand="${
+                escapeAttributeV3_(
+                  group.key
+                )
+              }">
+
+              ${
+                expanded
+                  ? 'Hide Requests'
+                  : 'View Requests'
+              }
+            </button>
+          </div>
+
+          ${
+            expanded
+              ? `
+                <div class="operational-card-items">
+                  ${
+                    group.requests
+                      .map(
+                        request => {
+                          const uom =
+                            operationalDisplayValueV3_(
+                              request.uom,
+                              ''
+                            );
+
+                          const pendingLabel =
+                            (
+                              formatQtyV3_(
+                                request.qtyPending
+                              ) +
+                              (
+                                uom
+                                  ? ` ${uom}`
+                                  : ''
+                              ) +
+                              ' pending'
+                            );
+
+                          const isoDisplay =
+                            formatFieldIsoV3_(
+                              request.isoNumber,
+                              request.isoSheet,
+                              request.isoKey
+                            );
+
+                          return `
+                            <section class="operational-item operational-item-backorder">
+                              <div class="operational-item-heading">
+                                <div class="operational-item-primary">
+                                  <span class="operational-eyebrow">
+                                    Commodity code
+                                  </span>
+
+                                  <strong class="operational-commodity-value">
+                                    ${
+                                      escapeHtmlV3_(
+                                        operationalDisplayValueV3_(
+                                          request.commodityCode,
+                                          'Commodity not listed'
+                                        )
+                                      )
+                                    }
+                                  </strong>
+                                </div>
+
+                                <span class="operational-quantity-badge">
+                                  ${
+                                    escapeHtmlV3_(
+                                      pendingLabel
+                                    )
+                                  }
+                                </span>
+                              </div>
+
+                              <div class="operational-detail-grid">
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'Size',
+                                    request.size
+                                  )
+                                }
+
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'UOM',
+                                    request.uom
+                                  )
+                                }
+
+                                ${
+                                  request.lineNumber
+                                    ? renderOperationalDetailFieldV3_(
+                                        'FMR line',
+                                        request.lineNumber
+                                      )
+                                    : ''
+                                }
+
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'ISO',
+                                    isoDisplay,
+                                    {
+                                      wide:
+                                        true
+                                    }
+                                  )
+                                }
+                              </div>
+
+                              ${
+                                renderOperationalTextBlockV3_(
+                                  'Material description',
+                                  request.materialDescription,
+                                  {
+                                    fallback:
+                                      'Material description is not recorded on the linked FMR line.',
+                                    emphasis:
+                                      true
+                                  }
+                                )
+                              }
+
+                              ${
+                                renderOperationalTextBlockV3_(
+                                  'Backorder reason',
+                                  request.reason,
+                                  {
+                                    fallback:
+                                      'No backorder reason was recorded.'
+                                  }
+                                )
+                              }
+
+                              <div class="operational-detail-grid operational-reporting-grid">
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'Reported by',
+                                    request.reportedBy
+                                  )
+                                }
+
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'Reported at',
+                                    request.reportedAt
+                                  )
+                                }
+                              </div>
+
+                              ${
+                                request.fieldNotes
+                                  ? renderOperationalTextBlockV3_(
+                                      'Field notes',
+                                      request.fieldNotes
+                                    )
+                                  : ''
+                              }
+
+                              ${
+                                state
+                                  .adminCanReviewBackorders
+                                  ? `
+                                    <div class="queue-actions operational-decision-actions">
+                                      <button
+                                        type="button"
+                                        class="small"
+                                        data-backorder-decision="CONFIRM"
+                                        data-request-id="${
+                                          escapeAttributeV3_(
+                                            request.requestId
+                                          )
+                                        }"
+                                        data-pending="${
+                                          escapeAttributeV3_(
+                                            request.qtyPending
+                                          )
+                                        }">
+
+                                        Confirm
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        class="small danger"
+                                        data-backorder-decision="REJECT"
+                                        data-request-id="${
+                                          escapeAttributeV3_(
+                                            request.requestId
+                                          )
+                                        }">
+
+                                        Reject
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        class="small warning"
+                                        data-backorder-decision="RETURN"
+                                        data-request-id="${
+                                          escapeAttributeV3_(
+                                            request.requestId
+                                          )
+                                        }">
+
+                                        Return
+                                      </button>
+                                    </div>
+                                  `
+                                  : `
+                                    <div class="operational-read-only-note">
+                                      Read-only queue.
+                                    </div>
+                                  `
+                              }
+                            </section>
+                          `;
+                        }
+                      )
+                      .join('')
+                  }
+                </div>
+              `
+              : ''
+          }
+        </article>
+      `;
+    }
+
     function renderActiveBagGroupCardV3_(
       group
     ) {
@@ -4939,7 +5391,7 @@
             </div>
           </div>
 
-          <div class="queue-actions">
+          <div class="queue-actions operational-card-actions">
             <button
               type="button"
               class="small secondary"
@@ -4964,98 +5416,171 @@
                   ${
                     group.items
                       .map(
-                        item => `
-                          <section class="operational-item">
-                            <div class="operational-item-heading">
-                              <strong>
-                                ${
-                                  escapeHtmlV3_(
-                                    item.commodityCode
-                                  )
-                                }
+                        item => {
+                          const uom =
+                            operationalDisplayValueV3_(
+                              item.uom,
+                              ''
+                            );
 
-                                ${
-                                  item.size
-                                    ? `
-                                      ·
-                                      ${
-                                        escapeHtmlV3_(
-                                          item.size
+                          const remainingLabel =
+                            (
+                              formatQtyV3_(
+                                item.qtyRemaining
+                              ) +
+                              (
+                                uom
+                                  ? ` ${uom}`
+                                  : ''
+                              ) +
+                              ' remaining'
+                            );
+
+                          const isoDisplay =
+                            formatFieldIsoV3_(
+                              item.isoNumber,
+                              item.isoSheet,
+                              item.isoKey
+                            );
+
+                          return `
+                            <section class="operational-item operational-item-bag">
+                              <div class="operational-item-heading">
+                                <div class="operational-item-primary">
+                                  <span class="operational-eyebrow">
+                                    Commodity code
+                                  </span>
+
+                                  <strong class="operational-commodity-value">
+                                    ${
+                                      escapeHtmlV3_(
+                                        operationalDisplayValueV3_(
+                                          item.commodityCode,
+                                          'Commodity not listed'
                                         )
-                                      }
-                                    `
-                                    : ''
-                                }
-                              </strong>
+                                      )
+                                    }
+                                  </strong>
+                                </div>
 
-                              <span>
+                                <span class="operational-quantity-badge operational-quantity-badge-ready">
+                                  ${
+                                    escapeHtmlV3_(
+                                      remainingLabel
+                                    )
+                                  }
+                                </span>
+                              </div>
+
+                              <div class="operational-detail-grid">
                                 ${
-                                  formatQtyV3_(
-                                    item.qtyRemaining
+                                  renderOperationalDetailFieldV3_(
+                                    'Size',
+                                    item.size
                                   )
                                 }
 
                                 ${
-                                  escapeHtmlV3_(
+                                  renderOperationalDetailFieldV3_(
+                                    'UOM',
                                     item.uom
                                   )
                                 }
 
-                                remaining
-                              </span>
-                            </div>
-
-                            <div class="queue-meta">
-                              ISO
-                              ${
-                                escapeHtmlV3_(
-                                  formatFieldIsoV3_(
-                                    item.isoNumber,
-                                    item.isoSheet,
-                                    item.isoKey
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'FMR',
+                                    item.fmrNumber
                                   )
+                                }
+
+                                ${
+                                  renderOperationalDetailFieldV3_(
+                                    'ISO',
+                                    isoDisplay,
+                                    {
+                                      wide:
+                                        true
+                                    }
+                                  )
+                                }
+                              </div>
+
+                              ${
+                                renderOperationalTextBlockV3_(
+                                  'Material description',
+                                  item.materialDescription,
+                                  {
+                                    fallback:
+                                      'Material description is not recorded for this bag item.',
+                                    emphasis:
+                                      true
+                                  }
                                 )
                               }
 
-                              <br>
+                              <div class="operational-metric-grid">
+                                ${
+                                  renderOperationalMetricV3_(
+                                    'Bagged',
+                                    item.qtyBagged,
+                                    item.uom
+                                  )
+                                }
+
+                                ${
+                                  renderOperationalMetricV3_(
+                                    'Issued',
+                                    item.qtyIssued,
+                                    item.uom
+                                  )
+                                }
+
+                                ${
+                                  renderOperationalMetricV3_(
+                                    'Remaining',
+                                    item.qtyRemaining,
+                                    item.uom
+                                  )
+                                }
+                              </div>
 
                               ${
-                                escapeHtmlV3_(
-                                  item.materialDescription
+                                (
+                                  item.baggedBy ||
+                                  item.baggedAt
                                 )
-                              }
+                                  ? `
+                                    <div class="operational-detail-grid operational-reporting-grid">
+                                      ${
+                                        renderOperationalDetailFieldV3_(
+                                          'Reserved by',
+                                          item.baggedBy
+                                        )
+                                      }
 
-                              <br>
-
-                              Bagged
-                              ${
-                                formatQtyV3_(
-                                  item.qtyBagged
-                                )
-                              }
-                              ·
-                              Issued
-                              ${
-                                formatQtyV3_(
-                                  item.qtyIssued
-                                )
+                                      ${
+                                        renderOperationalDetailFieldV3_(
+                                          'Reserved at',
+                                          item.baggedAt
+                                        )
+                                      }
+                                    </div>
+                                  `
+                                  : ''
                               }
 
                               ${
                                 item.notes
-                                  ? `
-                                    <br>
-                                    ${
-                                      escapeHtmlV3_(
-                                        item.notes
-                                      )
-                                    }
-                                  `
+                                  ? renderOperationalTextBlockV3_(
+                                      'Bag notes',
+                                      item.notes
+                                    )
                                   : ''
                               }
-                            </div>
-                          </section>
-                        `
+                            </section>
+                          `;
+                        }
                       )
                       .join('')
                   }
@@ -5066,6 +5591,8 @@
         </article>
       `;
     }
+
+
 
     function renderAdminOperationalQueueV3_(
       options

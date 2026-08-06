@@ -215,6 +215,12 @@ function runFmrV3AdminDecisionContractDiagnostic() {
   return inspectFmrV3AdminDecisionContract();
 }
 
+
+
+
+
+
+
 function getBackorderQueueFmrV3_(
   userEmail
 ) {
@@ -244,7 +250,7 @@ function getBackorderQueueFmrV3_(
     }
   );
 
-  const requests =
+  const sourceRequests =
     readRowsObjectsFmrV3_(
       FMR_V3.SHEETS
         .BACKORDERS,
@@ -299,10 +305,89 @@ function getBackorderQueueFmrV3_(
           ).getTime()
         );
       }
-    ).map(
+    );
+
+  /**
+   * A single FMR line can have more than one
+   * backorder request. Cache line lookups so the
+   * queue does not repeatedly read the same row.
+   */
+  const lineCache = {};
+
+  function lineForBackorderRequestFmrV3_(
+    request
+  ) {
+    const lineId =
+      normalizeFmrV3_(
+        request &&
+        request.FMR_Line_ID
+      );
+
+    if (!lineId) {
+      return null;
+    }
+
+    if (
+      !Object.prototype
+        .hasOwnProperty.call(
+          lineCache,
+          lineId
+        )
+    ) {
+      try {
+        lineCache[lineId] =
+          getLineByIdFmrV3_(
+            lineId
+          );
+      } catch (
+        error
+      ) {
+        /**
+         * Keep the operational queue available even
+         * when an older orphaned request references
+         * a missing line. The request-level fields
+         * remain visible and the missing presentation
+         * fields fall back to blank values.
+         */
+        console.warn(
+          (
+            'Unable to enrich backorder request ' +
+            normalizeFmrV3_(
+              request
+                .Backorder_Request_ID
+            ) +
+            ' from FMR line ' +
+            lineId +
+            ': ' +
+            (
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+            )
+          )
+        );
+
+        lineCache[lineId] =
+          null;
+      }
+    }
+
+    return lineCache[
+      lineId
+    ];
+  }
+
+  const requests =
+    sourceRequests.map(
       function (
         request
       ) {
+        const line =
+          lineForBackorderRequestFmrV3_(
+            request
+          );
+
         return {
           requestId:
             normalizeFmrV3_(
@@ -320,15 +405,68 @@ function getBackorderQueueFmrV3_(
               request.FMR_Line_ID
             ),
 
+          lineNumber:
+            line
+              ? numberFmrV3_(
+                  line.Line_Number
+                )
+              : 0,
+
+          isoNumber:
+            line
+              ? normalizeFmrV3_(
+                  line.ISO_Number
+                )
+              : '',
+
+          isoSheet:
+            line
+              ? normalizeFmrV3_(
+                  line.ISO_Sheet
+                )
+              : '',
+
           isoKey:
             normalizeFmrV3_(
-              request.ISO_Key
+              request.ISO_Key ||
+              (
+                line
+                  ? line.ISO_Key
+                  : ''
+              )
             ),
 
           commodityCode:
             normalizeFmrV3_(
-              request.Commodity_Code
+              request.Commodity_Code ||
+              (
+                line
+                  ? line.Commodity_Code
+                  : ''
+              )
             ),
+
+          size:
+            line
+              ? normalizeFmrV3_(
+                  line.Size
+                )
+              : '',
+
+          materialDescription:
+            line
+              ? normalizeFmrV3_(
+                  line
+                    .Material_Description
+                )
+              : '',
+
+          uom:
+            line
+              ? normalizeFmrV3_(
+                  line.UOM
+                )
+              : '',
 
           qtyRequested:
             numberFmrV3_(
@@ -394,6 +532,7 @@ function getBackorderQueueFmrV3_(
       requests
   };
 }
+
 
 function reviewBackorderFmrV3_(
   userEmail,
