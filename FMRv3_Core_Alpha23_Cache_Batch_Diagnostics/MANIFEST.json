@@ -1,0 +1,39 @@
+{
+  "release": "3.0.0-alpha.23",
+  "baseline_github_commit": "734f09698ebef2fe2a84614ceda76020a92493bf",
+  "expected_core_library_version": 23,
+  "database_migration_required": false,
+  "identity_enforcement_changed": false,
+  "files_to_replace": [
+    "FMRCoreV3/Security.gs",
+    "FMRCoreV3/SystemControlService.gs",
+    "FMRCoreV3/AdminIsoSummaryService.gs",
+    "Bound/Adapter.gs",
+    "Bound/appsscript.json"
+  ],
+  "files_to_add": [
+    "FMRCoreV3/Alpha23MaintenanceDiagnostic.gs"
+  ],
+  "manual_patch": [
+    "FMRCoreV3/Config.gs version only"
+  ],
+  "checks": {
+    "security_list_cache_scoped": true,
+    "user_cache_scoped": true,
+    "last_access_scoped": true,
+    "admin_batch_helper": true,
+    "admin_batch_textfinder": true,
+    "admin_batch_parity_diagnostic": true,
+    "identity_diagnostic": true,
+    "identity_fallback_preserved": true,
+    "library_version_23": true,
+    "syntax_all_pass": true
+  },
+  "syntax": {
+    "FMRCoreV3/Security.gs": true,
+    "FMRCoreV3/SystemControlService.gs": true,
+    "FMRCoreV3/AdminIsoSummaryService.gs": true,
+    "FMRCoreV3/Alpha23MaintenanceDiagnostic.gs": true,
+    "Bound/Adapter.gs": true
+  }
+}
