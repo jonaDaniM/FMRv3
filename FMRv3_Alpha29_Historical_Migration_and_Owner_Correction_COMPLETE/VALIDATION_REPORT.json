@@ -1,0 +1,42 @@
+{
+  "baseline_commit": "6b39c0235958a1a68b5ed4f119695abb93ac6f07",
+  "syntax_checks": {
+    "FMRCoreV3/HistoricalMigrationService.gs": {
+      "passed": true,
+      "stderr": ""
+    },
+    "FMRCoreV3/OwnerCorrectionService.gs": {
+      "passed": true,
+      "stderr": ""
+    },
+    "Bound/OwnerMaintenanceAdapter.gs": {
+      "passed": true,
+      "stderr": ""
+    },
+    "Bound/OwnerMaintenance.html script": {
+      "passed": true,
+      "stderr": ""
+    }
+  },
+  "structural_checks": {
+    "migration_reuses_existing_parser": true,
+    "migration_reuses_existing_staging": true,
+    "migration_reuses_existing_publisher": true,
+    "migration_resumable_jobs": true,
+    "owner_only_migration": true,
+    "owner_only_corrections": true,
+    "automatic_backup_before_correction": true,
+    "append_only_reversal_transactions": true,
+    "header_totals_refreshed": true,
+    "field_notifications_resynchronized": true,
+    "double_reversal_guard": true,
+    "no_transaction_delete_calls": true
+  },
+  "passed": true,
+  "live_google_apps_script_tested": false,
+  "limitations": [
+    "Google Apps Script, Drive conversion, live database writes, and transaction reversals were not executed from this environment.",
+    "TEST deployment verification is mandatory before production use.",
+    "Alpha 29 does not reconstruct legacy Issued / Backordered / Action Taken values as live historical transactions."
+  ]
+}
