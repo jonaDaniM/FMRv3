@@ -1,0 +1,15 @@
+{
+  "syntaxPassed": true,
+  "structuralChecks": {
+    "script_property_fallback": true,
+    "missing_fmr_clear_error": true,
+    "owner_check_preserved": true,
+    "active_database_preserved": true,
+    "caller_email_preserved": true,
+    "configuration_inspector_present": true,
+    "no_operational_writes": true
+  },
+  "liveAppsScriptTested": false,
+  "syntaxError": "",
+  "passed": true
+}
