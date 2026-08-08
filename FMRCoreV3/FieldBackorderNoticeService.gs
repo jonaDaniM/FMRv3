@@ -1,3 +1,15 @@
+/**
+ * FMR Operations v3 — Alpha 30
+ * Field backorder notification service.
+ *
+ * Production-hardening changes:
+ *  - Single Source_ID lookups use exact-column search.
+ *  - Single FMR_Line_ID notice lookups use exact-column search.
+ *  - Per-line notification synchronization reads only matching backorders.
+ *
+ * Existing notice lifecycle, rejection handling, migration fixtures and
+ * diagnostics are otherwise preserved.
+ */
 const FMR_V3_FIELD_NOTICE =
   Object.freeze({
     sheetName:
@@ -180,7 +192,7 @@ function ensureFieldNoticeSheetFmrV3_() {
       (
         FMR_V3_FIELD_NOTICE
           .sheetName +
-        ' headers do not match the alpha.9 schema.'
+        ' headers do not match the current Field notification schema.'
       )
     );
   }
@@ -385,54 +397,195 @@ function updateFieldNoticeFmrV3_(
   );
 }
 
-function fieldNoticeBySourceFmrV3_(
-  sourceId
+
+/**
+ * Alpha 30 production hot-path helper.
+ *
+ * Reads only Field_Notifications rows matching one exact value in one column
+ * instead of loading the entire notification table.
+ *
+ * This helper is intended for single-source and single-line operational
+ * lookups. Batch display functions may still intentionally use one full table
+ * read when that is cheaper than issuing many TextFinder searches.
+ */
+function fieldNoticeRowsByExactColumnFmrV3_(
+  columnName,
+  exactValue
 ) {
   const normalized =
     normalizeFmrV3_(
-      sourceId
+      exactValue
     );
 
   if (!normalized) {
-    return null;
+    return [];
   }
 
-  return (
-    fieldNoticeRowsFmrV3_()
-      .find(
+  const sheet =
+    ensureFieldNoticeSheetFmrV3_();
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (
+    lastRow <
+    2
+  ) {
+    return [];
+  }
+
+  const headers =
+    Array.from(
+      FMR_V3_FIELD_NOTICE
+        .headers
+    );
+
+  const column =
+    headers.indexOf(
+      columnName
+    ) +
+    1;
+
+  if (
+    column <=
+    0
+  ) {
+    throw new Error(
+      'Unknown Field_Notifications column: ' +
+      columnName
+    );
+  }
+
+  const matches =
+    sheet
+      .getRange(
+        2,
+        column,
+        lastRow -
+        1,
+        1
+      )
+      .createTextFinder(
+        normalized
+      )
+      .matchEntireCell(
+        true
+      )
+      .findAll();
+
+  if (
+    !matches.length
+  ) {
+    return [];
+  }
+
+  const rows =
+    Array.from(
+      new Set(
+        matches.map(
+          function (
+            range
+          ) {
+            return range.getRow();
+          }
+        )
+      )
+    ).sort(
+      function (
+        left,
+        right
+      ) {
+        return left -
+          right;
+      }
+    );
+
+  const result = [];
+
+  rows.forEach(
+    function (
+      row
+    ) {
+      const values =
+        sheet
+          .getRange(
+            row,
+            1,
+            1,
+            headers.length
+          )
+          .getValues()[0];
+
+      const record = {
+        _rowNumber:
+          row
+      };
+
+      headers.forEach(
         function (
-          notice
+          header,
+          index
         ) {
-          return (
-            normalizeFmrV3_(
-              notice.Source_ID
-            ) ===
-            normalized
-          );
+          record[
+            header
+          ] =
+            values[
+              index
+            ];
         }
-      ) ||
-    null
+      );
+
+      result.push(
+        record
+      );
+    }
   );
+
+  return result;
+}
+
+function fieldNoticeRowsBySourceFmrV3_(
+  sourceId
+) {
+  return fieldNoticeRowsByExactColumnFmrV3_(
+    'Source_ID',
+    sourceId
+  );
+}
+
+function fieldNoticeRowsByLineFmrV3_(
+  lineId
+) {
+  return fieldNoticeRowsByExactColumnFmrV3_(
+    'FMR_Line_ID',
+    lineId
+  );
+}
+
+function fieldNoticeBySourceFmrV3_(
+  sourceId
+) {
+  const rows =
+    fieldNoticeRowsBySourceFmrV3_(
+      sourceId
+    );
+
+  return rows.length
+    ? rows[0]
+    : null;
 }
 
 function activeFieldNoticesForLineFmrV3_(
   lineId
 ) {
-  const normalizedLineId =
-    normalizeFmrV3_(
-      lineId
-    );
-
-  return fieldNoticeRowsFmrV3_()
+  return fieldNoticeRowsByLineFmrV3_(
+    lineId
+  )
     .filter(
       function (
         notice
       ) {
         return (
-          normalizeFmrV3_(
-            notice.FMR_Line_ID
-          ) ===
-            normalizedLineId &&
           yesFmrV3_(
             notice.Active
           ) &&
@@ -1048,21 +1201,38 @@ function syncFieldNotificationsForLineFmrV3_(
       line.FMR_Line_ID
     );
 
-  const requests =
-    getUsedRowsFmrV3_(
+  if (!lineId) {
+    return;
+  }
+
+  /**
+   * Alpha 30 production optimization:
+   *
+   * The previous implementation loaded every Backorder_Requests row and then
+   * filtered the complete table to one FMR line.
+   *
+   * FMR_Line_ID is column 5 in Backorder_Requests, so use an exact lookup and
+   * read only the matching requests.
+   */
+  const requestRows =
+    findRowsByExactValueFmrV3_(
       FMR_V3.SHEETS
-        .BACKORDERS
-    ).filter(
-      function (
-        request
-      ) {
-        return (
-          normalizeFmrV3_(
-            request.FMR_Line_ID
-          ) ===
-          lineId
-        );
-      }
+        .BACKORDERS,
+      5,
+      lineId
+    );
+
+  if (
+    !requestRows.length
+  ) {
+    return;
+  }
+
+  const requests =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BACKORDERS,
+      requestRows
     );
 
   requests.forEach(
@@ -1079,9 +1249,9 @@ function syncFieldNotificationsForLineFmrV3_(
         'REJECTED'
       ) {
         /**
-         * Rejected notices have their own
-         * quantity lifecycle. They are created
-         * during the Admin decision or migration
+         * Preserve the existing lifecycle:
+         *
+         * rejected notices are created during the Admin decision or migration
          * and reduced only by recorded Field work.
          */
         return;

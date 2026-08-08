@@ -1,594 +1,1126 @@
 <style>
-    .owner-maintenance-panel { border-left: 5px solid var(--blue); }
-    .owner-maintenance-tabs {
-      display:grid; grid-template-columns:1fr 1fr; gap:8px;
-      margin:14px 0; padding:5px; border:1px solid var(--border);
-      border-radius:9px; background:var(--light);
+  .owner-maintenance-panel {
+    border-left: 5px solid var(--blue);
+  }
+
+  .owner-maintenance-tabs {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin:14px 0;
+    padding:5px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:var(--light);
+  }
+
+  .owner-maintenance-tab {
+    background:transparent;
+    color:var(--text);
+  }
+
+  .owner-maintenance-tab.is-active {
+    border:1px solid #a9c9e3;
+    background:white;
+    color:var(--blue);
+  }
+
+  .owner-maintenance-pane.hidden {
+    display:none !important;
+  }
+
+  .owner-maintenance-grid {
+    display:grid;
+    grid-template-columns:minmax(220px,1.5fr) minmax(120px,.5fr) auto;
+    gap:10px;
+    align-items:end;
+  }
+
+  .owner-maintenance-options {
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    margin:10px 0 14px;
+  }
+
+  .owner-maintenance-options label {
+    display:flex;
+    grid-template-columns:none;
+    flex-direction:row;
+    align-items:center;
+    gap:7px;
+    margin:0;
+  }
+
+  .owner-maintenance-options input[type="checkbox"] {
+    width:auto;
+  }
+
+  .owner-maintenance-summary {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:8px;
+    margin:12px 0;
+  }
+
+  .owner-maintenance-summary > div {
+    min-width:0;
+    padding:10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--light);
+  }
+
+  .owner-maintenance-summary .label {
+    display:block;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+  }
+
+  .owner-maintenance-summary strong {
+    display:block;
+    margin-top:5px;
+    font-size:18px;
+    overflow-wrap:anywhere;
+  }
+
+  .owner-maintenance-list {
+    display:grid;
+    gap:9px;
+    margin-top:12px;
+  }
+
+  .owner-maintenance-record {
+    min-width:0;
+    padding:12px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:#fff;
+  }
+
+  .owner-maintenance-record.success {
+    border-left:4px solid var(--success);
+  }
+
+  .owner-maintenance-record.error {
+    border-left:4px solid var(--danger);
+  }
+
+  .owner-maintenance-title {
+    font-weight:800;
+    overflow-wrap:anywhere;
+  }
+
+  .owner-maintenance-meta {
+    margin-top:4px;
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.45;
+    overflow-wrap:anywhere;
+  }
+
+  .owner-ledger-group {
+    border-left:4px solid #8bbfe2;
+  }
+
+  .owner-ledger-group.error {
+    border-left-color:var(--danger);
+  }
+
+  .owner-ledger-materials {
+    display:grid;
+    gap:8px;
+    margin:10px 0 4px;
+  }
+
+  .owner-ledger-material {
+    min-width:0;
+    padding:10px 11px;
+    border:1px solid #cfe0ed;
+    border-radius:8px;
+    background:#f8fbfe;
+  }
+
+  .owner-ledger-material-grid {
+    display:grid;
+    grid-template-columns:minmax(140px,.85fr) minmax(80px,.45fr)
+      minmax(85px,.4fr) minmax(150px,1.2fr);
+    gap:8px;
+  }
+
+  .owner-ledger-material-field {
+    min-width:0;
+  }
+
+  .owner-ledger-material-field.description {
+    grid-column:1 / -1;
+    margin-top:2px;
+    padding-top:7px;
+    border-top:1px solid var(--border);
+  }
+
+  .owner-ledger-material-label {
+    display:block;
+    margin-bottom:3px;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.025em;
+    text-transform:uppercase;
+  }
+
+  .owner-ledger-material-value {
+    display:block;
+    min-width:0;
+    color:var(--text);
+    font-size:13px;
+    font-weight:750;
+    line-height:1.4;
+    text-align:left;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .owner-ledger-material-field.description .owner-ledger-material-value {
+    font-size:14px;
+  }
+
+  .owner-ledger-transaction {
+    display:grid;
+    grid-template-columns:minmax(130px,.8fr) 90px minmax(180px,1fr);
+    gap:8px;
+    padding:8px 0;
+    border-top:1px solid var(--border);
+    font-size:12px;
+  }
+
+  .owner-ledger-transaction:first-child {
+    border-top:0;
+  }
+
+  .owner-group-reference {
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-weight:700;
+  }
+
+  .owner-correction-preview {
+    margin-top:12px;
+    padding:12px;
+    border:1px solid #f0c36a;
+    border-radius:9px;
+    background:#fffaf0;
+  }
+
+  .owner-correction-material-summary {
+    margin:12px 0;
+    padding:12px;
+    border:1px solid #b8d7ed;
+    border-left:5px solid var(--blue);
+    border-radius:9px;
+    background:#f5faff;
+  }
+
+  .owner-correction-material-summary h4 {
+    margin:0 0 8px;
+  }
+
+  .owner-correction-transaction-list {
+    display:grid;
+    gap:7px;
+    margin-top:10px;
+  }
+
+  .owner-correction-transaction-row {
+    display:grid;
+    grid-template-columns:minmax(130px,.75fr) minmax(70px,.35fr)
+      minmax(180px,1.3fr);
+    gap:8px;
+    padding:8px 9px;
+    border:1px solid var(--border);
+    border-radius:7px;
+    background:white;
+  }
+
+  .owner-verification-panel {
+    margin:12px 0;
+    padding:12px;
+    border:1px solid #d4b45c;
+    border-radius:9px;
+    background:#fff9e9;
+  }
+
+  .owner-verification-code {
+    display:inline-block;
+    margin-top:5px;
+    padding:7px 12px;
+    border:1px solid #d4b45c;
+    border-radius:7px;
+    background:#fff;
+    color:var(--text);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:.12em;
+  }
+
+  .owner-correction-preview details {
+    margin-top:12px;
+  }
+
+  .owner-correction-preview pre {
+    max-height:300px;
+    overflow:auto;
+    padding:10px;
+    border:1px solid var(--border);
+    border-radius:7px;
+    background:white;
+    font-size:11px;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+  }
+
+  @media(max-width:760px) {
+    .owner-maintenance-grid,
+    .owner-ledger-transaction,
+    .owner-ledger-material-grid,
+    .owner-correction-transaction-row {
+      grid-template-columns:1fr;
     }
-    .owner-maintenance-tab { background:transparent; color:var(--text); }
-    .owner-maintenance-tab.is-active {
-      border:1px solid #a9c9e3; background:white; color:var(--blue);
+
+    .owner-ledger-material-field.description {
+      grid-column:auto;
     }
-    .owner-maintenance-pane.hidden { display:none !important; }
-    .owner-maintenance-grid {
-      display:grid; grid-template-columns:minmax(220px,1.5fr) minmax(120px,.5fr) auto;
-      gap:10px; align-items:end;
-    }
-    .owner-maintenance-options {
-      display:flex; flex-wrap:wrap; gap:16px; margin:10px 0 14px;
-    }
-    .owner-maintenance-options label {
-      display:flex; grid-template-columns:none; flex-direction:row;
-      align-items:center; gap:7px; margin:0;
-    }
-    .owner-maintenance-options input[type="checkbox"] { width:auto; }
-    .owner-maintenance-summary {
-      display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
-      gap:8px; margin:12px 0;
-    }
-    .owner-maintenance-summary > div {
-      padding:10px; border:1px solid var(--border); border-radius:8px;
-      background:var(--light); min-width:0;
-    }
-    .owner-maintenance-summary .label {
-      display:block; color:var(--muted); font-size:10px; font-weight:800;
-      text-transform:uppercase;
-    }
-    .owner-maintenance-summary strong {
-      display:block; margin-top:5px; font-size:18px; overflow-wrap:anywhere;
-    }
-    .owner-maintenance-list { display:grid; gap:9px; margin-top:12px; }
-    .owner-maintenance-record {
-      min-width:0; padding:12px; border:1px solid var(--border);
-      border-radius:9px; background:#fff;
-    }
-    .owner-maintenance-record.success { border-left:4px solid var(--success); }
-    .owner-maintenance-record.error { border-left:4px solid var(--danger); }
-    .owner-maintenance-title { font-weight:800; overflow-wrap:anywhere; }
-    .owner-maintenance-meta {
-      margin-top:4px; color:var(--muted); font-size:12px;
-      line-height:1.45; overflow-wrap:anywhere;
-    }
-    .owner-ledger-transaction {
-      display:grid; grid-template-columns:minmax(130px,.8fr) 90px minmax(180px,1fr);
-      gap:8px; padding:8px 0; border-top:1px solid var(--border); font-size:12px;
-    }
-    .owner-ledger-transaction:first-child { border-top:0; }
-    .owner-correction-preview {
-      margin-top:12px; padding:12px; border:1px solid #f0c36a;
-      border-radius:9px; background:#fffaf0;
-    }
-    .owner-correction-preview pre {
-      max-height:300px; overflow:auto; padding:10px; border:1px solid var(--border);
-      border-radius:7px; background:white; font-size:11px; white-space:pre-wrap;
-      overflow-wrap:anywhere;
-    }
-    @media(max-width:760px) {
-      .owner-maintenance-grid,.owner-ledger-transaction { grid-template-columns:1fr; }
-    }
-  </style>
-  
-  <script>
-  (() => {
-    const state = {
-      migrationPreview:null,
-      migrationJob:null,
-      autoRunning:false,
-      ledger:null,
-      correctionPreview:null
+  }
+</style>
+
+<script>
+(() => {
+  const state = {
+    migrationPreview:null,
+    migrationJob:null,
+    autoRunning:false,
+    ledger:null,
+    correctionPreview:null
+  };
+
+  function esc(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+
+  function callServer(name, ...args) {
+    return new Promise((resolve,reject) => {
+      const runner = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject);
+      runner[name](...args);
+    });
+  }
+
+  function errorText(error) {
+    return error && error.message
+      ? error.message
+      : String(error || 'Unknown error');
+  }
+
+  function status(message, isError) {
+    const el = document.getElementById('ownerMaintenanceStatus');
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.color = isError ? 'var(--danger)' : '';
+  }
+
+  function insertPanel() {
+    const ownerView = document.getElementById('ownerView');
+    if (!ownerView || document.getElementById('ownerMaintenancePanel')) return;
+
+    const panel = document.createElement('section');
+    panel.id = 'ownerMaintenancePanel';
+    panel.className = 'panel owner-maintenance-panel';
+    panel.innerHTML = `
+      <div class="section-heading">
+        <div>
+          <h2>Owner Maintenance Center</h2>
+          <p>
+            High-volume historical migration and controlled correction of
+            material transactions. Original transaction history is retained.
+          </p>
+        </div>
+      </div>
+
+      <div class="owner-maintenance-tabs">
+        <button id="omMigrationTab" type="button"
+          class="owner-maintenance-tab is-active">Historical FMR Migration</button>
+        <button id="omCorrectionTab" type="button"
+          class="owner-maintenance-tab">Transaction Correction</button>
+      </div>
+
+      <div id="ownerMaintenanceStatus" class="status"></div>
+
+      <section id="omMigrationPane" class="owner-maintenance-pane">
+        <h3>Historical FMR Migration</h3>
+        <p>
+          Select a Drive folder containing Excel workbooks or Google Sheets.
+          Valid FMRs are processed through the existing parser, staging service,
+          and publisher in resumable chunks.
+        </p>
+
+        <div class="owner-maintenance-grid">
+          <label>
+            Drive Folder URL or ID
+            <input id="omMigrationFolder" autocomplete="off"
+              placeholder="https://drive.google.com/drive/folders/...">
+          </label>
+
+          <label>
+            FMRs / Chunk
+            <select id="omMigrationChunk">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="25">25</option>
+            </select>
+          </label>
+
+          <button id="omMigrationPreview" type="button" class="secondary">
+            Preview Folder
+          </button>
+        </div>
+
+        <div class="owner-maintenance-options">
+          <label><input id="omMigrationRecursive" type="checkbox">Include subfolders</label>
+          <label><input id="omMigrationWarnings" type="checkbox">Auto-publish WARNING items</label>
+          <label><input id="omMigrationAuto" type="checkbox" checked>Continue automatically</label>
+        </div>
+
+        <div class="button-row">
+          <button id="omMigrationStart" type="button" disabled>Start Migration</button>
+          <button id="omMigrationNext" type="button" class="secondary" disabled>
+            Process Next Chunk
+          </button>
+        </div>
+
+        <p class="muted">
+          Historical migration preserves the existing Alpha 29 request-only
+          policy: legacy Issued / Backordered / Action Taken cells remain
+          source evidence and do not create live transactions.
+        </p>
+
+        <div id="omMigrationSummary"></div>
+        <div id="omMigrationFiles"></div>
+
+        <h4>Recent Migration Jobs</h4>
+        <div id="omMigrationRecent">
+          <div class="register-empty">Loading recent migration jobs…</div>
+        </div>
+      </section>
+
+      <section id="omCorrectionPane" class="owner-maintenance-pane hidden">
+        <h3>Transaction Correction</h3>
+        <p>
+          Search by FMR or ISO. Each transaction group shows the exact material
+          identity before Preview Reversal is available.
+        </p>
+
+        <div class="owner-maintenance-grid">
+          <label>
+            Search Mode
+            <select id="omLedgerMode">
+              <option value="AUTO">Auto Detect</option>
+              <option value="FMR">FMR Number</option>
+              <option value="ISO">ISO -##</option>
+            </select>
+          </label>
+
+          <label>
+            FMR or ISO
+            <input id="omLedgerQuery" autocomplete="off"
+              placeholder="FMR 42 or LP131-PV-180003-17">
+          </label>
+
+          <button id="omLedgerSearch" type="button">Search</button>
+        </div>
+
+        <div id="omLedgerSummary"></div>
+        <div id="omLedgerGroups"></div>
+        <div id="omLedgerEntities"></div>
+        <div id="omCorrectionPreview"></div>
+      </section>
+    `;
+
+    const bulkPanel = ownerView.querySelector('.bulk-import-panel');
+    if (bulkPanel) bulkPanel.insertAdjacentElement('beforebegin', panel);
+    else ownerView.appendChild(panel);
+
+    bind();
+  }
+
+  function setTab(name) {
+    const migration = name === 'MIGRATION';
+    document.getElementById('omMigrationTab').classList.toggle('is-active',migration);
+    document.getElementById('omCorrectionTab').classList.toggle('is-active',!migration);
+    document.getElementById('omMigrationPane').classList.toggle('hidden',!migration);
+    document.getElementById('omCorrectionPane').classList.toggle('hidden',migration);
+  }
+
+  function migrationOptions() {
+    return {
+      recursive:document.getElementById('omMigrationRecursive').checked,
+      allowWarnings:document.getElementById('omMigrationWarnings').checked
     };
-  
-    function esc(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-    }
-  
-    function callServer(name, ...args) {
-      return new Promise((resolve,reject) => {
-        const runner = google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject);
-        runner[name](...args);
-      });
-    }
-  
-    function errorText(error) {
-      return error && error.message ? error.message : String(error || 'Unknown error');
-    }
-  
-    function status(message, isError) {
-      const el = document.getElementById('ownerMaintenanceStatus');
-      if (!el) return;
-      el.textContent = message || '';
-      el.style.color = isError ? 'var(--danger)' : '';
-    }
-  
-    function insertPanel() {
-      const ownerView = document.getElementById('ownerView');
-      if (!ownerView || document.getElementById('ownerMaintenancePanel')) return;
-  
-      const panel = document.createElement('section');
-      panel.id = 'ownerMaintenancePanel';
-      panel.className = 'panel owner-maintenance-panel';
-      panel.innerHTML = `
-        <div class="section-heading">
-          <div>
-            <h2>Owner Maintenance Center</h2>
-            <p>
-              High-volume historical migration and controlled correction of
-              material transactions. Original transaction history is retained.
-            </p>
-          </div>
-        </div>
-  
-        <div class="owner-maintenance-tabs">
-          <button id="omMigrationTab" type="button"
-            class="owner-maintenance-tab is-active">Historical FMR Migration</button>
-          <button id="omCorrectionTab" type="button"
-            class="owner-maintenance-tab">Transaction Correction</button>
-        </div>
-  
-        <div id="ownerMaintenanceStatus" class="status"></div>
-  
-        <section id="omMigrationPane" class="owner-maintenance-pane">
-          <h3>Historical FMR Migration</h3>
-          <p>
-            Select a Drive folder containing Excel workbooks or Google Sheets.
-            Valid FMRs are processed through the existing parser, staging service,
-            and publisher in resumable chunks.
-          </p>
-  
-          <div class="owner-maintenance-grid">
-            <label>
-              Drive Folder URL or ID
-              <input id="omMigrationFolder" autocomplete="off"
-                placeholder="https://drive.google.com/drive/folders/...">
-            </label>
-  
-            <label>
-              FMRs / Chunk
-              <select id="omMigrationChunk">
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="20">20</option>
-                <option value="25">25</option>
-              </select>
-            </label>
-  
-            <button id="omMigrationPreview" type="button" class="secondary">
-              Preview Folder
-            </button>
-          </div>
-  
-          <div class="owner-maintenance-options">
-            <label><input id="omMigrationRecursive" type="checkbox">Include subfolders</label>
-            <label><input id="omMigrationWarnings" type="checkbox">Auto-publish WARNING items</label>
-            <label><input id="omMigrationAuto" type="checkbox" checked>Continue automatically</label>
-          </div>
-  
-          <div class="button-row">
-            <button id="omMigrationStart" type="button" disabled>Start Migration</button>
-            <button id="omMigrationNext" type="button" class="secondary" disabled>
-              Process Next Chunk
-            </button>
-          </div>
-  
-          <p class="muted">
-            Alpha 29 migrates the FMR request definition and requested quantities.
-            Legacy Issued / Backordered / Action Taken cells remain source
-            evidence and do not create live transactions.
-          </p>
-  
-          <div id="omMigrationSummary"></div>
-          <div id="omMigrationFiles"></div>
-  
-          <h4>Recent Migration Jobs</h4>
-          <div id="omMigrationRecent">
-            <div class="register-empty">Loading recent migration jobs…</div>
-          </div>
-        </section>
-  
-        <section id="omCorrectionPane" class="owner-maintenance-pane hidden">
-          <h3>Transaction Correction</h3>
-          <p>
-            Search by FMR or ISO to retrieve material lines, transaction groups,
-            Bag &amp; Tag history, and backorder history. Corrections require an
-            automatic backup, written reason, and typed confirmation.
-          </p>
-  
-          <div class="owner-maintenance-grid">
-            <label>
-              Search Mode
-              <select id="omLedgerMode">
-                <option value="AUTO">Auto Detect</option>
-                <option value="FMR">FMR Number</option>
-                <option value="ISO">ISO -##</option>
-              </select>
-            </label>
-  
-            <label>
-              FMR or ISO
-              <input id="omLedgerQuery" autocomplete="off"
-                placeholder="FMR 42 or LP131-PV-180003-17">
-            </label>
-  
-            <button id="omLedgerSearch" type="button">Search</button>
-          </div>
-  
-          <div id="omLedgerSummary"></div>
-          <div id="omLedgerGroups"></div>
-          <div id="omLedgerEntities"></div>
-          <div id="omCorrectionPreview"></div>
-        </section>
-      `;
-  
-      const bulkPanel = ownerView.querySelector('.bulk-import-panel');
-      if (bulkPanel) bulkPanel.insertAdjacentElement('beforebegin', panel);
-      else ownerView.appendChild(panel);
-      bind();
-    }
-  
-    function setTab(name) {
-      const migration = name === 'MIGRATION';
-      document.getElementById('omMigrationTab').classList.toggle('is-active',migration);
-      document.getElementById('omCorrectionTab').classList.toggle('is-active',!migration);
-      document.getElementById('omMigrationPane').classList.toggle('hidden',!migration);
-      document.getElementById('omCorrectionPane').classList.toggle('hidden',migration);
-    }
-  
-    function migrationOptions() {
-      return {
-        recursive:document.getElementById('omMigrationRecursive').checked,
-        allowWarnings:document.getElementById('omMigrationWarnings').checked
-      };
-    }
-  
-    function renderRecentMigrationJobs(result) {
-      const container = document.getElementById('omMigrationRecent');
-      const jobs = result && Array.isArray(result.jobs) ? result.jobs : [];
-      container.innerHTML = `
-        <div class="owner-maintenance-list">
-          ${jobs.map(job => `
-            <div class="owner-maintenance-record">
-              <div class="section-heading">
-                <div>
-                  <div class="owner-maintenance-title">${esc(job.sourceFolderName)}</div>
-                  <div class="owner-maintenance-meta">
-                    ${esc(job.status)} · ${esc(job.fmrsPublished||0)} published
-                    · ${esc(job.filesCompleted||0)} / ${esc(job.fileCount||0)} files
-                    · ${esc(job.updatedAt)}
-                  </div>
+  }
+
+  function renderRecentMigrationJobs(result) {
+    const container = document.getElementById('omMigrationRecent');
+    const jobs = result && Array.isArray(result.jobs) ? result.jobs : [];
+
+    container.innerHTML = `
+      <div class="owner-maintenance-list">
+        ${jobs.map(job => `
+          <div class="owner-maintenance-record">
+            <div class="section-heading">
+              <div>
+                <div class="owner-maintenance-title">${esc(job.sourceFolderName)}</div>
+                <div class="owner-maintenance-meta">
+                  ${esc(job.status)} · ${esc(job.fmrsPublished||0)} published
+                  · ${esc(job.filesCompleted||0)} / ${esc(job.fileCount||0)} files
+                  · ${esc(job.updatedAt)}
                 </div>
-                <button type="button" class="small secondary"
-                  data-om-load-job="${esc(job.jobId)}">Open</button>
               </div>
-            </div>`).join('') || '<div class="register-empty">No historical migration jobs yet.</div>'}
-        </div>`;
-    }
-  
-    async function loadRecentMigrationJobs() {
-      try {
-        renderRecentMigrationJobs(await callServer('getRecentHistoricalMigrationJobsV3',10));
-      } catch(error) {
-        const container = document.getElementById('omMigrationRecent');
-        if (container) container.innerHTML =
+              <button type="button" class="small secondary"
+                data-om-load-job="${esc(job.jobId)}">Open</button>
+            </div>
+          </div>`).join('') ||
+          '<div class="register-empty">No historical migration jobs yet.</div>'}
+      </div>`;
+  }
+
+  async function loadRecentMigrationJobs() {
+    try {
+      renderRecentMigrationJobs(
+        await callServer('getRecentHistoricalMigrationJobsV3',10)
+      );
+    } catch(error) {
+      const container = document.getElementById('omMigrationRecent');
+      if (container) {
+        container.innerHTML =
           `<div class="alert error">${esc(errorText(error))}</div>`;
       }
     }
-  
-    async function loadMigrationJob(jobId) {
-      status('Loading migration job…');
-      try {
-        const result = await callServer('getHistoricalMigrationJobV3',jobId);
-        renderMigrationJob(result);
-      } catch(error) {
-        status(errorText(error),true);
-      }
+  }
+
+  async function loadMigrationJob(jobId) {
+    status('Loading migration job…');
+    try {
+      renderMigrationJob(
+        await callServer('getHistoricalMigrationJobV3',jobId)
+      );
+    } catch(error) {
+      status(errorText(error),true);
     }
-  
-    function renderMigrationPreview(result) {
-      state.migrationPreview = result;
-      const inv = result.inventory || {};
-      document.getElementById('omMigrationSummary').innerHTML = `
-        <div class="owner-maintenance-summary">
-          <div><span class="label">Files</span><strong>${esc(inv.fileCount||0)}</strong></div>
-          <div><span class="label">Oversize</span><strong>${esc(inv.oversizeCount||0)}</strong></div>
-          <div><span class="label">Mode</span><strong>${esc(result.mode||'')}</strong></div>
-          <div><span class="label">Warnings</span><strong>${result.allowWarnings?'Publish':'Hold'}</strong></div>
-        </div>`;
-      document.getElementById('omMigrationFiles').innerHTML = `
-        <div class="owner-maintenance-list">
-          ${(inv.files||[]).map(file => `
-            <div class="owner-maintenance-record ${file.oversize?'error':''}">
-              <div class="owner-maintenance-title">${esc(file.relativePath||file.name)}</div>
-              <div class="owner-maintenance-meta">
-                ${esc(file.mimeType)} · ${esc(file.sizeBytes||0)} bytes
-                ${file.oversize?' · EXCEEDS LIMIT':''}
-              </div>
-            </div>`).join('')}
-        </div>`;
-      document.getElementById('omMigrationStart').disabled = !result.canStart;
-      status(result.canStart
+  }
+
+  function renderMigrationPreview(result) {
+    state.migrationPreview = result;
+    const inv = result.inventory || {};
+
+    document.getElementById('omMigrationSummary').innerHTML = `
+      <div class="owner-maintenance-summary">
+        <div><span class="label">Files</span><strong>${esc(inv.fileCount||0)}</strong></div>
+        <div><span class="label">Oversize</span><strong>${esc(inv.oversizeCount||0)}</strong></div>
+        <div><span class="label">Mode</span><strong>${esc(result.mode||'')}</strong></div>
+        <div><span class="label">Warnings</span><strong>${result.allowWarnings?'Publish':'Hold'}</strong></div>
+      </div>`;
+
+    document.getElementById('omMigrationFiles').innerHTML = `
+      <div class="owner-maintenance-list">
+        ${(inv.files||[]).map(file => `
+          <div class="owner-maintenance-record ${file.oversize?'error':''}">
+            <div class="owner-maintenance-title">${esc(file.relativePath||file.name)}</div>
+            <div class="owner-maintenance-meta">
+              ${esc(file.mimeType)} · ${esc(file.sizeBytes||0)} bytes
+              ${file.oversize?' · EXCEEDS LIMIT':''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+
+    document.getElementById('omMigrationStart').disabled = !result.canStart;
+
+    status(
+      result.canStart
         ? `Folder ready. Start confirmation: ${result.requiredConfirmation}`
-        : 'Folder is not eligible to start.', !result.canStart);
-    }
-  
-    function renderMigrationJob(result) {
-      state.migrationJob = result;
-      const job = result.job || {};
-      document.getElementById('omMigrationSummary').innerHTML = `
-        <div class="owner-maintenance-summary">
-          <div><span class="label">Status</span><strong>${esc(job.status||'')}</strong></div>
-          <div><span class="label">Files</span><strong>${esc(job.filesCompleted||0)} / ${esc(job.fileCount||0)}</strong></div>
-          <div><span class="label">FMRs Found</span><strong>${esc(job.fmrsDiscovered||0)}</strong></div>
-          <div><span class="label">Published</span><strong>${esc(job.fmrsPublished||0)}</strong></div>
-          <div><span class="label">Blocked</span><strong>${esc(job.fmrsBlocked||0)}</strong></div>
-          <div><span class="label">Skipped</span><strong>${esc(job.fmrsSkipped||0)}</strong></div>
-          <div><span class="label">Warnings</span><strong>${esc(job.warningCount||0)}</strong></div>
-          <div><span class="label">Errors</span><strong>${esc(job.errorCount||0)}</strong></div>
-        </div>`;
-  
-      document.getElementById('omMigrationFiles').innerHTML = `
-        <div class="owner-maintenance-list">
-          ${(result.files||[]).map(file => {
-            const s = String(file.status||'').toUpperCase();
-            const cls = s === 'FAILED' ? 'error' :
-              (s.indexOf('COMPLETE') === 0 ? 'success' : '');
-            return `
-              <div class="owner-maintenance-record ${cls}">
-                <div class="owner-maintenance-title">${esc(file.sourceFileName)}</div>
-                <div class="owner-maintenance-meta">
-                  ${esc(s)} · ${esc(file.publishedCount||0)} published
-                  · ${esc(file.blockedCount||0)} blocked
-                  · ${esc(file.skippedCount||0)} skipped
-                </div>
-                ${file.lastError?`<div class="alert error">${esc(file.lastError)}</div>`:''}
-                ${s==='FAILED'?`
-                  <button type="button" class="small secondary"
-                    data-om-retry="${esc(file.migrationFileId)}">Retry File</button>`:''}
-              </div>`;
-          }).join('')}
-        </div>`;
-  
-      const finished = ['COMPLETE','COMPLETE_WITH_EXCEPTIONS']
-        .includes(String(job.status||'').toUpperCase());
-      document.getElementById('omMigrationNext').disabled = finished;
-      if (finished) state.autoRunning = false;
-      status(finished
+        : 'Folder is not eligible to start.',
+      !result.canStart
+    );
+  }
+
+  function renderMigrationJob(result) {
+    state.migrationJob = result;
+    const job = result.job || {};
+
+    document.getElementById('omMigrationSummary').innerHTML = `
+      <div class="owner-maintenance-summary">
+        <div><span class="label">Status</span><strong>${esc(job.status||'')}</strong></div>
+        <div><span class="label">Files</span><strong>${esc(job.filesCompleted||0)} / ${esc(job.fileCount||0)}</strong></div>
+        <div><span class="label">FMRs Found</span><strong>${esc(job.fmrsDiscovered||0)}</strong></div>
+        <div><span class="label">Published</span><strong>${esc(job.fmrsPublished||0)}</strong></div>
+        <div><span class="label">Blocked</span><strong>${esc(job.fmrsBlocked||0)}</strong></div>
+        <div><span class="label">Skipped</span><strong>${esc(job.fmrsSkipped||0)}</strong></div>
+        <div><span class="label">Warnings</span><strong>${esc(job.warningCount||0)}</strong></div>
+        <div><span class="label">Errors</span><strong>${esc(job.errorCount||0)}</strong></div>
+      </div>`;
+
+    document.getElementById('omMigrationFiles').innerHTML = `
+      <div class="owner-maintenance-list">
+        ${(result.files||[]).map(file => {
+          const s = String(file.status||'').toUpperCase();
+          const cls = s === 'FAILED' ? 'error' :
+            (s.indexOf('COMPLETE') === 0 ? 'success' : '');
+
+          return `
+            <div class="owner-maintenance-record ${cls}">
+              <div class="owner-maintenance-title">${esc(file.sourceFileName)}</div>
+              <div class="owner-maintenance-meta">
+                ${esc(s)} · ${esc(file.publishedCount||0)} published
+                · ${esc(file.blockedCount||0)} blocked
+                · ${esc(file.skippedCount||0)} skipped
+              </div>
+              ${file.lastError?`<div class="alert error">${esc(file.lastError)}</div>`:''}
+              ${s==='FAILED'?`
+                <button type="button" class="small secondary"
+                  data-om-retry="${esc(file.migrationFileId)}">Retry File</button>`:''}
+            </div>`;
+        }).join('')}
+      </div>`;
+
+    const finished = ['COMPLETE','COMPLETE_WITH_EXCEPTIONS']
+      .includes(String(job.status||'').toUpperCase());
+
+    document.getElementById('omMigrationNext').disabled = finished;
+    if (finished) state.autoRunning = false;
+
+    status(
+      finished
         ? `Migration finished: ${job.status}. Review exceptions before closeout.`
-        : `Migration ${job.jobId} is ${job.status}.`);
-      loadRecentMigrationJobs();
+        : `Migration ${job.jobId} is ${job.status}.`
+    );
+
+    loadRecentMigrationJobs();
+  }
+
+  async function previewMigration() {
+    const folder = document.getElementById('omMigrationFolder').value.trim();
+    if (!folder) return status('Enter a Drive folder URL or ID.',true);
+
+    status('Inspecting Drive folder…');
+
+    try {
+      renderMigrationPreview(
+        await callServer(
+          'previewHistoricalMigrationV3',
+          folder,
+          migrationOptions()
+        )
+      );
+    } catch(error) {
+      status(errorText(error),true);
     }
-  
-    async function previewMigration() {
-      const folder = document.getElementById('omMigrationFolder').value.trim();
-      if (!folder) return status('Enter a Drive folder URL or ID.',true);
-      status('Inspecting Drive folder…');
-      try {
-        renderMigrationPreview(await callServer(
-          'previewHistoricalMigrationV3',folder,migrationOptions()
-        ));
-      } catch(error) { status(errorText(error),true); }
-    }
-  
-    async function startMigration() {
-      const preview = state.migrationPreview;
-      if (!preview || !preview.canStart) return;
-      const confirmation = window.prompt(`Type exactly:\n${preview.requiredConfirmation}`);
-      if (confirmation == null) return;
-      const options = Object.assign({},migrationOptions(),{
-        confirmation:confirmation,notes:'Started from Owner Maintenance Center.'
-      });
-      status('Creating migration job…');
-      try {
-        const result = await callServer(
-          'startHistoricalMigrationV3',
-          document.getElementById('omMigrationFolder').value.trim(),options
-        );
-        renderMigrationJob(result);
-        if (document.getElementById('omMigrationAuto').checked) {
-          state.autoRunning = true;
-          await migrationLoop();
-        }
-      } catch(error) { status(errorText(error),true); }
-    }
-  
-    async function runChunk() {
-      const job = state.migrationJob && state.migrationJob.job;
-      if (!job || !job.jobId) { status('Start a migration first.',true); return null; }
-      const size = Number(document.getElementById('omMigrationChunk').value||10);
-      status(`Processing up to ${size} FMRs…`);
-      try {
-        const result = await callServer('runHistoricalMigrationChunkV3',job.jobId,size);
-        renderMigrationJob(result);
-        return result;
-      } catch(error) {
-        state.autoRunning=false; status(errorText(error),true); return null;
+  }
+
+  async function startMigration() {
+    const preview = state.migrationPreview;
+    if (!preview || !preview.canStart) return;
+
+    const confirmation = window.prompt(
+      `Type exactly:\n${preview.requiredConfirmation}`
+    );
+
+    if (confirmation == null) return;
+
+    const options = Object.assign({},migrationOptions(),{
+      confirmation:confirmation,
+      notes:'Started from Owner Maintenance Center.'
+    });
+
+    status('Creating migration job…');
+
+    try {
+      const result = await callServer(
+        'startHistoricalMigrationV3',
+        document.getElementById('omMigrationFolder').value.trim(),
+        options
+      );
+
+      renderMigrationJob(result);
+
+      if (document.getElementById('omMigrationAuto').checked) {
+        state.autoRunning = true;
+        await migrationLoop();
       }
+    } catch(error) {
+      status(errorText(error),true);
     }
-  
-    async function migrationLoop() {
-      while (state.autoRunning) {
-        const current = state.migrationJob && state.migrationJob.job;
-        if (!current || ['COMPLETE','COMPLETE_WITH_EXCEPTIONS']
-            .includes(String(current.status||'').toUpperCase())) {
-          state.autoRunning=false; break;
-        }
-        const result = await runChunk();
-        if (!result) break;
-        await new Promise(resolve => setTimeout(resolve,350));
+  }
+
+  async function runChunk() {
+    const job = state.migrationJob && state.migrationJob.job;
+
+    if (!job || !job.jobId) {
+      status('Start a migration first.',true);
+      return null;
+    }
+
+    const size = Number(document.getElementById('omMigrationChunk').value||10);
+    status(`Processing up to ${size} FMRs…`);
+
+    try {
+      const result = await callServer(
+        'runHistoricalMigrationChunkV3',
+        job.jobId,
+        size
+      );
+
+      renderMigrationJob(result);
+      return result;
+    } catch(error) {
+      state.autoRunning=false;
+      status(errorText(error),true);
+      return null;
+    }
+  }
+
+  async function migrationLoop() {
+    while (state.autoRunning) {
+      const current = state.migrationJob && state.migrationJob.job;
+
+      if (!current || ['COMPLETE','COMPLETE_WITH_EXCEPTIONS']
+          .includes(String(current.status||'').toUpperCase())) {
+        state.autoRunning=false;
+        break;
       }
+
+      const result = await runChunk();
+      if (!result) break;
+
+      await new Promise(resolve => setTimeout(resolve,350));
     }
-  
-    function renderLedger(result) {
-      state.ledger=result; state.correctionPreview=null;
-      document.getElementById('omCorrectionPreview').innerHTML='';
-      document.getElementById('omLedgerSummary').innerHTML=`
-        <div class="owner-maintenance-summary">
-          <div><span class="label">Lines</span><strong>${esc(result.resultCount||0)}</strong></div>
-          <div><span class="label">Groups</span><strong>${esc((result.groups||[]).length)}</strong></div>
-          <div><span class="label">Bag Records</span><strong>${esc((result.bags||[]).length)}</strong></div>
-          <div><span class="label">Backorders</span><strong>${esc((result.backorders||[]).length)}</strong></div>
-        </div>`;
-  
-      document.getElementById('omLedgerGroups').innerHTML=`
-        <h4>Transaction Groups</h4>
-        <div class="owner-maintenance-list">
-          ${(result.groups||[]).map(group => `
-            <article class="owner-maintenance-record ${group.canPreviewReversal?'':'error'}">
+  }
+
+  function isoDisplay(material) {
+    const number = String(material && material.isoNumber || '').trim();
+    const sheet = String(material && material.isoSheet || '').trim();
+
+    if (number && sheet) {
+      return `${number}-${String(sheet).padStart(2,'0')}`;
+    }
+
+    return number || sheet || '—';
+  }
+
+  function renderMaterialIdentity(material) {
+    if (!material) return '';
+
+    return `
+      <div class="owner-ledger-material">
+        <div class="owner-ledger-material-grid">
+          <div class="owner-ledger-material-field">
+            <span class="owner-ledger-material-label">Commodity Code</span>
+            <span class="owner-ledger-material-value">${esc(material.commodityCode||'—')}</span>
+          </div>
+
+          <div class="owner-ledger-material-field">
+            <span class="owner-ledger-material-label">Size</span>
+            <span class="owner-ledger-material-value">${esc(material.size||'—')}</span>
+          </div>
+
+          <div class="owner-ledger-material-field">
+            <span class="owner-ledger-material-label">UOM</span>
+            <span class="owner-ledger-material-value">${esc(material.uom||'—')}</span>
+          </div>
+
+          <div class="owner-ledger-material-field">
+            <span class="owner-ledger-material-label">ISO</span>
+            <span class="owner-ledger-material-value">${esc(isoDisplay(material))}</span>
+          </div>
+
+          <div class="owner-ledger-material-field description">
+            <span class="owner-ledger-material-label">Material Description</span>
+            <span class="owner-ledger-material-value">${esc(material.materialDescription||'—')}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function materialMapFromLedger() {
+    const map = {};
+
+    ((state.ledger && state.ledger.lines) || []).forEach(line => {
+      map[String(line.fmrLineId||'')] = line;
+    });
+
+    return map;
+  }
+
+  function materialsForGroup(group) {
+    if (Array.isArray(group.materials) && group.materials.length) {
+      return group.materials;
+    }
+
+    const byId = materialMapFromLedger();
+
+    return Array.from(new Set(
+      (group.transactions||[])
+        .map(tx => String(tx.fmrLineId||''))
+        .filter(Boolean)
+    ))
+      .map(lineId => byId[lineId])
+      .filter(Boolean);
+  }
+
+  function groupReference(group) {
+    const id = String(group.groupReference || group.groupId || '');
+    return id.length > 8 ? id.slice(-8) : id;
+  }
+
+  function transactionActorText(tx) {
+    let text = esc(tx.performedBy||tx.authenticatedEmail||'');
+
+    if (tx.issuedTo) text += ` → ${esc(tx.issuedTo)}`;
+    if (tx.sourceBagTagId) text += ` · Source Bag ${esc(tx.sourceBagTagId)}`;
+    if (tx.targetBagTagId) text += ` · Target Bag ${esc(tx.targetBagTagId)}`;
+
+    return text;
+  }
+
+  function renderLedger(result) {
+    state.ledger=result;
+    state.correctionPreview=null;
+
+    document.getElementById('omCorrectionPreview').innerHTML='';
+
+    document.getElementById('omLedgerSummary').innerHTML=`
+      <div class="owner-maintenance-summary">
+        <div><span class="label">Lines</span><strong>${esc(result.resultCount||0)}</strong></div>
+        <div><span class="label">Groups</span><strong>${esc((result.groups||[]).length)}</strong></div>
+        <div><span class="label">Bag Records</span><strong>${esc((result.bags||[]).length)}</strong></div>
+        <div><span class="label">Backorders</span><strong>${esc((result.backorders||[]).length)}</strong></div>
+        ${result.elapsedMs!=null?`
+          <div><span class="label">Server Load</span><strong>${esc(result.elapsedMs)} ms</strong></div>`:''}
+      </div>`;
+
+    document.getElementById('omLedgerGroups').innerHTML=`
+      <h4>Transaction Groups</h4>
+      <div class="owner-maintenance-list">
+        ${(result.groups||[]).map(group => {
+          const materials = materialsForGroup(group);
+
+          return `
+            <article class="owner-maintenance-record owner-ledger-group ${group.canPreviewReversal?'':'error'}">
               <div class="section-heading">
                 <div>
                   <div class="owner-maintenance-title">${esc(group.transactionTypes.join(' + '))}</div>
                   <div class="owner-maintenance-meta">
-                    ${esc(group.timestamp)} · ${esc(group.groupId)}
+                    ${esc(group.timestamp)}
+                    · Group <span class="owner-group-reference"
+                      title="${esc(group.groupId)}">${esc(groupReference(group))}</span>
                   </div>
                 </div>
+
                 <button type="button" class="small ${group.canPreviewReversal?'':'secondary'}"
                   data-om-reverse="${esc(group.groupId)}"
                   ${group.canPreviewReversal?'':'disabled'}>Preview Reversal</button>
               </div>
-              ${group.blockingReason?`<div class="owner-maintenance-meta">${esc(group.blockingReason)}</div>`:''}
+
+              ${group.blockingReason?`
+                <div class="owner-maintenance-meta">${esc(group.blockingReason)}</div>`:''}
+
+              <div class="owner-ledger-materials">
+                ${materials.map(renderMaterialIdentity).join('')}
+              </div>
+
               ${(group.transactions||[]).map(tx => `
                 <div class="owner-ledger-transaction">
                   <strong>${esc(tx.type)}</strong>
                   <span>${esc(tx.quantity)} ${esc(tx.uom)}</span>
-                  <span class="owner-maintenance-meta">
-                    ${esc(tx.performedBy||tx.authenticatedEmail)}
-                    ${tx.issuedTo?` → ${esc(tx.issuedTo)}`:''}
-                    ${tx.sourceBagTagId?` · Source Bag ${esc(tx.sourceBagTagId)}`:''}
-                    ${tx.targetBagTagId?` · Target Bag ${esc(tx.targetBagTagId)}`:''}
-                  </span>
+                  <span class="owner-maintenance-meta">${transactionActorText(tx)}</span>
                 </div>`).join('')}
-            </article>`).join('') || '<div class="register-empty">No transactions found.</div>'}
-        </div>`;
-  
-      document.getElementById('omLedgerEntities').innerHTML=`
-        <h4>Bag &amp; Tag History</h4>
-        <div class="owner-maintenance-list">
-          ${(result.bags||[]).map(bag => `
-            <div class="owner-maintenance-record">
-              <div class="owner-maintenance-title">${esc(bag.tagNumber)}</div>
-              <div class="owner-maintenance-meta">
-                ${esc(bag.commodityCode)} · Size ${esc(bag.size)}
-                · Bagged ${esc(bag.qtyBagged)} ${esc(bag.uom)}
-                · Issued ${esc(bag.qtyIssued)} · Remaining ${esc(bag.qtyRemaining)}
-                · ${esc(bag.status)}
-              </div>
-            </div>`).join('') || '<div class="register-empty">No Bag & Tag history.</div>'}
-        </div>
-  
-        <h4>Backorder History</h4>
-        <div class="owner-maintenance-list">
-          ${(result.backorders||[]).map(r => `
-            <div class="owner-maintenance-record">
-              <div class="owner-maintenance-title">${esc(r.requestId)}</div>
-              <div class="owner-maintenance-meta">
-                ${esc(r.status)} · Requested ${esc(r.qtyRequested)}
-                · Confirmed ${esc(r.qtyConfirmed)} · Pending ${esc(r.qtyPending)}
-              </div>
-            </div>`).join('') || '<div class="register-empty">No backorder history.</div>'}
-        </div>`;
-      status(result.resultCount?'Owner ledger loaded.':'No published FMR / ISO found.');
-    }
-  
-    async function searchLedger() {
-      const query=document.getElementById('omLedgerQuery').value.trim();
-      if (!query) return status('Enter an FMR or ISO.',true);
-      status('Loading transaction ledger…');
-      try {
-        renderLedger(await callServer(
-          'searchOwnerLedgerV3',query,document.getElementById('omLedgerMode').value
-        ));
-      } catch(error){ status(errorText(error),true); }
-    }
-  
-    async function previewCorrection(groupId) {
-      const reason=window.prompt('Reason for reversing this transaction group:');
-      if (reason==null) return;
-      status('Validating dependencies…');
-      try {
-        const result=await callServer('previewOwnerCorrectionV3',{groupId:groupId,reason:reason});
-        state.correctionPreview=result;
-        document.getElementById('omCorrectionPreview').innerHTML=`
-          <div class="owner-correction-preview">
-            <h4>Reversal Preview</h4>
-            <p>
-              Original transactions remain unchanged. Applying this preview creates
-              a database backup and appends compensating REVERSAL_* transactions.
-            </p>
-            <pre>${esc(JSON.stringify(result.plan,null,2))}</pre>
-            <div class="button-row">
-              <button id="omCorrectionApply" type="button">Apply Reversal</button>
-              <button id="omCorrectionCancel" type="button" class="secondary">Cancel</button>
+            </article>`;
+        }).join('') || '<div class="register-empty">No transactions found.</div>'}
+      </div>`;
+
+    document.getElementById('omLedgerEntities').innerHTML=`
+      <h4>Bag &amp; Tag History</h4>
+      <div class="owner-maintenance-list">
+        ${(result.bags||[]).map(bag => `
+          <div class="owner-maintenance-record">
+            <div class="owner-maintenance-title">${esc(bag.tagNumber)}</div>
+            <div class="owner-maintenance-meta">
+              ${esc(bag.commodityCode)} · Size ${esc(bag.size)}
+              · Bagged ${esc(bag.qtyBagged)} ${esc(bag.uom)}
+              · Issued ${esc(bag.qtyIssued)} · Remaining ${esc(bag.qtyRemaining)}
+              · ${esc(bag.status)}
             </div>
-          </div>`;
-        document.getElementById('omCorrectionApply').addEventListener('click',applyCorrection);
-        document.getElementById('omCorrectionCancel').addEventListener('click',()=>{
+          </div>`).join('') ||
+          '<div class="register-empty">No Bag & Tag history.</div>'}
+      </div>
+
+      <h4>Backorder History</h4>
+      <div class="owner-maintenance-list">
+        ${(result.backorders||[]).map(r => `
+          <div class="owner-maintenance-record">
+            <div class="owner-maintenance-title">${esc(r.requestId)}</div>
+            <div class="owner-maintenance-meta">
+              ${esc(r.status)} · Requested ${esc(r.qtyRequested)}
+              · Confirmed ${esc(r.qtyConfirmed)} · Pending ${esc(r.qtyPending)}
+            </div>
+          </div>`).join('') ||
+          '<div class="register-empty">No backorder history.</div>'}
+      </div>`;
+
+    status(
+      result.resultCount
+        ? `Owner ledger loaded${result.elapsedMs!=null?` in ${result.elapsedMs} ms`:''}.`
+        : 'No published FMR / ISO found.'
+    );
+  }
+
+  async function searchLedger() {
+    const query=document.getElementById('omLedgerQuery').value.trim();
+    if (!query) return status('Enter an FMR or ISO.',true);
+
+    status('Loading transaction ledger…');
+
+    try {
+      renderLedger(
+        await callServer(
+          'searchOwnerLedgerV3',
+          query,
+          document.getElementById('omLedgerMode').value
+        )
+      );
+    } catch(error) {
+      status(errorText(error),true);
+    }
+  }
+
+  function findLedgerGroup(groupId) {
+    return ((state.ledger && state.ledger.groups)||[])
+      .find(group => String(group.groupId||'') === String(groupId||'')) || null;
+  }
+
+  function renderPreviewSummary(group) {
+    const materials = materialsForGroup(group);
+
+    return `
+      <div class="owner-correction-material-summary">
+        <h4>You are reversing this exact material transaction</h4>
+
+        <div class="owner-ledger-materials">
+          ${materials.map(renderMaterialIdentity).join('')}
+        </div>
+
+        <div class="owner-correction-transaction-list">
+          ${(group.transactions||[]).map(tx => {
+            const material = materials.find(item =>
+              String(item.fmrLineId||'') === String(tx.fmrLineId||'')
+            );
+
+            return `
+              <div class="owner-correction-transaction-row">
+                <strong>${esc(tx.type)}</strong>
+                <span>${esc(tx.quantity)} ${esc(tx.uom||(material&&material.uom)||'')}</span>
+                <span>
+                  ${material?esc(material.commodityCode||'—'):'Material unavailable'}
+                  ${material&&material.size?` · Size ${esc(material.size)}`:''}
+                </span>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
+
+  async function previewCorrection(groupId) {
+    const group = findLedgerGroup(groupId);
+    if (!group) return status('Transaction group is no longer loaded.',true);
+
+    const materials = materialsForGroup(group);
+
+    const materialText = materials.length
+      ? '\n\nMaterial: ' + materials.map(material => [
+          material.commodityCode,
+          material.size ? `Size ${material.size}` : '',
+          material.materialDescription
+        ].filter(Boolean).join(' · ')).join(' / ')
+      : '';
+
+    const reason=window.prompt(
+      'Reason for reversing this transaction group:' + materialText
+    );
+
+    if (reason==null) return;
+
+    status('Validating dependencies…');
+
+    try {
+      const result=await callServer(
+        'previewOwnerCorrectionV3',
+        {groupId:groupId,reason:reason}
+      );
+
+      state.correctionPreview=result;
+
+      document.getElementById('omCorrectionPreview').innerHTML=`
+        <div class="owner-correction-preview">
+          <h4>Reversal Preview</h4>
+          <p>
+            Original transactions remain unchanged. Applying this preview creates
+            a database backup and appends compensating REVERSAL_* transactions.
+          </p>
+
+          ${renderPreviewSummary(group)}
+
+          <div class="owner-verification-panel">
+            <strong>4-digit verification code</strong>
+            <div class="owner-verification-code">${esc(result.requiredConfirmation)}</div>
+            <div class="owner-maintenance-meta">
+              Owner authorization, dependency validation, the written reason,
+              ScriptLock and the automatic backup remain the actual safeguards.
+            </div>
+          </div>
+
+          <details>
+            <summary>Technical reversal plan</summary>
+            <pre>${esc(JSON.stringify(result.plan,null,2))}</pre>
+          </details>
+
+          <div class="button-row">
+            <button id="omCorrectionApply" type="button">Apply Reversal</button>
+            <button id="omCorrectionCancel" type="button" class="secondary">Cancel</button>
+          </div>
+        </div>`;
+
+      document.getElementById('omCorrectionApply')
+        .addEventListener('click',applyCorrection);
+
+      document.getElementById('omCorrectionCancel')
+        .addEventListener('click',()=>{
           state.correctionPreview=null;
           document.getElementById('omCorrectionPreview').innerHTML='';
         });
-        status(`Preview passed. Confirmation: ${result.requiredConfirmation}`);
-      } catch(error){ status(errorText(error),true); }
+
+      status(`Preview passed. Verification code: ${result.requiredConfirmation}`);
+    } catch(error) {
+      status(errorText(error),true);
     }
-  
-    async function applyCorrection() {
-      const preview=state.correctionPreview;
-      if (!preview || !preview.plan) return;
-      const confirmation=window.prompt(`Type exactly:\n${preview.requiredConfirmation}`);
-      if (confirmation==null) return;
-      status('Creating backup and applying correction…');
-      try {
-        const result=await callServer('applyOwnerCorrectionV3',{
-          groupId:preview.plan.groupId,
-          reason:preview.reason,
-          confirmation:confirmation
-        });
-        state.correctionPreview=null;
-        document.getElementById('omCorrectionPreview').innerHTML='';
-        status(`Correction ${result.correctionId} applied. Refreshing ledger…`);
-        await searchLedger();
-      } catch(error){ status(errorText(error),true); }
+  }
+
+  async function applyCorrection() {
+    const preview=state.correctionPreview;
+    if (!preview || !preview.plan) return;
+
+    const confirmation=window.prompt(
+      `Enter the 4-digit verification code:\n${preview.requiredConfirmation}`
+    );
+
+    if (confirmation==null) return;
+
+    status('Creating backup and applying correction…');
+
+    try {
+      const result=await callServer('applyOwnerCorrectionV3',{
+        groupId:preview.plan.groupId,
+        reason:preview.reason,
+        confirmation:confirmation
+      });
+
+      state.correctionPreview=null;
+      document.getElementById('omCorrectionPreview').innerHTML='';
+
+      status(`Correction ${result.correctionId} applied. Refreshing ledger…`);
+      await searchLedger();
+    } catch(error) {
+      status(errorText(error),true);
     }
-  
-    function bind() {
-      document.getElementById('omMigrationTab').addEventListener('click',()=>setTab('MIGRATION'));
-      document.getElementById('omCorrectionTab').addEventListener('click',()=>setTab('CORRECTION'));
-      document.getElementById('omMigrationPreview').addEventListener('click',previewMigration);
-      document.getElementById('omMigrationStart').addEventListener('click',startMigration);
-      document.getElementById('omMigrationNext').addEventListener('click',async()=>{
-        state.autoRunning=false; await runChunk();
+  }
+
+  function bind() {
+    document.getElementById('omMigrationTab')
+      .addEventListener('click',()=>setTab('MIGRATION'));
+
+    document.getElementById('omCorrectionTab')
+      .addEventListener('click',()=>setTab('CORRECTION'));
+
+    document.getElementById('omMigrationPreview')
+      .addEventListener('click',previewMigration);
+
+    document.getElementById('omMigrationStart')
+      .addEventListener('click',startMigration);
+
+    document.getElementById('omMigrationNext')
+      .addEventListener('click',async()=>{
+        state.autoRunning=false;
+        await runChunk();
       });
-      document.getElementById('omLedgerSearch').addEventListener('click',searchLedger);
-      document.getElementById('omLedgerQuery').addEventListener('keydown',event=>{
-        if (event.key==='Enter') { event.preventDefault(); searchLedger(); }
+
+    document.getElementById('omLedgerSearch')
+      .addEventListener('click',searchLedger);
+
+    document.getElementById('omLedgerQuery')
+      .addEventListener('keydown',event=>{
+        if (event.key==='Enter') {
+          event.preventDefault();
+          searchLedger();
+        }
       });
-      document.getElementById('omMigrationFiles').addEventListener('click',async event=>{
+
+    document.getElementById('omMigrationFiles')
+      .addEventListener('click',async event=>{
         const button=event.target.closest('[data-om-retry]');
         if (!button) return;
+
         status('Resetting failed file…');
+
         try {
-          renderMigrationJob(await callServer(
-            'retryHistoricalMigrationFileV3',button.getAttribute('data-om-retry')
-          ));
-        } catch(error){status(errorText(error),true);}
+          renderMigrationJob(
+            await callServer(
+              'retryHistoricalMigrationFileV3',
+              button.getAttribute('data-om-retry')
+            )
+          );
+        } catch(error) {
+          status(errorText(error),true);
+        }
       });
-      document.getElementById('omLedgerGroups').addEventListener('click',event=>{
+
+    document.getElementById('omLedgerGroups')
+      .addEventListener('click',event=>{
         const button=event.target.closest('[data-om-reverse]');
-        if (button && !button.disabled) previewCorrection(button.getAttribute('data-om-reverse'));
+        if (button && !button.disabled) {
+          previewCorrection(button.getAttribute('data-om-reverse'));
+        }
       });
-      document.getElementById('omMigrationRecent').addEventListener('click',event=>{
+
+    document.getElementById('omMigrationRecent')
+      .addEventListener('click',event=>{
         const button=event.target.closest('[data-om-load-job]');
-        if (button) loadMigrationJob(button.getAttribute('data-om-load-job'));
+        if (!button) return;
+
+        loadMigrationJob(button.getAttribute('data-om-load-job'));
       });
-      loadRecentMigrationJobs();
-    }
-  
-    if (document.readyState==='loading') {
-      document.addEventListener('DOMContentLoaded',insertPanel);
-    } else {
-      insertPanel();
-    }
-  })();
-  </script>
-  
+
+    loadRecentMigrationJobs();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded',insertPanel);
+  } else {
+    insertPanel();
+  }
+})();
+</script>
