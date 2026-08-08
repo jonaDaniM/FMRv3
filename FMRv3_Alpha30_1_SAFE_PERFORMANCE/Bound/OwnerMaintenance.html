@@ -333,6 +333,32 @@
 
 <script>
 (() => {
+  /**
+   * Alpha 30.1 performance guard.
+   *
+   * Index.html contains all three views in the DOM, so checking only for
+   * #ownerView is not enough: Field/Admin sessions also have that hidden node.
+   *
+   * Exit before creating the Owner Maintenance panel or making any Owner-only
+   * google.script.run calls unless the requested interface is actually Owner.
+   * Owner behavior is otherwise unchanged.
+   */
+  const requestedView =
+    (
+      typeof REQUESTED_VIEW === 'string'
+        ? REQUESTED_VIEW
+        : ''
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    requestedView &&
+    requestedView !== 'owner'
+  ) {
+    return;
+  }
+
   const state = {
     migrationPreview:null,
     migrationJob:null,
