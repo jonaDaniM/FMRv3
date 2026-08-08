@@ -1,0 +1,40 @@
+{
+  "github_commit": "c2c26a4bed321de57c5a73dfe6588ecc5647eec6",
+  "core_review": {
+    "config_version": "3.0.0-alpha.30",
+    "owner_correction_blob_sha": "4ed0006dbc70a31f755158ab22d8883ee7c37a8b",
+    "owner_correction_matches_validated_local": true,
+    "field_notice_blob_sha": "96f90477c8a1abccc1f452031764da444088d62d",
+    "field_notice_matches_validated_local": true,
+    "performance_diagnostic_blob_sha": "c60c76bb81503c9fa04c74cc6be2465b6a767b7a",
+    "performance_diagnostic_matches_validated_local": true
+  },
+  "bound_checks": {
+    "OwnerMaintenance_browser_syntax": {
+      "passed": true,
+      "stderr": ""
+    },
+    "Bound/OwnerMaintenanceAdapter.gs": {
+      "passed": true,
+      "stderr": ""
+    },
+    "Bound/OwnerDriveAuthorization.gs": {
+      "passed": true,
+      "stderr": ""
+    },
+    "manifest": {
+      "passed": true
+    },
+    "structural": {
+      "material_identity_in_owner_ui": true,
+      "four_digit_ui": true,
+      "drive_authorization_ui": true,
+      "folder_preflight": true,
+      "preview_calls_folder_preflight": true,
+      "old_extension_is_noop": true
+    }
+  },
+  "live_apps_script_tested": false,
+  "passed": true,
+  "note": "Static validation only. Live Google Apps Script TEST deployment is required."
+}
