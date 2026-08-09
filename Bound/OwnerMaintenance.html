@@ -281,6 +281,51 @@
     overflow-wrap:anywhere;
   }
 
+  .owner-correction-progress {
+    display:none;
+    align-items:center;
+    gap:10px;
+    margin:12px 0;
+    padding:11px 12px;
+    border:1px solid #b8d7ed;
+    border-radius:9px;
+    background:#f5faff;
+    color:var(--text);
+    font-size:13px;
+    font-weight:700;
+  }
+
+  .owner-correction-progress.is-active {
+    display:flex;
+  }
+
+  .owner-correction-spinner {
+    width:18px;
+    height:18px;
+    flex:0 0 18px;
+    border:3px solid #cfe0ed;
+    border-top-color:var(--blue);
+    border-radius:50%;
+    animation:owner-correction-spin .75s linear infinite;
+  }
+
+  .owner-correction-progress-text {
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+
+  #omCorrectionApply.is-busy,
+  #omLedgerSearch.is-busy {
+    cursor:wait;
+    opacity:.78;
+  }
+
+  @keyframes owner-correction-spin {
+    to {
+      transform:rotate(360deg);
+    }
+  }
+
 
   .owner-drive-access-card {
     margin:12px 0 14px;
@@ -367,7 +412,8 @@
     correctionPreview:null,
     driveAuthorization:null,
     verifiedDriveFolderId:'',
-    recentMigrationJobsLoaded:false
+    recentMigrationJobsLoaded:false,
+    correctionApplying:false
   };
 
   function esc(value) {
@@ -399,6 +445,113 @@
     if (!el) return;
     el.textContent = message || '';
     el.style.color = isError ? 'var(--danger)' : '';
+  }
+
+
+  function setCorrectionBusy(
+    busy,
+    message
+  ) {
+    state.correctionApplying =
+      Boolean(busy);
+
+    const progress =
+      document.getElementById(
+        'omCorrectionProgress'
+      );
+
+    const progressText =
+      document.getElementById(
+        'omCorrectionProgressText'
+      );
+
+    const applyButton =
+      document.getElementById(
+        'omCorrectionApply'
+      );
+
+    const cancelButton =
+      document.getElementById(
+        'omCorrectionCancel'
+      );
+
+    const ledgerSearchButton =
+      document.getElementById(
+        'omLedgerSearch'
+      );
+
+    if (progress) {
+      progress.classList.toggle(
+        'is-active',
+        Boolean(busy)
+      );
+
+      progress.setAttribute(
+        'aria-busy',
+        busy
+          ? 'true'
+          : 'false'
+      );
+    }
+
+    if (
+      progressText &&
+      message
+    ) {
+      progressText.textContent =
+        message;
+    }
+
+    if (applyButton) {
+      applyButton.disabled =
+        Boolean(busy);
+
+      applyButton.classList.toggle(
+        'is-busy',
+        Boolean(busy)
+      );
+
+      applyButton.textContent =
+        busy
+          ? 'Applying Reversal…'
+          : 'Apply Reversal';
+    }
+
+    if (cancelButton) {
+      cancelButton.disabled =
+        Boolean(busy);
+    }
+
+    if (ledgerSearchButton) {
+      ledgerSearchButton.disabled =
+        Boolean(busy);
+    }
+  }
+
+  function setLedgerSearchBusy(
+    busy
+  ) {
+    const button =
+      document.getElementById(
+        'omLedgerSearch'
+      );
+
+    if (!button) {
+      return;
+    }
+
+    button.disabled =
+      Boolean(busy);
+
+    button.classList.toggle(
+      'is-busy',
+      Boolean(busy)
+    );
+
+    button.textContent =
+      busy
+        ? 'Searching…'
+        : 'Search';
   }
 
   function insertPanel() {
@@ -1081,22 +1234,64 @@
     );
   }
 
-  async function searchLedger() {
-    const query=document.getElementById('omLedgerQuery').value.trim();
-    if (!query) return status('Enter an FMR or ISO.',true);
+  async function searchLedger(
+    forceDuringCorrection
+  ) {
+    if (
+      state.correctionApplying &&
+      !forceDuringCorrection
+    ) {
+      return;
+    }
 
-    status('Loading transaction ledger…');
+    const query =
+      document
+        .getElementById(
+          'omLedgerQuery'
+        )
+        .value
+        .trim();
+
+    if (!query) {
+      return status(
+        'Enter an FMR or ISO.',
+        true
+      );
+    }
+
+    setLedgerSearchBusy(
+      true
+    );
+
+    status(
+      'Loading transaction ledger…'
+    );
 
     try {
       renderLedger(
         await callServer(
           'searchOwnerLedgerV3',
           query,
-          document.getElementById('omLedgerMode').value
+          document
+            .getElementById(
+              'omLedgerMode'
+            )
+            .value
         )
       );
-    } catch(error) {
-      status(errorText(error),true);
+    } catch (
+      error
+    ) {
+      status(
+        errorText(
+          error
+        ),
+        true
+      );
+    } finally {
+      setLedgerSearchBusy(
+        false
+      );
     }
   }
 
@@ -1190,6 +1385,22 @@
             <pre>${esc(JSON.stringify(result.plan,null,2))}</pre>
           </details>
 
+          <div
+            id="omCorrectionProgress"
+            class="owner-correction-progress"
+            role="status"
+            aria-live="polite"
+            aria-busy="false">
+            <span
+              class="owner-correction-spinner"
+              aria-hidden="true"></span>
+            <span
+              id="omCorrectionProgressText"
+              class="owner-correction-progress-text">
+              Preparing Owner correction…
+            </span>
+          </div>
+
           <div class="button-row">
             <button id="omCorrectionApply" type="button">Apply Reversal</button>
             <button id="omCorrectionCancel" type="button" class="secondary">Cancel</button>
@@ -1212,32 +1423,116 @@
   }
 
   async function applyCorrection() {
-    const preview=state.correctionPreview;
-    if (!preview || !preview.plan) return;
+    if (
+      state.correctionApplying
+    ) {
+      return;
+    }
 
-    const confirmation=window.prompt(
-      `Enter the 4-digit verification code:\n${preview.requiredConfirmation}`
+    const preview =
+      state.correctionPreview;
+
+    if (
+      !preview ||
+      !preview.plan
+    ) {
+      return;
+    }
+
+    const confirmation =
+      window.prompt(
+        (
+          'Enter the 4-digit verification code:\n' +
+          preview.requiredConfirmation
+        )
+      );
+
+    if (
+      confirmation ==
+      null
+    ) {
+      return;
+    }
+
+    setCorrectionBusy(
+      true,
+      'Creating the automatic pre-change backup and applying the reversal…'
     );
 
-    if (confirmation==null) return;
-
-    status('Creating backup and applying correction…');
+    status(
+      'Creating backup and applying correction…'
+    );
 
     try {
-      const result=await callServer('applyOwnerCorrectionV3',{
-        groupId:preview.plan.groupId,
-        reason:preview.reason,
-        confirmation:confirmation
-      });
+      const result =
+        await callServer(
+          'applyOwnerCorrectionV3',
+          {
+            groupId:
+              preview.plan.groupId,
 
-      state.correctionPreview=null;
-      document.getElementById('omCorrectionPreview').innerHTML='';
+            reason:
+              preview.reason,
 
-      status(`Correction ${result.correctionId} applied. Refreshing ledger…`);
-      await searchLedger();
-    } catch(error) {
-      status(errorText(error),true);
+            confirmation:
+              confirmation
+          }
+        );
+
+      const progressText =
+        document.getElementById(
+          'omCorrectionProgressText'
+        );
+
+      if (progressText) {
+        progressText.textContent =
+          (
+            'Reversal applied successfully. ' +
+            'Refreshing transaction history and operational state…'
+          );
+      }
+
+      status(
+        (
+          'Correction ' +
+          result.correctionId +
+          ' applied. Refreshing ledger…'
+        )
+      );
+
+      await searchLedger(
+        true
+      );
+
+      state.correctionPreview =
+        null;
+
+      document
+        .getElementById(
+          'omCorrectionPreview'
+        )
+        .innerHTML =
+        '';
+    } catch (
+      error
+    ) {
+      status(
+        errorText(
+          error
+        ),
+        true
+      );
+
+      setCorrectionBusy(
+        false,
+        'Correction failed. Review the error before retrying.'
+      );
+
+      return;
     }
+
+    state.correctionApplying =
+      false;
   }
 
   function bind() {

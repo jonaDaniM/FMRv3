@@ -1143,62 +1143,282 @@ function bagMaterialFmrV3_(
 }
 
 
-function getActiveBagsByLineIdsFmrV3_(lineIds) {
+
+
+
+
+/**
+ * Alpha 30.2 COMPLETE REPLACEMENT FUNCTION
+ *
+ * Replace the existing getActiveBagsByLineIdsFmrV3_ definition in
+ * FMRCoreV3/FieldService.gs with this entire function.
+ */
+function getActiveBagsByLineIdsFmrV3_(
+  lineIds
+) {
   const result = {};
 
-  (lineIds || []).forEach(function (lineId) {
-    const normalizedLineId = normalizeFmrV3_(lineId);
-    result[normalizedLineId] = [];
+  const normalizedLineIds =
+    normalizeBatchLookupValuesFmrV3_(
+      lineIds
+    );
 
-    const entries = lookupOperationalRowsFmrV3_(
+  normalizedLineIds.forEach(
+    function (
+      lineId
+    ) {
+      result[
+        lineId
+      ] = [];
+    }
+  );
+
+  if (
+    !normalizedLineIds.length
+  ) {
+    return result;
+  }
+
+  /**
+   * For one/few lines this retains the existing cached Operational_Index
+   * lookup. For a multi-line FMR, Alpha 30.2 resolves every BAGLINE key in one
+   * batched index pass.
+   */
+  const entriesByLine =
+    lookupOperationalRowsForValuesFmrV3_(
       'BAGLINE',
-      normalizedLineId
+      normalizedLineIds
     );
 
-    if (!entries.length) return;
+  const allEntries = [];
 
-    const items = readRowsObjectsFmrV3_(
-      FMR_V3.SHEETS.BAG_ITEMS,
-      entries.map(function (entry) { return entry.Row_Number; })
+  normalizedLineIds.forEach(
+    function (
+      lineId
+    ) {
+      allEntries.push.apply(
+        allEntries,
+        entriesByLine[
+          lineId
+        ] ||
+        []
+      );
+    }
+  );
+
+  if (
+    !allEntries.length
+  ) {
+    return result;
+  }
+
+  const itemRows =
+    Array.from(
+      new Set(
+        allEntries
+          .map(
+            function (
+              entry
+            ) {
+              return numberFmrV3_(
+                entry.Row_Number
+              );
+            }
+          )
+          .filter(
+            function (
+              row
+            ) {
+              return row >=
+                2;
+            }
+          )
+      )
     );
 
-    const headers = readRowsObjectsFmrV3_(
-      FMR_V3.SHEETS.BAG_HEADERS,
-      entries.map(function (entry) {
-        return entry.Secondary_Row_Number;
-      })
+  const headerRows =
+    Array.from(
+      new Set(
+        allEntries
+          .map(
+            function (
+              entry
+            ) {
+              return numberFmrV3_(
+                entry.Secondary_Row_Number
+              );
+            }
+          )
+          .filter(
+            function (
+              row
+            ) {
+              return row >=
+                2;
+            }
+          )
+      )
     );
 
-    const headersById = {};
-    headers.forEach(function (header) {
-      headersById[normalizeFmrV3_(header.Bag_Tag_ID)] = header;
-    });
+  const items =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_ITEMS,
+      itemRows
+    );
 
-    result[normalizedLineId] = items.map(function (item) {
-      const header = headersById[normalizeFmrV3_(item.Bag_Tag_ID)];
-      const remaining = numberFmrV3_(item.Qty_Remaining_In_Bag);
+  const headers =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_HEADERS,
+      headerRows
+    );
 
-      if (
-        !header ||
-        remaining <= 0 ||
-        !['ACTIVE', 'PARTIALLY ISSUED'].includes(
-          normalizeUpperFmrV3_(header.Status)
+  const itemsByRow = {};
+
+  items.forEach(
+    function (
+      item
+    ) {
+      itemsByRow[
+        numberFmrV3_(
+          item._rowNumber
         )
-      ) {
-        return null;
-      }
+      ] =
+        item;
+    }
+  );
 
-      return {
-        bagTagId: normalizeFmrV3_(header.Bag_Tag_ID),
-        bagTagItemId: normalizeFmrV3_(item.Bag_Tag_Item_ID),
-        tagNumber: normalizeFmrV3_(header.Tag_Number),
-        storageLocation: normalizeFmrV3_(header.Storage_Location),
-        qtyRemaining: remaining,
-        uom: normalizeFmrV3_(item.UOM),
-        status: normalizeFmrV3_(header.Status)
-      };
-    }).filter(Boolean);
-  });
+  const headersByRow = {};
+
+  headers.forEach(
+    function (
+      header
+    ) {
+      headersByRow[
+        numberFmrV3_(
+          header._rowNumber
+        )
+      ] =
+        header;
+    }
+  );
+
+  normalizedLineIds.forEach(
+    function (
+      lineId
+    ) {
+      result[
+        lineId
+      ] =
+        (
+          entriesByLine[
+            lineId
+          ] ||
+          []
+        )
+          .map(
+            function (
+              entry
+            ) {
+              const item =
+                itemsByRow[
+                  numberFmrV3_(
+                    entry.Row_Number
+                  )
+                ];
+
+              const header =
+                headersByRow[
+                  numberFmrV3_(
+                    entry.Secondary_Row_Number
+                  )
+                ];
+
+              if (
+                !item ||
+                !header
+              ) {
+                return null;
+              }
+
+              /**
+               * Defensive parity check: do not let a stale Operational_Index
+               * row surface a bag item belonging to another FMR line.
+               */
+              if (
+                normalizeFmrV3_(
+                  item.FMR_Line_ID
+                ) !==
+                lineId
+              ) {
+                return null;
+              }
+
+              const remaining =
+                numberFmrV3_(
+                  item
+                    .Qty_Remaining_In_Bag
+                );
+
+              if (
+                remaining <=
+                  0 ||
+                ![
+                  'ACTIVE',
+                  'PARTIALLY ISSUED'
+                ].includes(
+                  normalizeUpperFmrV3_(
+                    header.Status
+                  )
+                )
+              ) {
+                return null;
+              }
+
+              return {
+                bagTagId:
+                  normalizeFmrV3_(
+                    header
+                      .Bag_Tag_ID
+                  ),
+
+                bagTagItemId:
+                  normalizeFmrV3_(
+                    item
+                      .Bag_Tag_Item_ID
+                  ),
+
+                tagNumber:
+                  normalizeFmrV3_(
+                    header
+                      .Tag_Number
+                  ),
+
+                storageLocation:
+                  normalizeFmrV3_(
+                    header
+                      .Storage_Location
+                  ),
+
+                qtyRemaining:
+                  remaining,
+
+                uom:
+                  normalizeFmrV3_(
+                    item.UOM
+                  ),
+
+                status:
+                  normalizeFmrV3_(
+                    header.Status
+                  )
+              };
+            }
+          )
+          .filter(Boolean);
+    }
+  );
 
   return result;
 }

@@ -1,5 +1,5 @@
 const FMR_V3 = Object.freeze({
-  VERSION: '3.0.0-alpha.30.1',
+  VERSION: '3.0.0-alpha.30.2',
   DEFAULT_DATABASE_ID: '1nDEsty3PTVppEPAkKpN9RVXCl_P0pgQALyGPficjz68',
 
   SHEETS: Object.freeze({

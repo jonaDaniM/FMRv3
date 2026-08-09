@@ -1,5 +1,5 @@
 /**
- * FMR Operations v3 — Alpha 30
+ * FMR Operations v3 — Alpha 30.2
  * Owner-only transaction correction / reversal service.
  *
  * Governing rules:
@@ -218,49 +218,217 @@ function ownerCorrectionTransactionsForLinesFmrV3_(lines) {
 }
 
 
-function ownerCorrectionBagHistoryFmrV3_(lineIds) {
-  const itemRows = [];
-  (lineIds||[]).forEach(function(lineId){
-    itemRows.push.apply(itemRows,findRowsByExactValueFmrV3_(
-      FMR_V3.SHEETS.BAG_ITEMS,4,lineId
-    ));
-  });
-  const items = readRowsObjectsFmrV3_(
-    FMR_V3.SHEETS.BAG_ITEMS,Array.from(new Set(itemRows))
+function ownerCorrectionBagHistoryFmrV3_(
+  lineIds
+) {
+  const normalizedLineIds =
+    normalizeBatchLookupValuesFmrV3_(
+      lineIds
+    );
+
+  if (
+    !normalizedLineIds.length
+  ) {
+    return [];
+  }
+
+  /**
+   * Alpha 30 performed one Bag_Tag_Items TextFinder for every FMR line.
+   *
+   * Alpha 30.2 locates all requested line IDs in one batched column pass when
+   * the FMR contains more than the small-lookup threshold.
+   */
+  const itemRows =
+    findRowsByExactValuesFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_ITEMS,
+      4,
+      normalizedLineIds
+    );
+
+  const items =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_ITEMS,
+      itemRows
+    );
+
+  if (
+    !items.length
+  ) {
+    return [];
+  }
+
+  const bagTagIds =
+    Array.from(
+      new Set(
+        items
+          .map(
+            function (
+              item
+            ) {
+              return normalizeFmrV3_(
+                item
+                  .Bag_Tag_ID
+              );
+            }
+          )
+          .filter(Boolean)
+      )
+    );
+
+  /**
+   * Fetch all referenced bag headers together.
+   */
+  const headerRows =
+    findRowsByExactValuesFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_HEADERS,
+      1,
+      bagTagIds
+    );
+
+  const headers =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BAG_HEADERS,
+      headerRows
+    );
+
+  const headersById = {};
+
+  headers.forEach(
+    function (
+      header
+    ) {
+      headersById[
+        normalizeFmrV3_(
+          header
+            .Bag_Tag_ID
+        )
+      ] =
+        header;
+    }
   );
-  const headerRows = [];
-  items.forEach(function(item){
-    headerRows.push.apply(headerRows,findRowsByExactValueFmrV3_(
-      FMR_V3.SHEETS.BAG_HEADERS,1,item.Bag_Tag_ID
-    ));
-  });
-  const headers = readRowsObjectsFmrV3_(
-    FMR_V3.SHEETS.BAG_HEADERS,Array.from(new Set(headerRows))
+
+  return items.map(
+    function (
+      item
+    ) {
+      const header =
+        headersById[
+          normalizeFmrV3_(
+            item
+              .Bag_Tag_ID
+          )
+        ] ||
+        {};
+
+      return {
+        bagTagId:
+          normalizeFmrV3_(
+            item
+              .Bag_Tag_ID
+          ),
+
+        bagTagItemId:
+          normalizeFmrV3_(
+            item
+              .Bag_Tag_Item_ID
+          ),
+
+        tagNumber:
+          normalizeFmrV3_(
+            item
+              .Tag_Number ||
+            header
+              .Tag_Number
+          ),
+
+        fmrNumber:
+          normalizeFmrV3_(
+            header
+              .FMR_Number
+          ),
+
+        fmrLineId:
+          normalizeFmrV3_(
+            item
+              .FMR_Line_ID
+          ),
+
+        isoKey:
+          normalizeFmrV3_(
+            header
+              .ISO_Key
+          ),
+
+        commodityCode:
+          normalizeFmrV3_(
+            item
+              .Commodity_Code
+          ),
+
+        size:
+          normalizeFmrV3_(
+            item.Size
+          ),
+
+        materialDescription:
+          normalizeFmrV3_(
+            item
+              .Material_Description
+          ),
+
+        qtyBagged:
+          numberFmrV3_(
+            item
+              .Qty_Bagged
+          ),
+
+        qtyIssued:
+          numberFmrV3_(
+            item
+              .Qty_Issued_From_Bag
+          ),
+
+        qtyRemaining:
+          numberFmrV3_(
+            item
+              .Qty_Remaining_In_Bag
+          ),
+
+        uom:
+          normalizeFmrV3_(
+            item.UOM
+          ),
+
+        status:
+          normalizeFmrV3_(
+            item.Status ||
+            header.Status
+          ),
+
+        storageLocation:
+          normalizeFmrV3_(
+            header
+              .Storage_Location
+          ),
+
+        baggedBy:
+          normalizeFmrV3_(
+            header
+              .Bagged_By_Name
+          ),
+
+        baggedAt:
+          formatDateTimeFmrV3_(
+            header
+              .Bagged_At
+          )
+      };
+    }
   );
-  const byId = {};
-  headers.forEach(function(h){ byId[normalizeFmrV3_(h.Bag_Tag_ID)] = h; });
-  return items.map(function(item){
-    const h = byId[normalizeFmrV3_(item.Bag_Tag_ID)] || {};
-    return {
-      bagTagId:normalizeFmrV3_(item.Bag_Tag_ID),
-      bagTagItemId:normalizeFmrV3_(item.Bag_Tag_Item_ID),
-      tagNumber:normalizeFmrV3_(item.Tag_Number || h.Tag_Number),
-      fmrNumber:normalizeFmrV3_(h.FMR_Number),
-      fmrLineId:normalizeFmrV3_(item.FMR_Line_ID),
-      isoKey:normalizeFmrV3_(h.ISO_Key),
-      commodityCode:normalizeFmrV3_(item.Commodity_Code),
-      size:normalizeFmrV3_(item.Size),
-      materialDescription:normalizeFmrV3_(item.Material_Description),
-      qtyBagged:numberFmrV3_(item.Qty_Bagged),
-      qtyIssued:numberFmrV3_(item.Qty_Issued_From_Bag),
-      qtyRemaining:numberFmrV3_(item.Qty_Remaining_In_Bag),
-      uom:normalizeFmrV3_(item.UOM),
-      status:normalizeFmrV3_(item.Status || h.Status),
-      storageLocation:normalizeFmrV3_(h.Storage_Location),
-      baggedBy:normalizeFmrV3_(h.Bagged_By_Name),
-      baggedAt:formatDateTimeFmrV3_(h.Bagged_At)
-    };
-  });
 }
 
 function ownerCorrectionBackorderHistoryFmrV3_(lines) {

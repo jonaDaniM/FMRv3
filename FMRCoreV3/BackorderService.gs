@@ -1316,98 +1316,231 @@ function reviewBackorderFmrV3_(
   }
 }
 
+/**
+ * Alpha 30.2 COMPLETE REPLACEMENT FUNCTION
+ *
+ * Replace the existing getReturnedBackordersByLineIdsFmrV3_ definition in
+ * FMRCoreV3/BackorderService.gs with this entire function.
+ */
 function getReturnedBackordersByLineIdsFmrV3_(
   lineIds
 ) {
   const result = {};
 
-  (
-    lineIds || []
-  ).forEach(
+  const normalizedLineIds =
+    normalizeBatchLookupValuesFmrV3_(
+      lineIds
+    );
+
+  normalizedLineIds.forEach(
     function (
       lineId
     ) {
-      const normalizedLineId =
-        normalizeFmrV3_(
-          lineId
-        );
-
       result[
-        normalizedLineId
+        lineId
       ] = [];
+    }
+  );
 
-      const entries =
-        lookupOperationalRowsFmrV3_(
-          'BACKORDERLINE',
-          normalizedLineId
-        );
+  if (
+    !normalizedLineIds.length
+  ) {
+    return result;
+  }
 
-      if (
-        !entries.length
-      ) {
-        return;
-      }
+  /**
+   * Resolve every BACKORDERLINE key together instead of one Operational_Index
+   * lookup + one Backorder_Requests read for each FMR line.
+   */
+  const entriesByLine =
+    lookupOperationalRowsForValuesFmrV3_(
+      'BACKORDERLINE',
+      normalizedLineIds
+    );
 
-      result[
-        normalizedLineId
-      ] =
-        readRowsObjectsFmrV3_(
-          FMR_V3.SHEETS
-            .BACKORDERS,
-          Array.from(
-            new Set(
-              entries.map(
-                function (
-                  entry
-                ) {
-                  return numberFmrV3_(
-                    entry.Row_Number
-                  );
-                }
-              )
-            )
-          )
-        ).filter(
-          function (
-            request
+  const requestRows =
+    [];
+
+  normalizedLineIds.forEach(
+    function (
+      lineId
+    ) {
+      (
+        entriesByLine[
+          lineId
+        ] ||
+        []
+      ).forEach(
+        function (
+          entry
+        ) {
+          const row =
+            numberFmrV3_(
+              entry.Row_Number
+            );
+
+          if (
+            row >=
+            2
           ) {
-            return (
-              yesFmrV3_(
-                request.Active
-              ) &&
-              normalizeUpperFmrV3_(
-                request.Status
-              ) ===
-                'RETURNED FOR REVIEW'
+            requestRows.push(
+              row
             );
           }
-        ).map(
+        }
+      );
+    }
+  );
+
+  const requests =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS
+        .BACKORDERS,
+      Array.from(
+        new Set(
+          requestRows
+        )
+      )
+    );
+
+  const requestsByRow = {};
+
+  requests.forEach(
+    function (
+      request
+    ) {
+      requestsByRow[
+        numberFmrV3_(
+          request._rowNumber
+        )
+      ] =
+        request;
+    }
+  );
+
+  normalizedLineIds.forEach(
+    function (
+      lineId
+    ) {
+      const mapped =
+        (
+          entriesByLine[
+            lineId
+          ] ||
+          []
+        )
+          .map(
+            function (
+              entry
+            ) {
+              const request =
+                requestsByRow[
+                  numberFmrV3_(
+                    entry.Row_Number
+                  )
+                ];
+
+              if (
+                !request
+              ) {
+                return null;
+              }
+
+              /**
+               * Defensive parity check for stale/orphaned index rows.
+               */
+              if (
+                normalizeFmrV3_(
+                  request
+                    .FMR_Line_ID
+                ) !==
+                lineId
+              ) {
+                return null;
+              }
+
+              if (
+                !yesFmrV3_(
+                  request.Active
+                ) ||
+                normalizeUpperFmrV3_(
+                  request.Status
+                ) !==
+                  'RETURNED FOR REVIEW'
+              ) {
+                return null;
+              }
+
+              return {
+                _rowNumber:
+                  numberFmrV3_(
+                    request
+                      ._rowNumber
+                  ),
+
+                requestId:
+                  normalizeFmrV3_(
+                    request
+                      .Backorder_Request_ID
+                  ),
+
+                quantity:
+                  backorderOutstandingReturnedFmrV3_(
+                    request
+                  ),
+
+                reason:
+                  normalizeFmrV3_(
+                    request
+                      .Returned_Review_Reason ||
+                    request
+                      .Admin_Notes
+                  ),
+
+                updatedAt:
+                  formatDateTimeFmrV3_(
+                    request
+                      .Updated_At
+                  )
+              };
+            }
+          )
+          .filter(Boolean)
+          .sort(
+            function (
+              left,
+              right
+            ) {
+              return (
+                numberFmrV3_(
+                  left._rowNumber
+                ) -
+                numberFmrV3_(
+                  right._rowNumber
+                )
+              );
+            }
+          );
+
+      result[
+        lineId
+      ] =
+        mapped.map(
           function (
-            request
+            item
           ) {
             return {
               requestId:
-                normalizeFmrV3_(
-                  request
-                    .Backorder_Request_ID
-                ),
+                item.requestId,
 
               quantity:
-                backorderOutstandingReturnedFmrV3_(
-                  request
-                ),
+                item.quantity,
 
               reason:
-                normalizeFmrV3_(
-                  request
-                    .Returned_Review_Reason ||
-                  request.Admin_Notes
-                ),
+                item.reason,
 
               updatedAt:
-                formatDateTimeFmrV3_(
-                  request.Updated_At
-                )
+                item.updatedAt
             };
           }
         );
