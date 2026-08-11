@@ -82,7 +82,7 @@ const FMR_V3_BULK_IMPORT =
       }),
 
     parserVersion:
-      'ALPHA19_FRACTION_STORAGE_V1',
+      'ALPHA30_3_LF_QUANTITY_NORMALIZATION_V1',
 
     settings:
       Object.freeze({
@@ -2038,21 +2038,49 @@ function parseBulkImportWorksheetFmrV3_(
       const lineNumber =
         lines.length + 1;
 
-      const quantity =
-        numberFmrV3_(
-          rawQuantity !== '' &&
-          rawQuantity !== null
-            ? rawQuantity
-            : displayQuantity
-        );
-
       const inferred =
         inferBulkImportUomFmrV3_(
           description
         );
 
+      const quantityNormalization =
+        normalizeBulkImportQuantityAlpha30_3FmrV3_(
+          rawQuantity,
+          displayQuantity,
+          inferred.uom
+        );
+
+      const quantity =
+        quantityNormalization
+          .value;
+
       const lineIssues = [];
 
+      if (
+        quantityNormalization
+          .normalized
+      ) {
+        lineIssues.push(
+          createBulkImportIssueObjectFmrV3_(
+            FMR_V3_BULK_IMPORT
+              .severity
+              .INFO,
+            'QUANTITY_UNIT_NORMALIZED',
+            'Quantity',
+            lineNumber,
+            (
+              'Linear-foot quantity "' +
+              quantityNormalization
+                .sourceText +
+              '" was normalized to ' +
+              quantity +
+              ' LF.'
+            ),
+            quantityNormalization
+              .sourceText
+          )
+        );
+      }
       if (
         sizeNormalization
           .repaired

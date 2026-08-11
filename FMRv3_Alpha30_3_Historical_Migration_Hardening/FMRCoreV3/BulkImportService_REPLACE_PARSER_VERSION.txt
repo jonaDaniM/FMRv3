@@ -1,0 +1,2 @@
+parserVersion:
+      'ALPHA30_3_LF_QUANTITY_NORMALIZATION_V1',

@@ -1,0 +1,46 @@
+      const lineNumber =
+        lines.length + 1;
+
+      const inferred =
+        inferBulkImportUomFmrV3_(
+          description
+        );
+
+      const quantityNormalization =
+        normalizeBulkImportQuantityAlpha30_3FmrV3_(
+          rawQuantity,
+          displayQuantity,
+          inferred.uom
+        );
+
+      const quantity =
+        quantityNormalization
+          .value;
+
+      const lineIssues = [];
+
+      if (
+        quantityNormalization
+          .normalized
+      ) {
+        lineIssues.push(
+          createBulkImportIssueObjectFmrV3_(
+            FMR_V3_BULK_IMPORT
+              .severity
+              .INFO,
+            'QUANTITY_UNIT_NORMALIZED',
+            'Quantity',
+            lineNumber,
+            (
+              'Linear-foot quantity "' +
+              quantityNormalization
+                .sourceText +
+              '" was normalized to ' +
+              quantity +
+              ' LF.'
+            ),
+            quantityNormalization
+              .sourceText
+          )
+        );
+      }
