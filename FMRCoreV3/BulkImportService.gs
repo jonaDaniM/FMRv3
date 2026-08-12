@@ -82,7 +82,7 @@ const FMR_V3_BULK_IMPORT =
       }),
 
     parserVersion:
-      'ALPHA30_3_LF_QUANTITY_NORMALIZATION_V1',
+      'ALPHA30_4_SIZE_ORIENTATION_REPAIR_V1',
 
     settings:
       Object.freeze({
@@ -1547,6 +1547,7 @@ function bulkImportHasFormMarkerFmrV3_(
     );
 }
 
+/// improve the size normalization constant inside of this function
 function parseBulkImportWorksheetFmrV3_(
   sheet
 ) {
@@ -1988,7 +1989,7 @@ function parseBulkImportWorksheetFmrV3_(
         );
 
       const sizeNormalization =
-        normalizeBulkImportSizeFmrV3_(
+        normalizeBulkImportSizeAlpha30_4FmrV3_(
           rawRow[
             header
               .sizeColumn
@@ -2435,6 +2436,8 @@ function parseBulkImportWorksheetFmrV3_(
   };
 }
 
+
+/// implementatin will end this far
 function ensureBulkImportSourceFolderFmrV3_(
   owner
 ) {

@@ -413,7 +413,9 @@
     driveAuthorization:null,
     verifiedDriveFolderId:'',
     recentMigrationJobsLoaded:false,
-    correctionApplying:false
+    correctionApplying:false,
+    sizeRepairPreview:null,
+    sizeRepairApplying:false
   };
 
   function esc(value) {
@@ -659,6 +661,27 @@
 
         <div id="omMigrationSummary"></div>
         <div id="omMigrationFiles"></div>
+
+        <h4>Historical Size Reconciliation</h4>
+        <p>
+          Alpha 30.4 scans the existing import issue evidence for Sizes that
+          Excel / Google converted into dates, traces each affected material
+          through import, staging, published, and Bag &amp; Tag records, and
+          previews an evidence-backed correction before any write occurs.
+        </p>
+
+        <div class="button-row">
+          <button id="omSizeRepairPreview" type="button" class="secondary">
+            Preview Size Repair
+          </button>
+        </div>
+
+        <p class="muted">
+          This does not perform a global find/replace. Apply requires an exact
+          verification phrase and creates an automatic database backup first.
+        </p>
+
+        <div id="omSizeRepairResults"></div>
 
         <h4>Recent Migration Jobs</h4>
         <div id="omMigrationRecent">
@@ -1538,6 +1561,239 @@
     }
   }
 
+  function sizeRepairLayerText(candidate) {
+    const layers = candidate && candidate.layers || {};
+    const parts = [];
+
+    ['bulk','staging','published'].forEach(name => {
+      const layer = layers[name] || {};
+      if (!layer.exists) return;
+      parts.push(
+        `${name}: ${esc(layer.current||'—')} (${esc(layer.disposition||'')})`
+      );
+    });
+
+    const bags = Array.isArray(layers.bags) ? layers.bags : [];
+    if (bags.length) {
+      parts.push(
+        `bags: ${bags.map(bag => `${esc(bag.current||'—')} (${esc(bag.disposition||'')})`).join(', ')}`
+      );
+    }
+
+    return parts.join(' · ') || 'No downstream material layer found.';
+  }
+
+  function renderSizeRepairCandidates(candidates, maximum) {
+    const rows = Array.isArray(candidates) ? candidates : [];
+    const limit = Math.max(1, Number(maximum || 25));
+
+    return rows.slice(0, limit).map(candidate => `
+      <div class="owner-maintenance-record ${candidate.status==='MANUAL_REVIEW'?'error':''}">
+        <div class="section-heading">
+          <div>
+            <div class="owner-maintenance-title">
+              FMR ${esc(candidate.fmrNumber||'—')} · Line ${esc(candidate.lineNumber||'—')}
+            </div>
+            <div class="owner-maintenance-meta">
+              ${esc(candidate.commodityCode||'—')} ·
+              ${esc(candidate.expectedWrong||'—')} → <strong>${esc(candidate.correctedSize||'—')}</strong>
+              · ${esc(candidate.patchCount||0)} cell patch(es)
+            </div>
+          </div>
+        </div>
+        <div class="owner-maintenance-meta">
+          ${esc(candidate.materialDescription||'')}
+        </div>
+        <div class="owner-maintenance-meta">
+          Evidence: ${esc(candidate.evidenceSourceValue||'—')} · ${esc(candidate.evidenceRule||'')}
+        </div>
+        <div class="owner-maintenance-meta">
+          ${sizeRepairLayerText(candidate)}
+        </div>
+        ${(candidate.blockingReasons||[]).map(reason => `
+          <div class="alert error">${esc(reason)}</div>`
+        ).join('')}
+      </div>
+    `).join('');
+  }
+
+  function renderSizeRepairPreview(result) {
+    state.sizeRepairPreview = result || null;
+
+    const container = document.getElementById('omSizeRepairResults');
+    const summary = result && result.summary || {};
+    const ready = result && Array.isArray(result.repairCandidates)
+      ? result.repairCandidates
+      : [];
+    const manual = result && Array.isArray(result.manualReview)
+      ? result.manualReview
+      : [];
+    const orphans = result && Array.isArray(result.orphanSuspiciousPublished)
+      ? result.orphanSuspiciousPublished
+      : [];
+
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="owner-maintenance-summary">
+        <div><span class="label">Evidence Rows</span><strong>${esc(summary.parserEvidenceRows||0)}</strong></div>
+        <div><span class="label">Ready</span><strong>${esc(summary.readyToRepair||0)}</strong></div>
+        <div><span class="label">Already Correct</span><strong>${esc(summary.alreadyCorrect||0)}</strong></div>
+        <div><span class="label">Manual Review</span><strong>${esc(summary.manualReview||0)}</strong></div>
+        <div><span class="label">Cell Patches</span><strong>${esc(summary.totalCellPatches||0)}</strong></div>
+        <div><span class="label">Affected FMRs</span><strong>${esc(summary.affectedFmrCount||0)}</strong></div>
+      </div>
+
+      ${ready.length ? `
+        <div class="alert">
+          <strong>Evidence-backed repair is ready.</strong>
+          The apply step will create a database backup before changing any Size cell.
+        </div>
+
+        <h4>Repair Sample</h4>
+        <div class="owner-maintenance-list">
+          ${renderSizeRepairCandidates(ready,25)}
+        </div>
+
+        <div class="owner-maintenance-grid">
+          <label>
+            Verification Phrase
+            <input id="omSizeRepairConfirmation" autocomplete="off"
+              placeholder="${esc(result.requiredConfirmation||'')}">
+          </label>
+          <div>
+            <span class="owner-maintenance-meta">Type exactly:</span><br>
+            <strong>${esc(result.requiredConfirmation||'')}</strong>
+          </div>
+          <button id="omSizeRepairApply" type="button">Apply Size Repair</button>
+        </div>
+      ` : `
+        <div class="alert success">
+          No evidence-backed Size cells currently require repair.
+        </div>
+      `}
+
+      ${manual.length ? `
+        <h4>Manual Review Required</h4>
+        <div class="owner-maintenance-list">
+          ${renderSizeRepairCandidates(manual,25)}
+        </div>
+      ` : ''}
+
+      ${orphans.length ? `
+        <h4>Unlinked Suspicious Published Sizes</h4>
+        <div class="alert error">
+          ${esc(summary.orphanSuspiciousPublished||orphans.length)} published line(s)
+          look suspicious but do not have the parser evidence required for automatic repair.
+          They were not changed.
+        </div>
+        <div class="owner-maintenance-list">
+          ${orphans.slice(0,25).map(item => `
+            <div class="owner-maintenance-record error">
+              <div class="owner-maintenance-title">
+                FMR ${esc(item.fmrNumber||'—')} · Line ${esc(item.lineNumber||'—')}
+                · Size ${esc(item.size||'—')}
+              </div>
+              <div class="owner-maintenance-meta">
+                ${esc(item.commodityCode||'—')} · ${esc(item.materialDescription||'')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+
+    const applyButton = document.getElementById('omSizeRepairApply');
+    if (applyButton) {
+      applyButton.addEventListener('click', applySizeRepair);
+    }
+  }
+
+  async function previewSizeRepair() {
+    if (state.sizeRepairApplying) return;
+
+    const button = document.getElementById('omSizeRepairPreview');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Scanning…';
+    }
+
+    status('Scanning historical Size repair evidence…');
+
+    try {
+      const result = await callServer('previewHistoricalSizeReconciliationV3');
+      renderSizeRepairPreview(result);
+
+      const ready = result && result.summary && result.summary.readyToRepair || 0;
+      status(
+        ready
+          ? `Size repair preview ready: ${ready} evidence-backed line(s) require correction.`
+          : 'Size repair preview complete. No evidence-backed corrections are required.'
+      );
+    } catch (error) {
+      status(errorText(error), true);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Preview Size Repair';
+      }
+    }
+  }
+
+  async function applySizeRepair() {
+    if (state.sizeRepairApplying || !state.sizeRepairPreview) return;
+
+    const preview = state.sizeRepairPreview;
+    const input = document.getElementById('omSizeRepairConfirmation');
+    const confirmation = input ? input.value.trim() : '';
+
+    if (confirmation !== String(preview.requiredConfirmation||'')) {
+      return status(
+        `Verification phrase must exactly match "${preview.requiredConfirmation||''}".`,
+        true
+      );
+    }
+
+    const applyButton = document.getElementById('omSizeRepairApply');
+    state.sizeRepairApplying = true;
+
+    if (applyButton) {
+      applyButton.disabled = true;
+      applyButton.textContent = 'Creating Backup + Repairing…';
+    }
+
+    status('Creating automatic backup and applying evidence-backed Size repairs…');
+
+    try {
+      const result = await callServer(
+        'applyHistoricalSizeReconciliationV3',
+        {
+          fingerprint: preview.fingerprint,
+          confirmation: confirmation
+        }
+      );
+
+      status(
+        result.noOp
+          ? 'No Size repair was required.'
+          : `Size reconciliation ${result.reconciliationId} applied. Backup: ${result.backupId}. Rechecking…`
+      );
+
+      state.sizeRepairPreview = null;
+      state.sizeRepairApplying = false;
+      await previewSizeRepair();
+    } catch (error) {
+      status(errorText(error), true);
+    } finally {
+      state.sizeRepairApplying = false;
+      const currentApply = document.getElementById('omSizeRepairApply');
+      if (currentApply) {
+        currentApply.disabled = false;
+        currentApply.textContent = 'Apply Size Repair';
+      }
+    }
+  }
+
   function isoDisplay(material) {
     const number = String(material && material.isoNumber || '').trim();
     const sheet = String(material && material.isoSheet || '').trim();
@@ -2058,6 +2314,9 @@
         state.autoRunning=false;
         await runChunk();
       });
+
+    document.getElementById('omSizeRepairPreview')
+      .addEventListener('click',previewSizeRepair);
 
     document.getElementById('omLedgerSearch')
       .addEventListener('click',searchLedger);

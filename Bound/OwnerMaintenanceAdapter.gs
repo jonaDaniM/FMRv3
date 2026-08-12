@@ -1,5 +1,5 @@
 /**
- * FMR Operations v3 — Alpha 30.3
+ * FMR Operations v3 — Alpha 30.4
  * Bound wrappers for Historical Migration + Owner Corrections.
  *
  * Historical migration wrappers use the hardened Alpha 30.3 Core APIs:
@@ -155,6 +155,28 @@ function getRecentHistoricalMigrationJobsV3(
       callerEmailFmrV3_(),
       maximumRows ||
       10
+    )
+  );
+}
+
+/**
+ * Alpha 30.4 — Owner historical Size reconciliation.
+ */
+function previewHistoricalSizeReconciliationV3() {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.previewFmrV3HistoricalSizeReconciliation(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_()
+    )
+  );
+}
+
+function applyHistoricalSizeReconciliationV3(request) {
+  return serializeBoundResponseV3_(
+    FMRCoreV3.applyFmrV3HistoricalSizeReconciliation(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      request || {}
     )
   );
 }
