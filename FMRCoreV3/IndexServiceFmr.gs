@@ -1,17 +1,65 @@
-function indexCacheKeyFmrV3_(sheetName, exactKey) {
-  const version = normalizeFmrV3_(
-    getConfigurationFmrV3_().SEARCH_INDEX_VERSION
-  ) || '1';
+function indexCacheNamespaceFmrV3_() {
+  let fingerprint = '';
 
-  const digest = Utilities.base64EncodeWebSafe(
-    Utilities.computeDigest(
-      Utilities.DigestAlgorithm.SHA_256,
-      `${sheetName}|${exactKey}|${version}`
-    )
-  ).slice(0, 40);
+  try {
+    fingerprint =
+      normalizeFmrV3_(
+        databaseFingerprintFmrV3_()
+      );
+  } catch (ignored) {
+    fingerprint = '';
+  }
 
-  return `fmr3:index:${digest}`;
+  if (fingerprint) {
+    return 'DB:' + fingerprint;
+  }
+
+  const configuration =
+    getConfigurationFmrV3_();
+
+  const environment =
+    normalizeUpperFmrV3_(
+      configuration &&
+      configuration.ENVIRONMENT_NAME
+    ) ||
+    'UNKNOWN';
+
+  return 'ENV:' + environment;
 }
+
+function indexCacheKeyFmrV3_(
+  sheetName,
+  exactKey
+) {
+  const version =
+    normalizeFmrV3_(
+      getConfigurationFmrV3_()
+        .SEARCH_INDEX_VERSION
+    ) ||
+    '1';
+
+  const namespace =
+    indexCacheNamespaceFmrV3_();
+
+  const digest =
+    Utilities.base64EncodeWebSafe(
+      Utilities.computeDigest(
+        Utilities.DigestAlgorithm.SHA_256,
+        (
+          namespace +
+          '|' +
+          sheetName +
+          '|' +
+          exactKey +
+          '|' +
+          version
+        )
+      )
+    ).slice(0, 40);
+
+  return 'fmr3:index:' + digest;
+}
+
 
 function lookupIndexEntriesFmrV3_(sheetName, exactKey) {
   const key = normalizeUpperFmrV3_(exactKey);

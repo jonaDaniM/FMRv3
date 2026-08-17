@@ -2548,32 +2548,131 @@ function existingPublishedFmrForImportFmrV3_(
     return null;
   }
 
-  const entries =
-    lookupIndexEntriesFmrV3_(
-      FMR_V3.SHEETS
-        .SEARCH_INDEX,
-      fmrSearchKeyFmrV3_(
-        value
-      )
+  const searchKey =
+    fmrSearchKeyFmrV3_(
+      value
     );
 
-  if (!entries.length) {
+  const entries =
+    lookupIndexEntriesFmrV3_(
+      FMR_V3.SHEETS.SEARCH_INDEX,
+      searchKey
+    );
+
+  const validEntry =
+    entries.find(
+      function (entry) {
+        const headerRow =
+          numberFmrV3_(
+            entry.Header_Row
+          );
+
+        if (headerRow <= 1) {
+          return false;
+        }
+
+        try {
+          const header =
+            readRowObjectFmrV3_(
+              FMR_V3.SHEETS.HEADERS,
+              headerRow
+            );
+
+          return (
+            yesFmrV3_(
+              header.Active
+            ) &&
+            normalizeUpperFmrV3_(
+              header.FMR_ID
+            ) ===
+              normalizeUpperFmrV3_(
+                entry.FMR_ID
+              ) &&
+            normalizeUpperFmrV3_(
+              header.FMR_Number
+            ) ===
+              value
+          );
+        } catch (ignored) {
+          return false;
+        }
+      }
+    );
+
+  if (validEntry) {
+    return {
+      fmrId:
+        normalizeFmrV3_(
+          validEntry.FMR_ID
+        ),
+
+      fmrNumber:
+        normalizeFmrV3_(
+          validEntry.FMR_Number
+        )
+    };
+  }
+
+  /*
+   * An index/cache hit that does not resolve to the expected active header
+   * must not prove that an FMR is published.
+   */
+  if (entries.length) {
+    invalidateIndexKeyFmrV3_(
+      FMR_V3.SHEETS.SEARCH_INDEX,
+      searchKey
+    );
+  }
+
+  /*
+   * Defensive fallback to the authoritative FMR_Header table.
+   * FMR_Header column B = FMR_Number.
+   */
+  const headerRows =
+    findRowsByExactValueFmrV3_(
+      FMR_V3.SHEETS.HEADERS,
+      2,
+      value
+    );
+
+  const headers =
+    readRowsObjectsFmrV3_(
+      FMR_V3.SHEETS.HEADERS,
+      headerRows
+    );
+
+  const publishedHeader =
+    headers.find(
+      function (header) {
+        return (
+          yesFmrV3_(
+            header.Active
+          ) &&
+          normalizeUpperFmrV3_(
+            header.FMR_Number
+          ) ===
+            value
+        );
+      }
+    );
+
+  if (!publishedHeader) {
     return null;
   }
 
   return {
     fmrId:
       normalizeFmrV3_(
-        entries[0].FMR_ID
+        publishedHeader.FMR_ID
       ),
 
     fmrNumber:
       normalizeFmrV3_(
-        entries[0]
-          .FMR_Number
+        publishedHeader.FMR_Number
       )
   };
 }
+
 
 function existingStagedFmrForImportFmrV3_(
   officialFmrNumber
