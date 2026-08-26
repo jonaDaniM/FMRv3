@@ -385,11 +385,11 @@ function inspectBoundIdentityAndEnvironmentV3() {
         environment ===
           'TEST' &&
         !configuredDatabaseId
-      ),
 
     resolvedDatabaseFingerprint:
       boundDatabaseFingerprintV3_(
         resolvedDatabaseId
+      ),
       ),
 
     coreDatabaseFingerprint:
