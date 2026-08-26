@@ -473,4 +473,42 @@
       max-height: 240px;
     }
   }
+  .admin-filter-actions {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding-bottom: 1px;
+}
+
+.admin-filter-actions button {
+  flex: 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.admin-filter-actions .admin-backorder-quick-filter {
+  order: -1;
+  margin-right: auto;
+}
+
+@media (max-width: 680px) {
+  .admin-filter-actions {
+    flex-wrap: wrap;
+  }
+
+  .admin-filter-actions .admin-backorder-quick-filter {
+    flex: 1 0 100%;
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .admin-filter-actions #adminRegisterSearchButton,
+  .admin-filter-actions #adminRegisterResetButton {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
 </style>
