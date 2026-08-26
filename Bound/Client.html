@@ -349,89 +349,92 @@
 
 
     function configureAdminHierarchyViewV3_() {
-      const sortSelect =
-        byId(
-          'adminRegisterSortBy'
-        );
+      const sortSelect = byId('adminRegisterSortBy');
 
       if (!sortSelect) {
         return;
       }
 
       const dateRequiredOption =
-        Array.from(
-          sortSelect.options || []
-        ).find(
-          option =>
-            option.value ===
-            'DATE_REQUIRED'
-        );
+        Array.from(sortSelect.options || [])
+          .find(option => option.value === 'DATE_REQUIRED');
 
-      if (
-        dateRequiredOption
-      ) {
+      if (dateRequiredOption) {
         dateRequiredOption.remove();
       }
 
       const adminIsoOption =
-        Array.from(
-          byId(
-            'adminRegisterQueryType'
-          )?.options || []
-        ).find(
-          option =>
-            option.value ===
-            'ISO'
-        );
+        Array.from(byId('adminRegisterQueryType')?.options || [])
+          .find(option => option.value === 'ISO');
 
-      if (
-        adminIsoOption
-      ) {
-        adminIsoOption.textContent =
-          'ISO -##';
+      if (adminIsoOption) {
+        adminIsoOption.textContent = 'ISO -##';
       }
 
       const fieldIsoOption =
-        Array.from(
-          byId(
-            'searchMode'
-          )?.options || []
-        ).find(
-          option =>
-            option.value ===
-            'ISO'
-        );
+        Array.from(byId('searchMode')?.options || [])
+          .find(option => option.value === 'ISO');
 
-      if (
-        fieldIsoOption
-      ) {
-        fieldIsoOption.textContent =
-          'ISO -##';
+      if (fieldIsoOption) {
+        fieldIsoOption.textContent = 'ISO -##';
       }
 
-      const adminQuery =
-        byId(
-          'adminRegisterQuery'
-        );
-
-      if (
-        adminQuery
-      ) {
+      const adminQuery = byId('adminRegisterQuery');
+      if (adminQuery) {
         adminQuery.placeholder =
           'FMR number, ISO-##, IWP, requester, or notes';
       }
 
-      const fieldQuery =
-        byId(
-          'searchQuery'
-        );
-
-      if (
-        fieldQuery
-      ) {
+      const fieldQuery = byId('searchQuery');
+      if (fieldQuery) {
         fieldQuery.placeholder =
           'FMR number or LP131-PV-180003-17';
       }
+
+      /*
+       * Alpha 30.5 — the Core/Admin Register already supports
+       * CONFIRMED_BACKORDER. Make it explicit and one-click for planners.
+       */
+      const exceptionSelect = byId('adminRegisterException');
+
+      if (exceptionSelect) {
+        const pendingOption =
+          Array.from(exceptionSelect.options || [])
+            .find(option => option.value === 'PENDING_BACKORDER');
+
+        const confirmedOption =
+          Array.from(exceptionSelect.options || [])
+            .find(option => option.value === 'CONFIRMED_BACKORDER');
+
+        if (pendingOption) {
+          pendingOption.textContent = 'Pending Backorder Review';
+        }
+
+        if (confirmedOption) {
+          confirmedOption.textContent =
+            'Approved / Confirmed Backorders';
+        }
+      }
+
+      const actions =
+        document.querySelector('.admin-filter-actions');
+
+      if (actions && !byId('adminBackorderedQuickFilter')) {
+        const button = document.createElement('button');
+
+        button.id = 'adminBackorderedQuickFilter';
+        button.type = 'button';
+        button.className =
+          'secondary admin-backorder-quick-filter';
+        button.textContent = 'Backordered Only';
+        button.setAttribute('aria-pressed', 'false');
+        button.title =
+          'Show FMRs with approved / confirmed backordered material.';
+
+        actions.appendChild(button);
+      }
+
+      syncAdminBackorderQuickFilterV3_();
     }
 
     function applyPortalEnvironmentV3_(
@@ -577,6 +580,36 @@
             refreshAdminRegisterV3_();
           }
         }
+      );
+
+      const backorderedQuickFilter =
+        byId('adminBackorderedQuickFilter');
+
+      if (backorderedQuickFilter) {
+        backorderedQuickFilter.addEventListener(
+          'click',
+          () => {
+            const select = byId('adminRegisterException');
+
+            const active =
+              select.value === 'CONFIRMED_BACKORDER';
+
+            select.value =
+              active
+                ? 'ALL'
+                : 'CONFIRMED_BACKORDER';
+
+            state.adminRegisterPage = 1;
+            syncAdminBackorderQuickFilterV3_();
+            closeAdminFmrDetailV3_();
+            refreshAdminRegisterV3_();
+          }
+        );
+      }
+
+      byId('adminRegisterException')?.addEventListener(
+        'change',
+        syncAdminBackorderQuickFilterV3_
       );
 
       bindAdminOperationalQueueEventsV3_();
@@ -5778,6 +5811,25 @@
       }
     }
 
+    function syncAdminBackorderQuickFilterV3_() {
+      const button = byId('adminBackorderedQuickFilter');
+      const select = byId('adminRegisterException');
+
+      if (!button || !select) {
+        return;
+      }
+
+      const active =
+        select.value === 'CONFIRMED_BACKORDER';
+
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.textContent =
+        active
+          ? 'Showing Backorders'
+          : 'Backordered Only';
+    }
+
     function adminRegisterRequestV3_() {
       return {
         query:
@@ -5853,6 +5905,8 @@
       byId(
         'adminRegisterSortDirection'
       ).value = 'DESC';
+
+      syncAdminBackorderQuickFilterV3_();
 
       closeAdminFmrDetailV3_();
       refreshAdminRegisterV3_();
@@ -6127,6 +6181,8 @@
       applyAdminRegisterOptionsV3_(
         data?.filterOptions || {}
       );
+
+      syncAdminBackorderQuickFilterV3_();
 
       byId(
         'adminRegisterStatusText'
@@ -6844,15 +6900,13 @@
       try {
         const data =
           await callServerV3_(
-            'searchPortalV3',
-            normalizedFmr,
-            'FMR'
+            'getAdminFmrDetailV3',
+            normalizedFmr
           );
 
         if (
-          !data.cards ||
-          data.cards.length !==
-            1
+          !data ||
+          !data.card
         ) {
           throw new Error(
             `Published FMR not found: ${normalizedFmr}`
@@ -6860,7 +6914,7 @@
         }
 
         renderAdminFmrDetailV3_(
-          data.cards[0],
+          data.card,
           elements.container
         );
 
@@ -6938,6 +6992,107 @@
       }
     }
 
+    function adminFieldNoteMetaV3_(note) {
+      const parts = [];
+
+      const actionLabel =
+        String(
+          note?.actionLabel ||
+          note?.action ||
+          'Field action'
+        ).trim();
+
+      if (actionLabel) {
+        parts.push(actionLabel);
+      }
+
+      const quantity = Number(note?.quantity);
+
+      if (Number.isFinite(quantity) && quantity > 0) {
+        parts.push(
+          formatQtyV3_(quantity) +
+          (note?.uom ? ` ${String(note.uom)}` : '')
+        );
+      }
+
+      if (note?.performedBy) {
+        parts.push(`By ${String(note.performedBy)}`);
+      }
+
+      if (note?.issuedTo) {
+        parts.push(`Issued to ${String(note.issuedTo)}`);
+      }
+
+      if (note?.timestamp) {
+        parts.push(String(note.timestamp));
+      }
+
+      return parts.join(' · ');
+    }
+
+    function renderAdminFieldNotesV3_(material) {
+      const notes =
+        Array.isArray(material?.fieldNotes)
+          ? material.fieldNotes
+          : [];
+
+      const count =
+        Number(
+          material?.fieldNoteCount ||
+          notes.length ||
+          0
+        );
+
+      if (!count || !notes.length) {
+        return '<span class="muted">—</span>';
+      }
+
+      return `
+        <details class="admin-field-notes">
+          <summary>
+            <span>Field Notes</span>
+            <span class="admin-field-note-count">
+              ${escapeHtmlV3_(count)}
+            </span>
+          </summary>
+
+          <div class="admin-field-note-list">
+            ${
+              notes.map(note => `
+                <article class="admin-field-note">
+                  <div class="admin-field-note-meta">
+                    ${
+                      escapeHtmlV3_(
+                        adminFieldNoteMetaV3_(note)
+                      )
+                    }
+                  </div>
+
+                  <div class="admin-field-note-text">${
+                    escapeHtmlV3_(note.notes || '')
+                  }</div>
+                </article>
+              `).join('')
+            }
+
+            ${
+              material.fieldNotesTruncated
+                ? `
+                    <div class="admin-field-note-truncated">
+                      Showing the newest ${
+                        escapeHtmlV3_(notes.length)
+                      } of ${
+                        escapeHtmlV3_(count)
+                      } notes.
+                    </div>
+                  `
+                : ''
+            }
+          </div>
+        </details>
+      `;
+    }
+
     function renderAdminFmrDetailV3_(
       card,
       targetContainer
@@ -6948,6 +7103,19 @@
       if (!container) {
         return;
       }
+
+      const confirmedBackorderOnly =
+        byId('adminRegisterException')?.value ===
+        'CONFIRMED_BACKORDER';
+
+      const visibleMaterials =
+        (card.materials || []).filter(
+          material =>
+            !confirmedBackorderOnly ||
+            Number(
+              material.qtyConfirmedBackorder || 0
+            ) > 0
+        );
 
       container.innerHTML = `
         <div class="admin-inline-detail-heading">
@@ -7033,6 +7201,17 @@
           )
         }
 
+        ${
+          confirmedBackorderOnly
+            ? `
+                <div class="admin-backorder-filter-notice">
+                  Showing only material lines with approved / confirmed
+                  backordered quantity.
+                </div>
+              `
+            : ''
+        }
+
         <div class="table-wrap">
           <table class="admin-detail-table">
             <thead>
@@ -7050,13 +7229,14 @@
                 <th>Confirmed B/O</th>
                 <th>Remaining</th>
                 <th>Status</th>
+                <th>Field Notes</th>
                 <th>Storage / Tags</th>
               </tr>
             </thead>
 
             <tbody>
               ${
-                (card.materials || [])
+                visibleMaterials
                   .map(
                     material => `
                       <tr>
@@ -7184,6 +7364,14 @@
                           ${
                             escapeHtmlV3_(
                               material.lineStatus
+                            )
+                          }
+                        </td>
+
+                        <td class="field-notes-cell">
+                          ${
+                            renderAdminFieldNotesV3_(
+                              material
                             )
                           }
                         </td>

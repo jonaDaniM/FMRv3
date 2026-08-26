@@ -385,11 +385,11 @@ function inspectBoundIdentityAndEnvironmentV3() {
         environment ===
           'TEST' &&
         !configuredDatabaseId
+      ),
 
     resolvedDatabaseFingerprint:
       boundDatabaseFingerprintV3_(
         resolvedDatabaseId
-      ),
       ),
 
     coreDatabaseFingerprint:
@@ -3310,4 +3310,12 @@ function verifyBoundBulkImportContractV3() {
 
   return output;
 }
-
+function getAdminFmrDetailV3(
+  fmrNumber
+) {
+  return FMRCoreV3.getFmrV3AdminFmrDetail(
+    boundDatabaseIdFmrV3_(),
+    callerEmailFmrV3_(),
+    fmrNumber
+  );
+}
