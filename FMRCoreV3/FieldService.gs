@@ -1680,8 +1680,6 @@ function issueFromBagFmrV3_(
   );
 }
 
-
-
 function submitBackorderFmrV3_(
   user,
   line,
@@ -1708,6 +1706,18 @@ function submitBackorderFmrV3_(
     lineStateFmrV3_(
       line
     );
+
+  /**
+   * Alpha 30.5.2 duplicate-commit guard.
+   *
+   * This catches the exact failure mode that produced the FMR 209 orphan:
+   * a Backorder_Requests row existed, but FMR_Line_Items had not yet reached
+   * the same state. A retry is blocked rather than creating another request.
+   */
+  assertBackorderRequestParityBeforeSubmitAlpha30_5_2_(
+    line,
+    state
+  );
 
   const maximum =
     fieldNewBackorderQuantityFmrV3_(
@@ -2026,6 +2036,9 @@ function submitBackorderFmrV3_(
     }
   );
 }
+
+
+
 
 
 function refreshHeaderFromIndexedLinesFmrV3_(fmrId, fmrNumber, user) {

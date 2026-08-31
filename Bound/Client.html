@@ -9389,6 +9389,71 @@
       return 'is-fail';
     }
 
+function operationalHealthFailureMessagesV3_(
+      health
+    ) {
+      const source =
+        health || {};
+
+      const messages = [];
+
+      if (
+        source.schema &&
+        source.schema.passed ===
+          false
+      ) {
+        messages.push(
+          'Schema check failed. Review missing sheets or header mismatches.'
+        );
+      }
+
+      if (
+        source.integrity &&
+        source.integrity.passed ===
+          false
+      ) {
+        messages.push(
+          (
+            'Integrity check failed: ' +
+            Number(
+              source
+                .integrity
+                .lineIssueCount ||
+              0
+            ) +
+            ' line issue(s), ' +
+            Number(
+              source
+                .integrity
+                .headerIssueCount ||
+              0
+            ) +
+            ' header issue(s), and ' +
+            Number(
+              source
+                .integrity
+                .bagIndexIssueCount ||
+              0
+            ) +
+            ' Bag index issue(s).'
+          )
+        );
+      }
+
+      if (
+        source.systemControl &&
+        source.systemControl.passed ===
+          false
+      ) {
+        messages.push(
+          'System-control contract failed. Review Owner/User configuration.'
+        );
+      }
+
+      return messages;
+    }
+
+
     function renderOperationsCenterV3_(
       data
     ) {
@@ -9429,16 +9494,27 @@
         health.overallStatus ||
         'UNKNOWN';
 
+      const hardFailureMessages =
+        operationalHealthFailureMessagesV3_(
+          health
+        );
+
       byId(
         'operationsHealthSummary'
       ).textContent =
-        health.warnings &&
-        health.warnings.length
-          ? health.warnings.join(
+        hardFailureMessages.length
+          ? hardFailureMessages.join(
               ' '
             )
           : (
-              'Schema, integrity, and system controls are healthy.'
+              health.warnings &&
+              health.warnings.length
+                ? health.warnings.join(
+                    ' '
+                  )
+                : (
+                    'Schema, integrity, and system controls are healthy.'
+                  )
             );
 
       byId(

@@ -1,74 +1,242 @@
-function validateStagePayloadFmrV3_(payload, requireOfficialNumber) {
-  const source = payload || {};
+function validateStagePayloadFmrV3_(
+  payload,
+  requireOfficialNumber
+) {
+  const source =
+    payload || {};
+
   const errors = [];
-  const officialFmrNumber = normalizeUpperFmrV3_(source.officialFmrNumber);
 
-  if (requireOfficialNumber && !officialFmrNumber) {
-    errors.push('Official FMR Number is required before publication.');
+  const officialFmrNumber =
+    normalizeUpperFmrV3_(
+      source.officialFmrNumber
+    );
+
+  if (
+    requireOfficialNumber &&
+    !officialFmrNumber
+  ) {
+    errors.push(
+      'Official FMR Number is required before publication.'
+    );
   }
 
-  if (!normalizeFmrV3_(source.iwpNumber)) {
-    errors.push('IWP Number is required.');
+  if (
+    !normalizeFmrV3_(
+      source.iwpNumber
+    )
+  ) {
+    errors.push(
+      'IWP Number is required.'
+    );
   }
 
-  const lines = Array.isArray(source.lines) ? source.lines : [];
+  const lines =
+    Array.isArray(
+      source.lines
+    )
+      ? source.lines
+      : [];
 
-  if (!lines.length) {
-    errors.push('At least one material line is required.');
+  if (
+    !lines.length
+  ) {
+    errors.push(
+      'At least one material line is required.'
+    );
   }
 
-  const normalizedLines = lines.map(function (line, index) {
-    const value = line || {};
-    const lineErrors = [];
-    const isoNumber = normalizeUpperFmrV3_(value.isoNumber);
-    const isoSheet = normalizeUpperFmrV3_(value.isoSheet);
-    const quantity = numberFmrV3_(value.qtyRequested);
-    const uom = normalizeUpperFmrV3_(value.uom);
+  const normalizedLines =
+    lines.map(
+      function (
+        line,
+        index
+      ) {
+        const value =
+          line || {};
 
-    if (!isoNumber) lineErrors.push(`Line ${index + 1}: ISO Number is required.`);
-    if (!isoSheet) lineErrors.push(`Line ${index + 1}: ISO Sheet is required.`);
-    if (quantity <= 0) {
-      lineErrors.push(`Line ${index + 1}: Quantity must be greater than zero.`);
-    }
-    if (!uom) lineErrors.push(`Line ${index + 1}: UOM is required.`);
+        const lineErrors = [];
 
-    errors.push.apply(errors, lineErrors);
+        const isoNumber =
+          normalizeUpperFmrV3_(
+            value.isoNumber
+          );
 
-    return {
-      lineNumber: index + 1,
-      isoNumber: isoNumber,
-      isoSheet: isoSheet,
-      isoKey: isoNumber && isoSheet ? isoKeyFmrV3_(isoNumber, isoSheet) : '',
-      commodityCode: normalizeFmrV3_(value.commodityCode),
-      size: normalizeFmrV3_(value.size),
-      description: normalizeFmrV3_(value.description),
-      qtyRequested: quantity,
-      uom: uom,
-      storageLocation: normalizeFmrV3_(value.storageLocation),
-      notes: normalizeFmrV3_(value.notes),
-      validationErrors: lineErrors.join(' | ')
-    };
-  });
+        const isoSheet =
+          normalizeUpperFmrV3_(
+            value.isoSheet
+          );
+
+        const quantity =
+          numberFmrV3_(
+            value.qtyRequested
+          );
+
+        const uom =
+          normalizeUpperFmrV3_(
+            value.uom
+          );
+
+        if (
+          !isoNumber
+        ) {
+          lineErrors.push(
+            'Line ' +
+            (index + 1) +
+            ': ISO Number is required.'
+          );
+        }
+
+        if (
+          !isoSheet
+        ) {
+          lineErrors.push(
+            'Line ' +
+            (index + 1) +
+            ': ISO Sheet is required.'
+          );
+        }
+
+        if (
+          quantity <= 0
+        ) {
+          lineErrors.push(
+            'Line ' +
+            (index + 1) +
+            ': Quantity must be greater than zero.'
+          );
+        }
+
+        if (
+          !uom
+        ) {
+          lineErrors.push(
+            'Line ' +
+            (index + 1) +
+            ': UOM is required.'
+          );
+        }
+
+        errors.push.apply(
+          errors,
+          lineErrors
+        );
+
+        return {
+          lineNumber:
+            index + 1,
+
+          isoNumber:
+            isoNumber,
+
+          isoSheet:
+            isoSheet,
+
+          isoKey:
+            isoNumber &&
+            isoSheet
+              ? isoKeyFmrV3_(
+                  isoNumber,
+                  isoSheet
+                )
+              : '',
+
+          commodityCode:
+            normalizeFmrV3_(
+              value.commodityCode
+            ),
+
+          size:
+            normalizeFmrV3_(
+              value.size
+            ),
+
+          description:
+            normalizeFmrV3_(
+              value.description
+            ),
+
+          qtyRequested:
+            quantity,
+
+          uom:
+            uom,
+
+          storageLocation:
+            normalizeFmrV3_(
+              value.storageLocation
+            ),
+
+          notes:
+            normalizeFmrV3_(
+              value.notes
+            ),
+
+          validationErrors:
+            lineErrors.join(
+              ' | '
+            )
+        };
+      }
+    );
 
   return {
-    valid: errors.length === 0,
-    errors: errors,
+    valid:
+      errors.length === 0,
+
+    errors:
+      errors,
+
     normalized: {
-      stagingFmrId: normalizeFmrV3_(source.stagingFmrId),
-      sourceFileId: normalizeFmrV3_(source.sourceFileId),
-      sourceFileName: normalizeFmrV3_(source.sourceFileName),
-      officialFmrNumber: officialFmrNumber,
-      iwpNumber: normalizeUpperFmrV3_(source.iwpNumber),
-      requestedBy: normalizeFmrV3_(source.requestedBy),
-      dateRequired: source.dateRequired
-        ? new Date(`${source.dateRequired}T12:00:00`)
-        : '',
-      priority: normalizeFmrV3_(source.priority),
-      notes: normalizeFmrV3_(source.notes),
-      lines: normalizedLines
+      stagingFmrId:
+        normalizeFmrV3_(
+          source.stagingFmrId
+        ),
+
+      sourceFileId:
+        normalizeFmrV3_(
+          source.sourceFileId
+        ),
+
+      sourceFileName:
+        normalizeFmrV3_(
+          source.sourceFileName
+        ),
+
+      officialFmrNumber:
+        officialFmrNumber,
+
+      iwpNumber:
+        normalizeUpperFmrV3_(
+          source.iwpNumber
+        ),
+
+      requestedBy:
+        normalizeFmrV3_(
+          source.requestedBy
+        ),
+
+      dateRequired:
+        normalizeStageDateRequiredAlpha30_5_2_(
+          source.dateRequired
+        ),
+
+      priority:
+        normalizeFmrV3_(
+          source.priority
+        ),
+
+      notes:
+        normalizeFmrV3_(
+          source.notes
+        ),
+
+      lines:
+        normalizedLines
     }
   };
 }
+
 
 function saveStagedFmrFmrV3_(userEmail, payload) {
   const owner = assertOwnerFmrV3_(userEmail);
