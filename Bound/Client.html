@@ -5640,130 +5640,185 @@
       );
     }
 
-    async function refreshAdminV3_() {
-      hideAlertsV3_();
 
-      const openFmrNumber =
-        state.adminOpenFmrNumber;
+async function refreshAdminV3_() {
+  hideAlertsV3_();
 
-      byId(
-        'adminOperationalStatus'
-      ).textContent =
-        'Loading operational queues…';
+  const openFmrNumber =
+    state.adminOpenFmrNumber;
 
-      byId(
-        'adminOperationalList'
-      ).innerHTML =
-        '<div class="register-empty">' +
-        'Loading backorders and Active Bag & Tags…' +
-        '</div>';
+  byId(
+    'adminOperationalStatus'
+  ).textContent =
+    'Waiting for FMR register…';
 
-      byId('adminFmrRegister').innerHTML =
-        '<div class="register-empty">' +
-        'Loading FMR register…' +
-        '</div>';
+  byId(
+    'adminOperationalList'
+  ).innerHTML =
+    '<div class="register-empty">' +
+    'Operational queues will load after the FMR register…' +
+    '</div>';
 
-      byId(
-        'adminRegisterStatusText'
-      ).textContent =
-        'Loading dashboard and FMR register…';
+  byId('adminFmrRegister').innerHTML =
+    '<div class="register-empty">' +
+    'Loading FMR register…' +
+    '</div>';
 
-      try {
-        const [
-          dashboard,
-          register
-        ] = await Promise.all([
-          callServerV3_(
-            'getAdminDashboardV3'
-          ),
+  byId(
+    'adminRegisterStatusText'
+  ).textContent =
+    'Loading FMR register…';
 
-          callServerV3_(
-            'getAdminFmrRegisterV3',
-            adminRegisterRequestV3_()
-          )
-        ]);
+  /**
+   * Phase 1 — register first.
+   *
+   * The previous Promise.all() made this table wait for getAdminDashboardV3,
+   * even when getAdminFmrRegisterV3 had already finished. It also sent two
+   * heavy Spreadsheet workloads at the same instant.
+   */
+  try {
+    const register =
+      await callServerV3_(
+        'getAdminFmrRegisterV3',
+        adminRegisterRequestV3_()
+      );
 
-        const rail =
-          dashboard.operationalRail || {};
+    renderAdminRegisterV3_(
+      register
+    );
 
-        const backorderRail =
-          rail.backorders || {
-            requests:
-              dashboard.backorders || [],
-
-            canReview:
-              dashboard
-                .canReviewBackorders
-          };
-
-        const activeBagRail =
-          rail.activeBags || {
-            summary: {},
-
-            records:
-              dashboard.activeBags || []
-          };
-
-        state.adminBackorderRequests =
-          backorderRail.requests || [];
-
-        state.adminCanReviewBackorders =
-          Boolean(
-            backorderRail.canReview
-          );
-
-        state.adminActiveBagRecords =
-          activeBagRail.records || [];
-
-        state.adminActiveBagSummary =
-          activeBagRail.summary || {};
-
-        renderKpisV3_(
-          dashboard.kpis || {}
-        );
-
-        renderAdminOperationalQueueV3_(
-          {
-            preserveListScroll:
-              true
-          }
-        );
-
-        if (
-          state.adminDecisionBusy
-        ) {
-          setAdminDecisionBusyV3_(
+    if (
+      openFmrNumber
+    ) {
+      await openAdminFmrDetailV3_(
+        openFmrNumber,
+        {
+          silent:
             true,
-            'Saving Admin decision and refreshing the selected FMR…'
-          );
+
+          forceReload:
+            true
         }
-
-        renderAdminRegisterV3_(
-          register
-        );
-
-        if (
-          openFmrNumber
-        ) {
-          await openAdminFmrDetailV3_(
-            openFmrNumber,
-            {
-              silent:
-                true,
-
-              forceReload:
-                true
-            }
-          );
-        }
-      } catch (
-        error
-      ) {
-        showErrorV3_(
-          error
-        );
-      }
+      );
     }
+  } catch (
+    error
+  ) {
+    showErrorV3_(
+      error
+    );
+
+    // Do not erase the useful queue/dashboard area if only register failed.
+    byId(
+      'adminRegisterStatusText'
+    ).textContent =
+      'Unable to load the FMR register.';
+  }
+
+  /**
+   * Phase 2 — KPIs + operational queues.
+   * Starts only after Phase 1 is rendered, eliminating same-time contention.
+   */
+  byId(
+    'adminOperationalStatus'
+  ).textContent =
+    'Loading operational queues…';
+
+  byId(
+    'adminOperationalList'
+  ).innerHTML =
+    '<div class="register-empty">' +
+    'Loading backorders and Active Bag & Tags…' +
+    '</div>';
+
+  try {
+    const dashboard =
+      await callServerV3_(
+        'getAdminDashboardV3'
+      );
+
+    const rail =
+      dashboard.operationalRail || {};
+
+    const backorderRail =
+      rail.backorders || {
+        requests:
+          dashboard.backorders || [],
+
+        canReview:
+          dashboard
+            .canReviewBackorders
+      };
+
+    const activeBagRail =
+      rail.activeBags || {
+        summary: {},
+
+        records:
+          dashboard.activeBags || []
+      };
+
+    state.adminBackorderRequests =
+      backorderRail.requests || [];
+
+    state.adminCanReviewBackorders =
+      Boolean(
+        backorderRail.canReview
+      );
+
+    state.adminActiveBagRecords =
+      activeBagRail.records || [];
+
+    state.adminActiveBagSummary =
+      activeBagRail.summary || {};
+
+    renderKpisV3_(
+      dashboard.kpis || {}
+    );
+
+    renderAdminOperationalQueueV3_(
+      {
+        preserveListScroll:
+          true
+      }
+    );
+
+    if (
+      state.adminDecisionBusy
+    ) {
+      setAdminDecisionBusyV3_(
+        true,
+        'Saving Admin decision and refreshing the selected FMR…'
+      );
+    }
+  } catch (
+    error
+  ) {
+    /**
+     * Keep an already-rendered register usable when the operational rail fails.
+     * This is intentionally independent from the register error path.
+     */
+    console.error(
+      error
+    );
+
+    byId(
+      'adminOperationalStatus'
+    ).textContent =
+      'Unable to load operational queues. Use Refresh to retry.';
+
+    byId(
+      'adminOperationalList'
+    ).innerHTML =
+      '<div class="register-empty">' +
+      'Operational queue loading failed; the FMR register remains available.' +
+      '</div>';
+  }
+}
+
+
+
+
 
     async function refreshAdminRegisterV3_() {
       hideAlertsV3_();

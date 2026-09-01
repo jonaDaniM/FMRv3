@@ -215,329 +215,135 @@ function runFmrV3AdminDecisionContractDiagnostic() {
   return inspectFmrV3AdminDecisionContract();
 }
 
-
-
-
-
-
-
-function getBackorderQueueFmrV3_(
-  userEmail
-) {
-  const user =
-    assertSearchUserFmrV3_(
-      userEmail
-    );
+function getBackorderQueueFmrV3_(userEmail) {
+  const user = assertSearchUserFmrV3_(userEmail);
 
   const statuses = [
     'Pending Admin Review',
     'Partially Confirmed'
   ];
 
+  const normalizedStatuses = statuses.map(normalizeUpperFmrV3_);
   let entries = [];
 
-  statuses.forEach(
-    function (
-      status
-    ) {
-      entries =
-        entries.concat(
-          lookupOperationalRowsFmrV3_(
-            'BACKORDERSTATUS',
-            status
-          )
-        );
-    }
-  );
-
-  const sourceRequests =
-    readRowsObjectsFmrV3_(
-      FMR_V3.SHEETS
-        .BACKORDERS,
-      Array.from(
-        new Set(
-          entries.map(
-            function (
-              entry
-            ) {
-              return numberFmrV3_(
-                entry.Row_Number
-              );
-            }
-          )
-        )
+  statuses.forEach(function (status) {
+    entries = entries.concat(
+      lookupOperationalRowsFmrV3_(
+        'BACKORDERSTATUS',
+        status
       )
-    ).filter(
-      function (
-        request
-      ) {
-        return (
-          yesFmrV3_(
-            request.Active
-          ) &&
-          numberFmrV3_(
-            request.Qty_Pending
-          ) > 0 &&
-          statuses
-            .map(
-              normalizeUpperFmrV3_
-            )
-            .includes(
-              normalizeUpperFmrV3_(
-                request.Status
-              )
-            )
-        );
-      }
-    ).sort(
-      function (
-        left,
-        right
-      ) {
-        return (
-          new Date(
-            left.Reported_At ||
-            0
-          ).getTime() -
-          new Date(
-            right.Reported_At ||
-            0
-          ).getTime()
-        );
-      }
     );
+  });
+
+  const sourceRequests = readRowsObjectsFmrV3_(
+    FMR_V3.SHEETS.BACKORDERS,
+    Array.from(
+      new Set(
+        entries.map(function (entry) {
+          return numberFmrV3_(entry.Row_Number);
+        })
+      )
+    )
+  )
+    .filter(function (request) {
+      return (
+        yesFmrV3_(request.Active) &&
+        numberFmrV3_(request.Qty_Pending) > 0 &&
+        normalizedStatuses.includes(
+          normalizeUpperFmrV3_(request.Status)
+        )
+      );
+    })
+    .sort(function (left, right) {
+      return (
+        new Date(left.Reported_At || 0).getTime() -
+        new Date(right.Reported_At || 0).getTime()
+      );
+    });
 
   /**
-   * A single FMR line can have more than one
-   * backorder request. Cache line lookups so the
-   * queue does not repeatedly read the same row.
+   * Alpha 30.5.3: resolve every distinct linked line in one batched index/read
+   * path instead of calling getLineByIdFmrV3_ once per distinct backorder.
    */
-  const lineCache = {};
+  const linesById = getLinesByIdsFmrV3_(
+    sourceRequests.map(function (request) {
+      return request.FMR_Line_ID;
+    })
+  );
 
-  function lineForBackorderRequestFmrV3_(
-    request
-  ) {
-    const lineId =
-      normalizeFmrV3_(
-        request &&
-        request.FMR_Line_ID
+  const warnedMissingLines = {};
+
+  const requests = sourceRequests.map(function (request) {
+    const lineId = normalizeUpperFmrV3_(request.FMR_Line_ID);
+    const line = lineId ? (linesById[lineId] || null) : null;
+
+    if (lineId && !line && !warnedMissingLines[lineId]) {
+      warnedMissingLines[lineId] = true;
+      console.warn(
+        'Unable to enrich one or more backorder requests from FMR line ' +
+        lineId +
+        '. Request-level fields remain available.'
       );
-
-    if (!lineId) {
-      return null;
     }
 
-    if (
-      !Object.prototype
-        .hasOwnProperty.call(
-          lineCache,
-          lineId
-        )
-    ) {
-      try {
-        lineCache[lineId] =
-          getLineByIdFmrV3_(
-            lineId
-          );
-      } catch (
-        error
-      ) {
-        /**
-         * Keep the operational queue available even
-         * when an older orphaned request references
-         * a missing line. The request-level fields
-         * remain visible and the missing presentation
-         * fields fall back to blank values.
-         */
-        console.warn(
-          (
-            'Unable to enrich backorder request ' +
-            normalizeFmrV3_(
-              request
-                .Backorder_Request_ID
-            ) +
-            ' from FMR line ' +
-            lineId +
-            ': ' +
-            (
-              error &&
-              error.message
-                ? error.message
-                : String(error)
-            )
-          )
-        );
+    return {
+      requestId: normalizeFmrV3_(request.Backorder_Request_ID),
+      fmrNumber: normalizeFmrV3_(request.FMR_Number),
+      fmrLineId: normalizeFmrV3_(request.FMR_Line_ID),
 
-        lineCache[lineId] =
-          null;
-      }
-    }
+      lineNumber: line
+        ? numberFmrV3_(line.Line_Number)
+        : 0,
 
-    return lineCache[
-      lineId
-    ];
-  }
+      isoNumber: line
+        ? normalizeFmrV3_(line.ISO_Number)
+        : '',
 
-  const requests =
-    sourceRequests.map(
-      function (
-        request
-      ) {
-        const line =
-          lineForBackorderRequestFmrV3_(
-            request
-          );
+      isoSheet: line
+        ? normalizeFmrV3_(line.ISO_Sheet)
+        : '',
 
-        return {
-          requestId:
-            normalizeFmrV3_(
-              request
-                .Backorder_Request_ID
-            ),
-
-          fmrNumber:
-            normalizeFmrV3_(
-              request.FMR_Number
-            ),
-
-          fmrLineId:
-            normalizeFmrV3_(
-              request.FMR_Line_ID
-            ),
-
-          lineNumber:
-            line
-              ? numberFmrV3_(
-                  line.Line_Number
-                )
-              : 0,
-
-          isoNumber:
-            line
-              ? normalizeFmrV3_(
-                  line.ISO_Number
-                )
-              : '',
-
-          isoSheet:
-            line
-              ? normalizeFmrV3_(
-                  line.ISO_Sheet
-                )
-              : '',
-
-          isoKey:
-            normalizeFmrV3_(
-              request.ISO_Key ||
-              (
-                line
-                  ? line.ISO_Key
-                  : ''
-              )
-            ),
-
-          commodityCode:
-            normalizeFmrV3_(
-              request.Commodity_Code ||
-              (
-                line
-                  ? line.Commodity_Code
-                  : ''
-              )
-            ),
-
-          size:
-            line
-              ? normalizeFmrV3_(
-                  line.Size
-                )
-              : '',
-
-          materialDescription:
-            line
-              ? normalizeFmrV3_(
-                  line
-                    .Material_Description
-                )
-              : '',
-
-          uom:
-            line
-              ? normalizeFmrV3_(
-                  line.UOM
-                )
-              : '',
-
-          qtyRequested:
-            numberFmrV3_(
-              request
-                .Qty_Requested_Backorder
-            ),
-
-          qtyConfirmed:
-            numberFmrV3_(
-              request
-                .Qty_Confirmed_Backorder
-            ),
-
-          qtyPending:
-            numberFmrV3_(
-              request.Qty_Pending
-            ),
-
-          reason:
-            normalizeFmrV3_(
-              request.Reason
-            ),
-
-          fieldNotes:
-            normalizeFmrV3_(
-              request.Field_Notes
-            ),
-
-          reportedBy:
-            normalizeFmrV3_(
-              request.Reported_By_Name
-            ),
-
-          reportedAt:
-            formatDateTimeFmrV3_(
-              request.Reported_At
-            ),
-
-          status:
-            normalizeFmrV3_(
-              request.Status
-            )
-        };
-      }
-    );
-
-  return {
-    generatedAt:
-      formatDateTimeFmrV3_(
-        nowFmrV3_()
+      isoKey: normalizeFmrV3_(
+        request.ISO_Key ||
+        (line ? line.ISO_Key : '')
       ),
 
-    user:
-      user,
+      commodityCode: normalizeFmrV3_(
+        request.Commodity_Code ||
+        (line ? line.Commodity_Code : '')
+      ),
 
-    canReview:
-      user.canAdminBackorder,
+      size: line
+        ? normalizeFmrV3_(line.Size)
+        : '',
 
-    count:
-      requests.length,
+      materialDescription: line
+        ? normalizeFmrV3_(line.Material_Description)
+        : '',
 
-    requests:
-      requests
+      uom: line
+        ? normalizeFmrV3_(line.UOM)
+        : '',
+
+      qtyRequested: numberFmrV3_(request.Qty_Requested_Backorder),
+      qtyConfirmed: numberFmrV3_(request.Qty_Confirmed_Backorder),
+      qtyPending: numberFmrV3_(request.Qty_Pending),
+      reason: normalizeFmrV3_(request.Reason),
+      fieldNotes: normalizeFmrV3_(request.Field_Notes),
+      reportedBy: normalizeFmrV3_(request.Reported_By_Name),
+      reportedAt: formatDateTimeFmrV3_(request.Reported_At),
+      status: normalizeFmrV3_(request.Status)
+    };
+  });
+
+  return {
+    generatedAt: formatDateTimeFmrV3_(nowFmrV3_()),
+    user: user,
+    canReview: user.canAdminBackorder,
+    count: requests.length,
+    requests: requests
   };
 }
-
-
-
-
-
-
 
 function reviewBackorderFmrV3_(
   userEmail,

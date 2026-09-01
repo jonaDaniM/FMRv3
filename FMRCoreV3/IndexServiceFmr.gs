@@ -60,7 +60,6 @@ function indexCacheKeyFmrV3_(
   return 'fmr3:index:' + digest;
 }
 
-
 function lookupIndexEntriesFmrV3_(sheetName, exactKey) {
   const key = normalizeUpperFmrV3_(exactKey);
   if (!key) return [];
@@ -68,27 +67,55 @@ function lookupIndexEntriesFmrV3_(sheetName, exactKey) {
   const cache = CacheService.getScriptCache();
   const cacheKey = indexCacheKeyFmrV3_(sheetName, key);
   const cached = cache.get(cacheKey);
-  if (cached) return JSON.parse(cached);
 
-  const rows = findRowsByExactValueFmrV3_(sheetName, 1, key);
-  const keyField = sheetName === FMR_V3.SHEETS.SEARCH_INDEX
-    ? 'Search_Key'
-    : 'Index_Key';
+  if (cached) {
+    return JSON.parse(cached);
+  }
 
-  const records = readRowsObjectsFmrV3_(sheetName, rows)
-    .filter(function (record) {
-      return normalizeUpperFmrV3_(record[keyField]) === key &&
-        yesFmrV3_(record.Active);
-    });
+  const rows = findRowsByExactValueFmrV3_(
+    sheetName,
+    1,
+    key
+  );
 
-  const ttl = Math.max(60, Math.min(
-    21600,
-    numberFmrV3_(getConfigurationFmrV3_().SEARCH_CACHE_SECONDS) || 3600
-  ));
+  const keyField =
+    sheetName === FMR_V3.SHEETS.SEARCH_INDEX
+      ? 'Search_Key'
+      : 'Index_Key';
 
-  cache.put(cacheKey, JSON.stringify(records), ttl);
+  const records = readRowsObjectsBatchedFmrV3_(
+    sheetName,
+    rows,
+    {
+      maxGapRows: 4,
+      maxGroups: 20
+    }
+  ).filter(function (record) {
+    return (
+      normalizeUpperFmrV3_(record[keyField]) === key &&
+      yesFmrV3_(record.Active)
+    );
+  });
+
+  const ttl = Math.max(
+    60,
+    Math.min(
+      21600,
+      numberFmrV3_(getConfigurationFmrV3_().SEARCH_CACHE_SECONDS) || 3600
+    )
+  );
+
+  cache.put(
+    cacheKey,
+    JSON.stringify(records),
+    ttl
+  );
+
   return records;
 }
+
+
+
 
 function invalidateIndexKeyFmrV3_(sheetName, exactKey) {
   CacheService.getScriptCache().remove(

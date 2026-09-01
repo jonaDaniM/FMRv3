@@ -298,264 +298,95 @@ function escapeAdminIsoRegexFmrV3_(
   );
 }
 
-function indexedAdminIsoReferencesByRecordFmrV3_(
-  records
-) {
-  const sourceRecords =
-    Array.isArray(
-      records
-    )
-      ? records
-      : [];
-
+function indexedAdminIsoReferencesByRecordFmrV3_(records) {
+  const sourceRecords = Array.isArray(records) ? records : [];
   const output = {};
   const targetsBySearchKey = {};
 
-  sourceRecords.forEach(
-    function (
-      record
-    ) {
-      const identity =
-        adminIsoRecordIdentityFmrV3_(
-          record
-        );
+  sourceRecords.forEach(function (record) {
+    const identity = adminIsoRecordIdentityFmrV3_(record);
+    if (!identity) return;
 
-      if (!identity) {
-        return;
-      }
+    output[identity] = [];
 
-      output[
-        identity
-      ] = [];
+    const fmrNumber = normalizeFmrV3_(
+      record.fmrNumber || record.FMR_Number
+    );
 
-      const fmrNumber =
-        normalizeFmrV3_(
-          record.fmrNumber ||
-          record.FMR_Number
-        );
+    if (!fmrNumber) return;
 
-      if (!fmrNumber) {
-        return;
-      }
+    const searchKey = normalizeUpperFmrV3_(
+      fmrSearchKeyFmrV3_(fmrNumber)
+    );
 
-      const searchKey =
-        normalizeUpperFmrV3_(
-          fmrSearchKeyFmrV3_(
-            fmrNumber
-          )
-        );
-
-      if (
-        !targetsBySearchKey[
-          searchKey
-        ]
-      ) {
-        targetsBySearchKey[
-          searchKey
-        ] = [];
-      }
-
-      targetsBySearchKey[
-        searchKey
-      ].push({
-        identity:
-          identity,
-
-        fmrId:
-          normalizeFmrV3_(
-            record.fmrId ||
-            record.FMR_ID
-          )
-      });
+    if (!targetsBySearchKey[searchKey]) {
+      targetsBySearchKey[searchKey] = [];
     }
+
+    targetsBySearchKey[searchKey].push({
+      identity: identity,
+      fmrId: normalizeFmrV3_(
+        record.fmrId || record.FMR_ID
+      )
+    });
+  });
+
+  const searchKeys = Object.keys(targetsBySearchKey);
+  if (!searchKeys.length) return output;
+
+  /**
+   * Alpha 30.5.3: one multi-key cache lookup + one index scan for misses.
+   * No giant regex TextFinder is created.
+   */
+  const recordsBySearchKey = lookupIndexEntriesForKeysFmrV3_(
+    FMR_V3.SHEETS.SEARCH_INDEX,
+    searchKeys
   );
-
-  const searchKeys =
-    Object.keys(
-      targetsBySearchKey
-    );
-
-  if (!searchKeys.length) {
-    return output;
-  }
-
-  const sheetName =
-    FMR_V3.SHEETS
-      .SEARCH_INDEX;
-
-  const sheet =
-    sheetFmrV3_(
-      sheetName
-    );
-
-  const lastRow =
-    sheet.getLastRow();
-
-  if (lastRow < 2) {
-    return output;
-  }
-
-  const contract =
-    headerMapFmrV3_(
-      sheetName
-    );
-
-  const searchKeyColumn =
-    contract
-      .indexByHeader
-      .Search_Key +
-    1;
-
-  const expression =
-    (
-      '^(?:' +
-      searchKeys
-        .map(
-          escapeAdminIsoRegexFmrV3_
-        )
-        .join(
-          '|'
-        ) +
-      ')$'
-    );
-
-  const matchedRows =
-    sheet
-      .getRange(
-        2,
-        searchKeyColumn,
-        lastRow - 1,
-        1
-      )
-      .createTextFinder(
-        expression
-      )
-      .useRegularExpression(
-        true
-      )
-      .matchCase(
-        false
-      )
-      .findAll()
-      .map(
-        function (
-          range
-        ) {
-          return range.getRow();
-        }
-      );
-
-  if (!matchedRows.length) {
-    return output;
-  }
 
   const referenceMaps = {};
 
-  readRowsObjectsFmrV3_(
-    sheetName,
-    matchedRows
-  ).forEach(
-    function (
-      entry
-    ) {
-      if (
-        !yesFmrV3_(
-          entry.Active
-        )
-      ) {
-        return;
-      }
+  searchKeys.forEach(function (searchKey) {
+    const targets = targetsBySearchKey[searchKey] || [];
+    const entries = recordsBySearchKey[
+      normalizeUpperFmrV3_(searchKey)
+    ] || [];
 
-      const searchKey =
-        normalizeUpperFmrV3_(
-          entry.Search_Key
-        );
+    entries.forEach(function (entry) {
+      if (!yesFmrV3_(entry.Active)) return;
 
-      const targets =
-        targetsBySearchKey[
-          searchKey
-        ] || [];
+      const parsed = splitAdminIsoKeyFmrV3_(entry.ISO_Key);
+      if (!parsed) return;
 
-      if (!targets.length) {
-        return;
-      }
-
-      const parsed =
-        splitAdminIsoKeyFmrV3_(
-          entry.ISO_Key
-        );
-
-      if (!parsed) {
-        return;
-      }
-
-      targets.forEach(
-        function (
-          target
+      targets.forEach(function (target) {
+        if (
+          target.fmrId &&
+          normalizeFmrV3_(entry.FMR_ID) !== target.fmrId
         ) {
-          if (
-            target.fmrId &&
-            normalizeFmrV3_(
-              entry.FMR_ID
-            ) !==
-              target.fmrId
-          ) {
-            return;
-          }
-
-          if (
-            !referenceMaps[
-              target.identity
-            ]
-          ) {
-            referenceMaps[
-              target.identity
-            ] = {};
-          }
-
-          referenceMaps[
-            target.identity
-          ][
-            parsed.isoKey
-          ] = parsed;
+          return;
         }
-      );
-    }
-  );
 
-  Object.keys(
-    output
-  ).forEach(
-    function (
-      identity
-    ) {
-      const references =
-        referenceMaps[
-          identity
-        ] || {};
+        if (!referenceMaps[target.identity]) {
+          referenceMaps[target.identity] = {};
+        }
 
-      output[
-        identity
-      ] = Object.keys(
-        references
-      )
-        .map(
-          function (
-            key
-          ) {
-            return references[
-              key
-            ];
-          }
-        )
-        .sort(
-          compareAdminIsoReferencesFmrV3_
-        );
-    }
-  );
+        referenceMaps[target.identity][parsed.isoKey] = parsed;
+      });
+    });
+  });
+
+  Object.keys(output).forEach(function (identity) {
+    const references = referenceMaps[identity] || {};
+
+    output[identity] = Object.keys(references)
+      .map(function (key) {
+        return references[key];
+      })
+      .sort(compareAdminIsoReferencesFmrV3_);
+  });
 
   return output;
 }
+
 
 function enrichAdminRegisterRecordWithIsoFmrV3_(
   record,
