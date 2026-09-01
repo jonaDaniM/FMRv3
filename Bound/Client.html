@@ -28,6 +28,9 @@
       adminCanReviewBackorders: false,
       adminActiveBagRecords: [],
       adminActiveBagSummary: {},
+      adminActiveBagFullyLoaded: false,
+      adminActiveBagLoading: false,
+      adminActiveBagLoadSequence: 0,
       adminExpandedQueueKeys: new Set(),
       systemControlData: null,
       systemControlBusy: false,
@@ -3824,6 +3827,15 @@
             state.adminOperationalTab
           ] = 1;
 
+          if (
+            state.adminOperationalTab ===
+              'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
+
           renderAdminOperationalQueueV3_();
         }
       );
@@ -3839,6 +3851,15 @@
           state.adminOperationalPages[
             state.adminOperationalTab
           ] = 1;
+
+          if (
+            state.adminOperationalTab ===
+              'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
 
           renderAdminOperationalQueueV3_();
         }
@@ -3862,6 +3883,15 @@
             state.adminOperationalTab
           ] = 1;
 
+          if (
+            state.adminOperationalTab ===
+              'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
+
           renderAdminOperationalQueueV3_();
         }
       );
@@ -3881,6 +3911,15 @@
             state.adminOperationalTab
           ] = 1;
 
+          if (
+            state.adminOperationalTab ===
+              'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
+
           renderAdminOperationalQueueV3_();
         }
       );
@@ -3892,6 +3931,14 @@
         () => {
           const tab =
             state.adminOperationalTab;
+
+          if (
+            tab === 'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
 
           state.adminOperationalPages[
             tab
@@ -3922,6 +3969,14 @@
           const tab =
             state.adminOperationalTab;
 
+          if (
+            tab === 'ACTIVE_BAGS' &&
+            !state.adminActiveBagFullyLoaded
+          ) {
+            ensureCompleteAdminActiveBagQueueV3_();
+            return;
+          }
+
           state.adminOperationalPages[
             tab
           ] =
@@ -3942,7 +3997,7 @@
       );
     }
 
-    function setAdminOperationalTabV3_(
+     function setAdminOperationalTabV3_(
       tab
     ) {
       const normalized =
@@ -3955,6 +4010,14 @@
         state.adminOperationalTab ===
         normalized
       ) {
+        if (
+          normalized ===
+            'ACTIVE_BAGS' &&
+          !state.adminActiveBagFullyLoaded
+        ) {
+          ensureCompleteAdminActiveBagQueueV3_();
+        }
+
         return;
       }
 
@@ -3968,6 +4031,15 @@
       ).value = '';
 
       configureAdminOperationalControlsV3_();
+
+      if (
+        normalized ===
+          'ACTIVE_BAGS' &&
+        !state.adminActiveBagFullyLoaded
+      ) {
+        ensureCompleteAdminActiveBagQueueV3_();
+        return;
+      }
 
       renderAdminOperationalQueueV3_(
         {
@@ -4099,6 +4171,250 @@
           !isBackorders
         )
       );
+    }
+
+
+    function operationalActiveBagRecordSearchTextV3_(
+      record
+    ) {
+      const source =
+        record || {};
+
+      return [
+        source.tagNumber,
+        source.fmrNumber,
+        formatFieldIsoV3_(
+          source.isoNumber,
+          source.isoSheet,
+          source.isoKey
+        ),
+        source.isoKey,
+        source.storageLocation,
+        source.commodityCode,
+        source.materialDescription,
+        source.size,
+        source.uom,
+        source.baggedBy,
+        source.notes,
+        source.readinessLabel
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    }
+
+    async function ensureCompleteAdminActiveBagQueueV3_(
+      options
+    ) {
+      const settings =
+        options || {};
+
+      if (
+        state.adminActiveBagFullyLoaded &&
+        !settings.force
+      ) {
+        if (
+          state.adminOperationalTab ===
+          'ACTIVE_BAGS'
+        ) {
+          renderAdminOperationalQueueV3_(
+            {
+              preserveListScroll:
+                settings.preserveListScroll !==
+                false
+            }
+          );
+        }
+
+        return;
+      }
+
+      if (
+        state.adminActiveBagLoading
+      ) {
+        return;
+      }
+
+      const requestSequence =
+        Number(
+          state.adminActiveBagLoadSequence ||
+          0
+        ) + 1;
+
+      state.adminActiveBagLoadSequence =
+        requestSequence;
+
+      state.adminActiveBagLoading =
+        true;
+
+      if (
+        state.adminOperationalTab ===
+        'ACTIVE_BAGS'
+      ) {
+        byId(
+          'adminOperationalStatus'
+        ).textContent =
+          'Loading complete Active Bag & Tag queue…';
+
+        byId(
+          'adminOperationalList'
+        ).innerHTML =
+          '<div class="register-empty">' +
+          'Loading all active Bag & Tag items for accurate search…' +
+          '</div>';
+      }
+
+      try {
+        const pageSize = 1000;
+        let page = 1;
+        let response = null;
+        let summary = {};
+        const records = [];
+        const seen = new Set();
+
+        do {
+          response =
+            await callServerV3_(
+              'getAdminActiveBagsV3',
+              {
+                query: '',
+                readiness: 'ALL',
+                sortOrder: 'OLDEST_FIRST',
+                page: page,
+                pageSize: pageSize
+              }
+            );
+
+          if (
+            requestSequence !==
+            state.adminActiveBagLoadSequence
+          ) {
+            return;
+          }
+
+          summary =
+            response.summary ||
+            summary;
+
+          (
+            response.records ||
+            []
+          ).forEach(
+            record => {
+              const key =
+                String(
+                  record.bagTagId ||
+                  ''
+                ) +
+                '|' +
+                String(
+                  record.bagTagItemId ||
+                  ''
+                );
+
+              if (
+                key === '|' ||
+                seen.has(key)
+              ) {
+                return;
+              }
+
+              seen.add(key);
+              records.push(record);
+            }
+          );
+
+          const pagination =
+            response.pagination ||
+            {};
+
+          if (
+            !pagination.hasNext
+          ) {
+            break;
+          }
+
+          page += 1;
+
+          if (page > 100) {
+            throw new Error(
+              'Active Bag queue exceeded the 100-page safety limit.'
+            );
+          }
+        } while (true);
+
+        if (
+          requestSequence !==
+          state.adminActiveBagLoadSequence
+        ) {
+          return;
+        }
+
+        state.adminActiveBagRecords =
+          records;
+
+        state.adminActiveBagSummary =
+          summary;
+
+        state.adminActiveBagFullyLoaded =
+          true;
+
+        state.adminActiveBagLoading =
+          false;
+
+        state.adminOperationalPages[
+          'ACTIVE_BAGS'
+        ] = 1;
+
+        if (
+          state.adminOperationalTab ===
+          'ACTIVE_BAGS'
+        ) {
+          renderAdminOperationalQueueV3_(
+            {
+              preserveListScroll:
+                false
+            }
+          );
+        }
+      } catch (
+        error
+      ) {
+        if (
+          requestSequence !==
+          state.adminActiveBagLoadSequence
+        ) {
+          return;
+        }
+
+        state.adminActiveBagLoading =
+          false;
+
+        state.adminActiveBagFullyLoaded =
+          false;
+
+        console.error(
+          error
+        );
+
+        if (
+          state.adminOperationalTab ===
+          'ACTIVE_BAGS'
+        ) {
+          renderAdminOperationalQueueV3_(
+            {
+              preserveListScroll:
+                false
+            }
+          );
+
+          byId(
+            'adminOperationalStatus'
+          ).textContent =
+            'Unable to load the complete Active Bag queue. ' +
+            'The visible subset may be incomplete; use Refresh to retry.';
+        }
+      }
     }
 
     function operationalDateValueV3_(
@@ -5356,6 +5672,8 @@
       `;
     }
 
+
+
     function renderAdminOperationalQueueV3_(
       options
     ) {
@@ -5378,16 +5696,6 @@
       const tab =
         state.adminOperationalTab;
 
-      const rawGroups =
-        tab ===
-          'BACKORDERS'
-          ? groupBackordersForAdminV3_(
-              state.adminBackorderRequests
-            )
-          : groupActiveBagsForAdminV3_(
-              state.adminActiveBagRecords
-            );
-
       const query =
         String(
           state.adminOperationalQuery ||
@@ -5396,17 +5704,60 @@
           .trim()
           .toLowerCase();
 
-      const filtered =
-        rawGroups.filter(
-          group =>
-            !query ||
-            operationalSearchTextV3_(
-              group,
-              tab
-            ).includes(
-              query
-            )
-        );
+      let rawGroups = [];
+      let filtered = [];
+      let activeBagMatchingItems = 0;
+
+      if (
+        tab ===
+        'BACKORDERS'
+      ) {
+        rawGroups =
+          groupBackordersForAdminV3_(
+            state.adminBackorderRequests
+          );
+
+        filtered =
+          rawGroups.filter(
+            group =>
+              !query ||
+              operationalSearchTextV3_(
+                group,
+                tab
+              ).includes(
+                query
+              )
+          );
+      } else {
+        const matchingRecords =
+          query
+            ? (
+                state.adminActiveBagRecords ||
+                []
+              ).filter(
+                record =>
+                  operationalActiveBagRecordSearchTextV3_(
+                    record
+                  ).includes(
+                    query
+                  )
+              )
+            : (
+                state.adminActiveBagRecords ||
+                []
+              );
+
+        activeBagMatchingItems =
+          matchingRecords.length;
+
+        rawGroups =
+          groupActiveBagsForAdminV3_(
+            matchingRecords
+          );
+
+        filtered =
+          rawGroups;
+      }
 
       const sorted =
         sortedOperationalGroupsV3_(
@@ -5512,7 +5863,25 @@
                 tab ===
                   'BACKORDERS'
                   ? 'FMR groups'
-                  : 'active tags'
+                  : (
+                      'active tags' +
+                      (
+                        query
+                          ? ` · ${activeBagMatchingItems} matching item${
+                              activeBagMatchingItems === 1
+                                ? ''
+                                : 's'
+                            }`
+                          : (
+                              state.adminActiveBagFullyLoaded
+                                ? ` · ${(
+                                    state.adminActiveBagRecords ||
+                                    []
+                                  ).length} active items`
+                                : ' · loading complete queue…'
+                            )
+                      )
+                    )
               )
             )
           : (
@@ -5639,6 +6008,8 @@
         }
       );
     }
+
+
 
 
 async function refreshAdminV3_() {
@@ -5772,6 +6143,10 @@ async function refreshAdminV3_() {
     state.adminActiveBagSummary =
       activeBagRail.summary || {};
 
+    state.adminActiveBagLoadSequence += 1;
+    state.adminActiveBagLoading = false;
+    state.adminActiveBagFullyLoaded = false;
+
     renderKpisV3_(
       dashboard.kpis || {}
     );
@@ -5782,6 +6157,13 @@ async function refreshAdminV3_() {
           true
       }
     );
+
+    if (
+      state.adminOperationalTab ===
+      'ACTIVE_BAGS'
+    ) {
+      ensureCompleteAdminActiveBagQueueV3_();
+    }
 
     if (
       state.adminDecisionBusy

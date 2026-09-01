@@ -175,7 +175,12 @@ function getAdminActiveBagQueueFmrV3_(userEmail, request) {
         record.isoKey,
         record.commodityCode,
         record.materialDescription,
-        record.storageLocation
+        record.size,
+        record.uom,
+        record.storageLocation,
+        record.baggedBy,
+        record.notes,
+        record.readinessLabel
       ].some(function (value) {
         return normalizeUpperFmrV3_(value)
           .indexOf(query) !== -1;
@@ -198,6 +203,23 @@ function getAdminActiveBagQueueFmrV3_(userEmail, request) {
       comparison =
         left.tagNumber.localeCompare(
           right.tagNumber,
+          undefined,
+          {
+            numeric: true,
+            sensitivity: 'base'
+          }
+        );
+    }
+
+    /*
+     * Alpha 30.5.4:
+     * Stable item-level tie breaker so server pagination cannot reshuffle
+     * sibling items that share the same Bag Tag and timestamp.
+     */
+    if (comparison === 0) {
+      comparison =
+        left.bagTagItemId.localeCompare(
+          right.bagTagItemId,
           undefined,
           {
             numeric: true,
@@ -317,10 +339,20 @@ function normalizeAdminActiveBagRequestFmrV3_(
         numberFmrV3_(source.page) || 1
       )
     ),
+    /*
+     * Alpha 30.5.4:
+     * The Admin client loads the complete Active Bag queue only when the
+     * planner opens that tab. Raising the bounded page size lets the current
+     * ~300-item queue arrive in one server request instead of repeatedly
+     * rescanning the same Sheets data in 50-row pages.
+     *
+     * The client still handles hasNext and will request additional pages if
+     * the queue ever exceeds this bound.
+     */
     pageSize: Math.max(
       5,
       Math.min(
-        50,
+        1000,
         Math.floor(
           numberFmrV3_(
             source.pageSize
