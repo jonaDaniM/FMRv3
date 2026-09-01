@@ -1641,7 +1641,59 @@ function fieldNoticeHealthOperationsFmrV3_() {
   };
 }
 
-function calculateOperationalHealthFmrV3_() {
+function latestRecordedIntegrityOperationsFmrV3_() {
+  const latest =
+    latestRowByDateFmrV3_(
+      getUsedRowsFmrV3_(
+        FMR_V3_OPERATIONS
+          .sheets
+          .HEALTH
+      ),
+      'Run_At'
+    );
+
+  if (!latest) {
+    return {
+      passed: null,
+      lineIssueCount: null,
+      headerIssueCount: null,
+      bagIndexIssueCount: null,
+      skipped: true,
+      source: 'NO_RECORDED_HEALTH',
+      recordedAt: ''
+    };
+  }
+
+  return {
+    passed:
+      normalizeUpperFmrV3_(
+        latest.Integrity_Status
+      ) ===
+        'PASS',
+
+    lineIssueCount: null,
+    headerIssueCount: null,
+    bagIndexIssueCount: null,
+
+    skipped: true,
+    source: 'LATEST_RECORDED_HEALTH',
+
+    recordedAt:
+      formatDateTimeFmrV3_(
+        latest.Run_At
+      )
+  };
+}
+
+function calculateOperationalHealthFmrV3_(
+  options
+) {
+  const healthOptions =
+    options || {};
+
+  const includeIntegrity =
+    healthOptions.includeIntegrity !==
+      false;
   const started =
     Date.now();
 
@@ -1655,7 +1707,9 @@ function calculateOperationalHealthFmrV3_() {
     schemaHealthOperationsFmrV3_();
 
   const integrity =
-    inspectFmrV3DataIntegrity();
+    includeIntegrity
+      ? inspectFmrV3DataIntegrity()
+      : latestRecordedIntegrityOperationsFmrV3_();
 
   const systemControl =
     inspectFmrV3SystemControlContract();
@@ -1745,11 +1799,22 @@ function calculateOperationalHealthFmrV3_() {
   const hardFailure =
     (
       !schema.passed ||
-      !integrity.passed ||
+      integrity.passed ===
+        false ||
       !systemControl.passed
     );
 
   const warnings = [];
+
+  if (
+    !includeIntegrity &&
+    integrity.passed ===
+      null
+  ) {
+    warnings.push(
+      'No recorded integrity health result exists. Run Health Check to establish the current integrity baseline.'
+    );
+  }
 
   if (!backup) {
     warnings.push(
@@ -1874,7 +1939,27 @@ function calculateOperationalHealthFmrV3_() {
 
       bagIndexIssueCount:
         integrity
-          .bagIndexIssueCount
+          .bagIndexIssueCount,
+
+      skipped:
+        Boolean(
+          integrity.skipped
+        ),
+
+      source:
+        normalizeFmrV3_(
+          integrity.source
+        ) ||
+        (
+          includeIntegrity
+            ? 'LIVE_FULL_INTEGRITY'
+            : 'UNKNOWN'
+        ),
+
+      recordedAt:
+        normalizeFmrV3_(
+          integrity.recordedAt
+        )
     },
 
     systemControl: {
@@ -2183,7 +2268,10 @@ function runOperationalHealthCheckFmrV3_(
     );
 
   const health =
-    calculateOperationalHealthFmrV3_();
+    calculateOperationalHealthFmrV3_({
+      includeIntegrity:
+        true
+    });
 
   appendOperationalHealthLogFmrV3_(
     health,
@@ -2440,7 +2528,10 @@ function getOperationsCenterFmrV3_(
     operationsSettingsFmrV3_();
 
   const currentHealth =
-    calculateOperationalHealthFmrV3_();
+    calculateOperationalHealthFmrV3_({
+      includeIntegrity:
+        false
+    });
 
   const backups =
     backupHistoryRowsFmrV3_()

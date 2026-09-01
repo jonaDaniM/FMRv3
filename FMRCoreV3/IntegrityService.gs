@@ -1145,6 +1145,104 @@ function inspectFmrV3DataIntegrity(
     }
   );
 
+  /*
+   * Alpha 30.5.6:
+   * Integrity is already a full-database diagnostic. Read Operational_Index
+   * once and build lookup maps rather than re-running exact index searches for
+   * every active Bag item.
+   */
+  const activeOperationalIndexRows =
+    getUsedRowsFmrV3_(
+      FMR_V3.SHEETS
+        .OPERATIONAL_INDEX
+    ).filter(
+      function (entry) {
+        return yesFmrV3_(
+          entry.Active
+        );
+      }
+    );
+
+  const activeBagStatusIndexKey =
+    normalizeUpperFmrV3_(
+      operationalIndexKeyFmrV3_(
+        'BAGSTATUS',
+        'ACTIVE'
+      )
+    );
+
+  const activeBagStatusByTagId = {};
+  const activeBagLineIndexKeys = {};
+
+  activeOperationalIndexRows.forEach(
+    function (entry) {
+      const indexType =
+        normalizeUpperFmrV3_(
+          entry.Index_Type
+        );
+
+      if (
+        indexType === 'BAGSTATUS' &&
+        normalizeUpperFmrV3_(
+          entry.Index_Key
+        ) ===
+          activeBagStatusIndexKey
+      ) {
+        const bagTagId =
+          normalizeUpperFmrV3_(
+            entry.Entity_ID
+          );
+
+        if (bagTagId) {
+          activeBagStatusByTagId[
+            bagTagId
+          ] = true;
+        }
+
+        return;
+      }
+
+      if (
+        indexType === 'BAGLINE'
+      ) {
+        const lineId =
+          normalizeUpperFmrV3_(
+            entry.Index_Key
+          )
+            .replace(
+              /^BAGLINE:/,
+              ''
+            );
+
+        const parentId =
+          normalizeUpperFmrV3_(
+            entry.Parent_ID
+          );
+
+        const rowNumber =
+          numberFmrV3_(
+            entry.Row_Number
+          );
+
+        if (
+          lineId &&
+          parentId &&
+          rowNumber > 1
+        ) {
+          activeBagLineIndexKeys[
+            (
+              lineId +
+              '|' +
+              parentId +
+              '|' +
+              rowNumber
+            )
+          ] = true;
+        }
+      }
+    }
+  );
+
   const activeBagTotalsByLine = {};
   const bagIndexIssues = [];
 
@@ -1192,53 +1290,41 @@ function inspectFmrV3DataIntegrity(
         ) +
         remaining;
 
-      const bagLineEntries =
-        lookupOperationalRowsFmrV3_(
-          'BAGLINE',
-          lineId
-        ).filter(
-          function (
-            entry
-          ) {
-            return (
-              normalizeFmrV3_(
-                entry.Parent_ID
-              ) ===
-                normalizeFmrV3_(
-                  item.Bag_Tag_ID
-                ) &&
-              numberFmrV3_(
-                entry.Row_Number
-              ) ===
-                numberFmrV3_(
-                  item._rowNumber
-                )
-            );
-          }
+      const bagTagId =
+        normalizeUpperFmrV3_(
+          item.Bag_Tag_ID
         );
 
-      const statusEntries =
-        lookupOperationalRowsFmrV3_(
-          'BAGSTATUS',
-          'ACTIVE'
-        ).filter(
-          function (
-            entry
-          ) {
-            return (
-              normalizeFmrV3_(
-                entry.Entity_ID
-              ) ===
-              normalizeFmrV3_(
-                item.Bag_Tag_ID
-              )
-            );
-          }
+      const bagLineIndexKey =
+        (
+          normalizeUpperFmrV3_(
+            lineId
+          ) +
+          '|' +
+          bagTagId +
+          '|' +
+          numberFmrV3_(
+            item._rowNumber
+          )
+        );
+
+      const hasBagLineIndex =
+        Boolean(
+          activeBagLineIndexKeys[
+            bagLineIndexKey
+          ]
+        );
+
+      const hasActiveStatusIndex =
+        Boolean(
+          activeBagStatusByTagId[
+            bagTagId
+          ]
         );
 
       if (
-        !bagLineEntries.length ||
-        !statusEntries.length
+        !hasBagLineIndex ||
+        !hasActiveStatusIndex
       ) {
         bagIndexIssues.push({
           lineId:
@@ -1250,10 +1336,10 @@ function inspectFmrV3DataIntegrity(
             ),
 
           missingBagLineIndex:
-            !bagLineEntries.length,
+            !hasBagLineIndex,
 
           missingActiveStatusIndex:
-            !statusEntries.length
+            !hasActiveStatusIndex
         });
       }
     }

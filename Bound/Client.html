@@ -383,20 +383,24 @@
       }
 
       const adminQuery = byId('adminRegisterQuery');
+
       if (adminQuery) {
         adminQuery.placeholder =
           'FMR number, ISO-##, IWP, requester, or notes';
       }
 
       const fieldQuery = byId('searchQuery');
+
       if (fieldQuery) {
         fieldQuery.placeholder =
           'FMR number or LP131-PV-180003-17';
       }
 
       /*
-       * Alpha 30.5 — the Core/Admin Register already supports
-       * CONFIRMED_BACKORDER. Make it explicit and one-click for planners.
+       * Alpha 30.5.6:
+       *
+       * Backorders remain an actionable queue.
+       * Active Bag & Tag becomes a material-state filter in the FMR Register.
        */
       const exceptionSelect = byId('adminRegisterException');
 
@@ -409,6 +413,10 @@
           Array.from(exceptionSelect.options || [])
             .find(option => option.value === 'CONFIRMED_BACKORDER');
 
+        const baggedOption =
+          Array.from(exceptionSelect.options || [])
+            .find(option => option.value === 'HAS_BAGGED');
+
         if (pendingOption) {
           pendingOption.textContent = 'Pending Backorder Review';
         }
@@ -416,6 +424,11 @@
         if (confirmedOption) {
           confirmedOption.textContent =
             'Approved / Confirmed Backorders';
+        }
+
+        if (baggedOption) {
+          baggedOption.textContent =
+            'Active Bag & Tag';
         }
       }
 
@@ -436,6 +449,68 @@
 
         actions.appendChild(button);
       }
+
+      if (actions && !byId('adminBaggedQuickFilter')) {
+        const button = document.createElement('button');
+
+        button.id = 'adminBaggedQuickFilter';
+        button.type = 'button';
+        button.className =
+          'secondary admin-backorder-quick-filter';
+        button.textContent = 'Active Bag & Tag';
+        button.setAttribute('aria-pressed', 'false');
+        button.title =
+          'Show FMRs that currently have material reserved under an active Bag & Tag.';
+
+        button.addEventListener(
+          'click',
+          () => {
+            const select =
+              byId('adminRegisterException');
+
+            if (!select) {
+              return;
+            }
+
+            const active =
+              select.value === 'HAS_BAGGED';
+
+            select.value =
+              active
+                ? 'ALL'
+                : 'HAS_BAGGED';
+
+            state.adminRegisterPage = 1;
+
+            syncAdminBackorderQuickFilterV3_();
+
+            closeAdminFmrDetailV3_();
+
+            refreshAdminRegisterV3_();
+          }
+        );
+
+        actions.appendChild(button);
+      }
+
+      /*
+       * Active Bags is no longer an operational queue in Alpha 30.5.6.
+       * Keep the legacy element in the DOM for compatibility, but make it
+       * inaccessible and force the actionable rail to BACKORDERS.
+       */
+      const activeBagQueueTab =
+        byId('adminOperationalBagsTab');
+
+      if (activeBagQueueTab) {
+        activeBagQueueTab.classList.add('hidden');
+        activeBagQueueTab.hidden = true;
+        activeBagQueueTab.disabled = true;
+        activeBagQueueTab.tabIndex = -1;
+        activeBagQueueTab.setAttribute('aria-hidden', 'true');
+        activeBagQueueTab.setAttribute('aria-selected', 'false');
+      }
+
+      state.adminOperationalTab = 'BACKORDERS';
 
       syncAdminBackorderQuickFilterV3_();
     }
@@ -6027,7 +6102,7 @@ async function refreshAdminV3_() {
     'adminOperationalList'
   ).innerHTML =
     '<div class="register-empty">' +
-    'Operational queues will load after the FMR register…' +
+    'Backorders will load after the FMR register…' +
     '</div>';
 
   byId('adminFmrRegister').innerHTML =
@@ -6043,9 +6118,8 @@ async function refreshAdminV3_() {
   /**
    * Phase 1 — register first.
    *
-   * The previous Promise.all() made this table wait for getAdminDashboardV3,
-   * even when getAdminFmrRegisterV3 had already finished. It also sent two
-   * heavy Spreadsheet workloads at the same instant.
+   * Alpha 30.5.3 behavior is preserved: the primary working table renders
+   * before the Dashboard/backorder call begins.
    */
   try {
     const register =
@@ -6079,7 +6153,6 @@ async function refreshAdminV3_() {
       error
     );
 
-    // Do not erase the useful queue/dashboard area if only register failed.
     byId(
       'adminRegisterStatusText'
     ).textContent =
@@ -6087,19 +6160,31 @@ async function refreshAdminV3_() {
   }
 
   /**
-   * Phase 2 — KPIs + operational queues.
-   * Starts only after Phase 1 is rendered, eliminating same-time contention.
+   * Phase 2 — KPIs + actionable Backorder queue only.
+   *
+   * Alpha 30.5.6 removes Active Bag & Tag from the operational rail.
+   * Bagged material is accessed through the Admin Register HAS_BAGGED filter,
+   * so Admin startup no longer loads BAGSTATUS:ACTIVE.
    */
+  state.adminOperationalTab =
+    'BACKORDERS';
+
+  state.adminActiveBagLoadSequence += 1;
+  state.adminActiveBagLoading = false;
+  state.adminActiveBagFullyLoaded = false;
+  state.adminActiveBagRecords = [];
+  state.adminActiveBagSummary = {};
+
   byId(
     'adminOperationalStatus'
   ).textContent =
-    'Loading operational queues…';
+    'Loading backorders…';
 
   byId(
     'adminOperationalList'
   ).innerHTML =
     '<div class="register-empty">' +
-    'Loading backorders and Active Bag & Tags…' +
+    'Loading backorders awaiting Admin review…' +
     '</div>';
 
   try {
@@ -6121,14 +6206,6 @@ async function refreshAdminV3_() {
             .canReviewBackorders
       };
 
-    const activeBagRail =
-      rail.activeBags || {
-        summary: {},
-
-        records:
-          dashboard.activeBags || []
-      };
-
     state.adminBackorderRequests =
       backorderRail.requests || [];
 
@@ -6136,16 +6213,6 @@ async function refreshAdminV3_() {
       Boolean(
         backorderRail.canReview
       );
-
-    state.adminActiveBagRecords =
-      activeBagRail.records || [];
-
-    state.adminActiveBagSummary =
-      activeBagRail.summary || {};
-
-    state.adminActiveBagLoadSequence += 1;
-    state.adminActiveBagLoading = false;
-    state.adminActiveBagFullyLoaded = false;
 
     renderKpisV3_(
       dashboard.kpis || {}
@@ -6159,13 +6226,6 @@ async function refreshAdminV3_() {
     );
 
     if (
-      state.adminOperationalTab ===
-      'ACTIVE_BAGS'
-    ) {
-      ensureCompleteAdminActiveBagQueueV3_();
-    }
-
-    if (
       state.adminDecisionBusy
     ) {
       setAdminDecisionBusyV3_(
@@ -6176,10 +6236,6 @@ async function refreshAdminV3_() {
   } catch (
     error
   ) {
-    /**
-     * Keep an already-rendered register usable when the operational rail fails.
-     * This is intentionally independent from the register error path.
-     */
     console.error(
       error
     );
@@ -6187,20 +6243,16 @@ async function refreshAdminV3_() {
     byId(
       'adminOperationalStatus'
     ).textContent =
-      'Unable to load operational queues. Use Refresh to retry.';
+      'Unable to load backorders. Use Refresh to retry.';
 
     byId(
       'adminOperationalList'
     ).innerHTML =
       '<div class="register-empty">' +
-      'Operational queue loading failed; the FMR register remains available.' +
+      'Backorder loading failed; the FMR register remains available.' +
       '</div>';
   }
 }
-
-
-
-
 
     async function refreshAdminRegisterV3_() {
       hideAlertsV3_();
@@ -6249,22 +6301,58 @@ async function refreshAdminV3_() {
     }
 
     function syncAdminBackorderQuickFilterV3_() {
-      const button = byId('adminBackorderedQuickFilter');
-      const select = byId('adminRegisterException');
+      const backorderButton =
+        byId('adminBackorderedQuickFilter');
 
-      if (!button || !select) {
+      const baggedButton =
+        byId('adminBaggedQuickFilter');
+
+      const select =
+        byId('adminRegisterException');
+
+      if (!select) {
         return;
       }
 
-      const active =
+      const backorderActive =
         select.value === 'CONFIRMED_BACKORDER';
 
-      button.classList.toggle('is-active', active);
-      button.setAttribute('aria-pressed', String(active));
-      button.textContent =
-        active
-          ? 'Showing Backorders'
-          : 'Backordered Only';
+      const baggedActive =
+        select.value === 'HAS_BAGGED';
+
+      if (backorderButton) {
+        backorderButton.classList.toggle(
+          'is-active',
+          backorderActive
+        );
+
+        backorderButton.setAttribute(
+          'aria-pressed',
+          String(backorderActive)
+        );
+
+        backorderButton.textContent =
+          backorderActive
+            ? 'Showing Backorders'
+            : 'Backordered Only';
+      }
+
+      if (baggedButton) {
+        baggedButton.classList.toggle(
+          'is-active',
+          baggedActive
+        );
+
+        baggedButton.setAttribute(
+          'aria-pressed',
+          String(baggedActive)
+        );
+
+        baggedButton.textContent =
+          baggedActive
+            ? 'Showing Active Bags'
+            : 'Active Bag & Tag';
+      }
     }
 
     function adminRegisterRequestV3_() {
@@ -7541,17 +7629,41 @@ async function refreshAdminV3_() {
         return;
       }
 
+      const activeException =
+        byId('adminRegisterException')?.value ||
+        'ALL';
+
       const confirmedBackorderOnly =
-        byId('adminRegisterException')?.value ===
+        activeException ===
         'CONFIRMED_BACKORDER';
+
+      const activeBagOnly =
+        activeException ===
+        'HAS_BAGGED';
 
       const visibleMaterials =
         (card.materials || []).filter(
-          material =>
-            !confirmedBackorderOnly ||
-            Number(
-              material.qtyConfirmedBackorder || 0
-            ) > 0
+          material => {
+            if (
+              confirmedBackorderOnly &&
+              Number(
+                material.qtyConfirmedBackorder || 0
+              ) <= 0
+            ) {
+              return false;
+            }
+
+            if (
+              activeBagOnly &&
+              Number(
+                material.qtyActiveBagged || 0
+              ) <= 0
+            ) {
+              return false;
+            }
+
+            return true;
+          }
         );
 
       container.innerHTML = `
@@ -7646,7 +7758,14 @@ async function refreshAdminV3_() {
                   backordered quantity.
                 </div>
               `
-            : ''
+            : activeBagOnly
+              ? `
+                  <div class="admin-backorder-filter-notice">
+                    Showing only material lines currently reserved under an
+                    active Bag &amp; Tag.
+                  </div>
+                `
+              : ''
         }
 
         <div class="table-wrap">

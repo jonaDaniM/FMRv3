@@ -1,10 +1,15 @@
 /**
- * Admin KPI and operational-rail service.
+ * Admin KPI and actionable operational-queue service.
  *
- * Returns:
- * - KPI values
- * - Backorders awaiting Admin action
- * - Active Bag & Tag items
+ * Alpha 30.5.6:
+ * - Backorders remain the Admin operational queue because they require action.
+ * - Active Bag & Tag is now a Register material-state filter (HAS_BAGGED).
+ * - Dashboard no longer calls getAdminActiveBagQueueFmrV3_(), eliminating an
+ *   unnecessary high-cardinality Operational_Index read on every Admin load.
+ *
+ * The empty activeBags compatibility fields are intentionally retained so an
+ * older Bound client does not fail while Core/Bound are being advanced through
+ * Test Deployment.
  */
 function getAdminDashboardFmrV3_(userEmail) {
   const user = assertSearchUserFmrV3_(
@@ -22,23 +27,13 @@ function getAdminDashboardFmrV3_(userEmail) {
       userEmail
     );
 
-  const activeBagQueue =
-    getAdminActiveBagQueueFmrV3_(
-      userEmail,
-      {
-        query: '',
-        readiness: 'ALL',
-        sortOrder: 'OLDEST_FIRST',
-        page: 1,
-        pageSize: 10
-      }
-    );
-
   return {
     generatedAt: formatDateTimeFmrV3_(
       nowFmrV3_()
     ),
+
     user: user,
+
     canReviewBackorders:
       user.canAdminBackorder,
 
@@ -60,36 +55,61 @@ function getAdminDashboardFmrV3_(userEmail) {
     },
 
     /**
-     * Preserved for compatibility with the
-     * existing Admin interface.
+     * Preserved for compatibility with the existing Admin interface.
      */
-    backorders: backorderQueue.requests,
+    backorders:
+      backorderQueue.requests,
 
     /**
-     * Preserved as a simple direct collection
-     * for lightweight clients.
+     * Deprecated compatibility payload.
+     *
+     * Alpha 30.5.6 intentionally does NOT query active Bag items here.
+     * Use Admin Register exceptionType HAS_BAGGED instead.
      */
-    activeBags: activeBagQueue.records,
+    activeBags: [],
 
-    /**
-     * Primary Sprint 1 Admin right-rail payload.
-     */
     operationalRail: {
       backorders: {
-        count: backorderQueue.count,
+        count:
+          backorderQueue.count,
+
         canReview:
           backorderQueue.canReview,
+
         requests:
           backorderQueue.requests
       },
 
       activeBags: {
-        summary:
-          activeBagQueue.summary,
-        pagination:
-          activeBagQueue.pagination,
-        records:
-          activeBagQueue.records
+        deprecated:
+          true,
+
+        filter:
+          'HAS_BAGGED',
+
+        summary: {
+          activeTags:
+            values[5][5],
+
+          activeItems:
+            0,
+
+          matchingItems:
+            0
+        },
+
+        pagination: {
+          page: 1,
+          pageSize: 0,
+          totalRecords: 0,
+          totalPages: 1,
+          hasPrevious: false,
+          hasNext: false,
+          firstRecord: 0,
+          lastRecord: 0
+        },
+
+        records: []
       }
     }
   };
