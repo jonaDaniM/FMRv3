@@ -405,6 +405,7 @@
   }
 
   const state = {
+    initialized:false,
     migrationPreview:null,
     migrationJob:null,
     autoRunning:false,
@@ -2389,17 +2390,53 @@
           );
         }
       });
+  }
 
-    Promise.allSettled([
+  async function initializeAuthorizedOwnerMaintenanceV3_(
+    bootstrap
+  ) {
+    if (
+      state.initialized
+    ) {
+      return true;
+    }
+
+    const source =
+      bootstrap ||
+      {};
+
+    const user =
+      source.user ||
+      {};
+
+    if (
+      requestedView !==
+      'owner'
+    ) {
+      return false;
+    }
+
+    if (
+      user.canOwnerEdit !==
+      true
+    ) {
+      return false;
+    }
+
+    state.initialized =
+      true;
+
+    insertPanel();
+
+    await Promise.allSettled([
       checkDriveAuthorization(false),
       loadRecentMigrationJobs()
     ]);
+
+    return true;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded',insertPanel);
-  } else {
-    insertPanel();
-  }
+  window.initializeAuthorizedOwnerMaintenanceV3 =
+    initializeAuthorizedOwnerMaintenanceV3_;
 })();
 </script>

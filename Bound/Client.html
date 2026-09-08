@@ -329,6 +329,21 @@
           }
 
           activateRequestedViewV3_();
+          if (
+            REQUESTED_VIEW ===
+             'owner' && 
+            typeof window
+              .initializeAuthorizedOwnerMaintenanceV3 ===
+              'function'
+          ) {
+            window
+              .initializeAuthorizedOwnerMaintenanceV3(
+                bootstrap
+              )
+              .catch(
+                showErrorV3_
+              );
+          }
 
           if (
             REQUESTED_VIEW ===

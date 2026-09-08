@@ -2,6 +2,69 @@ function getFmrV3Version() {
   return FMR_V3.VERSION;
 }
 
+function normalizeBootstrapInterfaceFmrV3_(
+  interfaceName
+) {
+  const normalized =
+    normalizeUpperFmrV3_(
+      interfaceName ||
+      'PORTAL'
+    );
+
+  return [
+    'FIELD',
+    'ADMIN',
+    'OWNER',
+    'PORTAL'
+  ].includes(
+    normalized
+  )
+    ? normalized
+    : 'PORTAL';
+}
+
+function assertBootstrapInterfaceAccessFmrV3_(
+  user,
+  interfaceName
+) {
+  if (!user) {
+    throw new Error(
+      'Authenticated FMR user is required.'
+    );
+  }
+
+  const requestedInterface =
+    normalizeBootstrapInterfaceFmrV3_(
+      interfaceName
+    );
+
+  if (
+    requestedInterface ===
+      'ADMIN' &&
+    !Boolean(
+      user.canAdminBackorder
+    )
+  ) {
+    throw new Error(
+      'Your account does not have Admin access.'
+    );
+  }
+
+  if (
+    requestedInterface ===
+      'OWNER' &&
+    !Boolean(
+      user.canOwnerEdit
+    )
+  ) {
+    throw new Error(
+      'Your account does not have System Owner access.'
+    );
+  }
+
+  return requestedInterface;
+}
+
 function getFmrV3Bootstrap(
   databaseId,
   userEmail,
@@ -17,10 +80,19 @@ function getFmrV3Bootstrap(
       userEmail
     );
 
+  const authorizedInterface =
+    assertBootstrapInterfaceAccessFmrV3_(
+      user,
+      interfaceName
+    );
+
+  /*
+   * IMPORTANT:
+   * Record access only after the requested interface has passed authorization.
+   */
   recordUserAccessFmrV3_(
     user.email,
-    interfaceName ||
-    'PORTAL'
+    authorizedInterface
   );
 
   return {
@@ -37,10 +109,11 @@ function getFmrV3Bootstrap(
 
     field:
       getFieldBootstrapFmrV3_(
-        userEmail
+        user.email
       )
   };
 }
+
 
 
 function isoSuffixSearchCandidatesFmrV3_(
