@@ -1324,19 +1324,9 @@ function bagMaterialFmrV3_(
   );
 }
 
-
-
-
-
-
-/**
- * Alpha 30.2 COMPLETE REPLACEMENT FUNCTION
- *
- * Replace the existing getActiveBagsByLineIdsFmrV3_ definition in
- * FMRCoreV3/FieldService.gs with this entire function.
- */
 function getActiveBagsByLineIdsFmrV3_(
-  lineIds
+  lineIds,
+  preloadedEntriesByLine
 ) {
   const result = {};
 
@@ -1361,16 +1351,45 @@ function getActiveBagsByLineIdsFmrV3_(
     return result;
   }
 
-  /**
-   * For one/few lines this retains the existing cached Operational_Index
-   * lookup. For a multi-line FMR, Alpha 30.2 resolves every BAGLINE key in one
-   * batched index pass.
-   */
-  const entriesByLine =
-    lookupOperationalRowsForValuesFmrV3_(
-      'BAGLINE',
-      normalizedLineIds
+  const hasPreloadedEntries =
+    Boolean(
+      preloadedEntriesByLine &&
+      typeof preloadedEntriesByLine ===
+        'object'
     );
+
+  let entriesByLine;
+
+  if (
+    hasPreloadedEntries
+  ) {
+    entriesByLine = {};
+
+    normalizedLineIds.forEach(
+      function (
+        lineId
+      ) {
+        entriesByLine[
+          lineId
+        ] =
+          Array.isArray(
+            preloadedEntriesByLine[
+              lineId
+            ]
+          )
+            ? preloadedEntriesByLine[
+                lineId
+              ]
+            : [];
+      }
+    );
+  } else {
+    entriesByLine =
+      lookupOperationalRowsForValuesFmrV3_(
+        'BAGLINE',
+        normalizedLineIds
+      );
+  }
 
   const allEntries = [];
 
@@ -1443,17 +1462,25 @@ function getActiveBagsByLineIdsFmrV3_(
     );
 
   const items =
-    readRowsObjectsFmrV3_(
+    readRowsObjectsBatchedFmrV3_(
       FMR_V3.SHEETS
         .BAG_ITEMS,
-      itemRows
+      itemRows,
+      {
+        maxGapRows: 8,
+        maxGroups: 20
+      }
     );
 
   const headers =
-    readRowsObjectsFmrV3_(
+    readRowsObjectsBatchedFmrV3_(
       FMR_V3.SHEETS
         .BAG_HEADERS,
-      headerRows
+      headerRows,
+      {
+        maxGapRows: 4,
+        maxGroups: 20
+      }
     );
 
   const itemsByRow = {};
@@ -1524,10 +1551,6 @@ function getActiveBagsByLineIdsFmrV3_(
                 return null;
               }
 
-              /**
-               * Defensive parity check: do not let a stale Operational_Index
-               * row surface a bag item belonging to another FMR line.
-               */
               if (
                 normalizeFmrV3_(
                   item.FMR_Line_ID

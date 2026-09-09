@@ -715,6 +715,12 @@ function searchPublishedFmrV3_(
               .USE_BATCHED_FIELD_SEARCH_READS
           ),
 
+        combinedOperationalLookup:
+          true,
+
+        targetedNoticeLookup:
+          true,
+
         timings:
           timings
       }
@@ -861,9 +867,23 @@ function searchPublishedFmrV3_(
   phaseStartedAt =
     Date.now();
 
+  const operationalEntries =
+    resolveFieldOperationalEntriesAlpha30_5_9FmrV3_(
+      lineIds
+    );
+
+  timings.operationalIndexEnrichmentLookupMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   const bagsByLine =
     getActiveBagsByLineIdsFmrV3_(
-      lineIds
+      lineIds,
+      operationalEntries
+        .bagEntriesByLine
     );
 
   timings.activeBagReadMs =
@@ -875,7 +895,9 @@ function searchPublishedFmrV3_(
 
   const returnedByLine =
     getReturnedBackordersByLineIdsFmrV3_(
-      lineIds
+      lineIds,
+      operationalEntries
+        .backorderEntriesByLine
     );
 
   timings.returnedBackorderReadMs =
@@ -1053,11 +1075,23 @@ function searchPublishedFmrV3_(
       cardCount:
         cards.length,
 
+      operationalKeyCount:
+        numberFmrV3_(
+          operationalEntries
+            .requestedKeyCount
+        ),
+
       batchedReadsEnabled:
         Boolean(
           FMR_V3_ALPHA30_5_8_PERFORMANCE
             .USE_BATCHED_FIELD_SEARCH_READS
         ),
+
+      combinedOperationalLookup:
+        true,
+
+      targetedNoticeLookup:
+        true,
 
       timings:
         timings

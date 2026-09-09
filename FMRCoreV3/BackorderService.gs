@@ -1122,14 +1122,9 @@ function reviewBackorderFmrV3_(
   }
 }
 
-/**
- * Alpha 30.2 COMPLETE REPLACEMENT FUNCTION
- *
- * Replace the existing getReturnedBackordersByLineIdsFmrV3_ definition in
- * FMRCoreV3/BackorderService.gs with this entire function.
- */
 function getReturnedBackordersByLineIdsFmrV3_(
-  lineIds
+  lineIds,
+  preloadedEntriesByLine
 ) {
   const result = {};
 
@@ -1154,18 +1149,47 @@ function getReturnedBackordersByLineIdsFmrV3_(
     return result;
   }
 
-  /**
-   * Resolve every BACKORDERLINE key together instead of one Operational_Index
-   * lookup + one Backorder_Requests read for each FMR line.
-   */
-  const entriesByLine =
-    lookupOperationalRowsForValuesFmrV3_(
-      'BACKORDERLINE',
-      normalizedLineIds
+  const hasPreloadedEntries =
+    Boolean(
+      preloadedEntriesByLine &&
+      typeof preloadedEntriesByLine ===
+        'object'
     );
 
-  const requestRows =
-    [];
+  let entriesByLine;
+
+  if (
+    hasPreloadedEntries
+  ) {
+    entriesByLine = {};
+
+    normalizedLineIds.forEach(
+      function (
+        lineId
+      ) {
+        entriesByLine[
+          lineId
+        ] =
+          Array.isArray(
+            preloadedEntriesByLine[
+              lineId
+            ]
+          )
+            ? preloadedEntriesByLine[
+                lineId
+              ]
+            : [];
+      }
+    );
+  } else {
+    entriesByLine =
+      lookupOperationalRowsForValuesFmrV3_(
+        'BACKORDERLINE',
+        normalizedLineIds
+      );
+  }
+
+  const requestRows = [];
 
   normalizedLineIds.forEach(
     function (
@@ -1199,14 +1223,18 @@ function getReturnedBackordersByLineIdsFmrV3_(
   );
 
   const requests =
-    readRowsObjectsFmrV3_(
+    readRowsObjectsBatchedFmrV3_(
       FMR_V3.SHEETS
         .BACKORDERS,
       Array.from(
         new Set(
           requestRows
         )
-      )
+      ),
+      {
+        maxGapRows: 6,
+        maxGroups: 20
+      }
     );
 
   const requestsByRow = {};
@@ -1252,9 +1280,6 @@ function getReturnedBackordersByLineIdsFmrV3_(
                 return null;
               }
 
-              /**
-               * Defensive parity check for stale/orphaned index rows.
-               */
               if (
                 normalizeFmrV3_(
                   request

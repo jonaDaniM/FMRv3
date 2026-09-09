@@ -1,15 +1,3 @@
-/**
- * FMR Operations v3 — Alpha 30
- * Field backorder notification service.
- *
- * Production-hardening changes:
- *  - Single Source_ID lookups use exact-column search.
- *  - Single FMR_Line_ID notice lookups use exact-column search.
- *  - Per-line notification synchronization reads only matching backorders.
- *
- * Existing notice lifecycle, rejection handling, migration fixtures and
- * diagnostics are otherwise preserved.
- */
 const FMR_V3_FIELD_NOTICE =
   Object.freeze({
     sheetName:
@@ -1585,7 +1573,9 @@ function getFieldBackorderNoticesByLineIdsFmrV3_(
     }
   );
 
-  fieldNoticeRowsFmrV3_()
+  fieldNoticeRowsByLineIdsAlpha30_5_9FmrV3_(
+    normalizedIds
+  )
     .filter(
       function (
         notice
@@ -1646,7 +1636,8 @@ function getFieldBackorderNoticesByLineIdsFmrV3_(
             );
 
           if (
-            actionDifference !== 0
+            actionDifference !==
+            0
           ) {
             return actionDifference;
           }
