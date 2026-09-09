@@ -196,120 +196,450 @@ function readRowsObjectsBatchedFmrV3_(
   });
 }
 
-/**
- * Batch form of lookupIndexEntriesFmrV3_.
- *
- * Improvements over Alpha 30.2:
- * - for >3 keys, fetch every existing per-key cache entry in one getAll();
- * - scan the index only for cache misses;
- * - repopulate misses in one putAll();
- * - preserve the exact same per-key cache keys used by the single-key path.
- */
-function lookupIndexEntriesForKeysFmrV3_(sheetName, exactKeys) {
-  const keys = Array.from(
-    new Set(
-      (exactKeys || [])
-        .map(function (key) {
-          return normalizeUpperFmrV3_(key);
-        })
-        .filter(Boolean)
-    )
-  );
+function lookupIndexEntriesForKeysFmrV3_(
+  sheetName,
+  exactKeys
+) {
+  const keys =
+    Array.from(
+      new Set(
+        (
+          exactKeys ||
+          []
+        )
+          .map(
+            function (
+              key
+            ) {
+              return normalizeUpperFmrV3_(
+                key
+              );
+            }
+          )
+          .filter(Boolean)
+      )
+    );
 
   const result = {};
-  keys.forEach(function (key) {
-    result[key] = [];
-  });
 
-  if (!keys.length) return result;
+  keys.forEach(
+    function (
+      key
+    ) {
+      result[
+        key
+      ] = [];
+    }
+  );
 
-  if (keys.length <= FMR_V3_BATCH_READ_POLICY.EXACT_LOOKUP_THRESHOLD) {
-    keys.forEach(function (key) {
-      result[key] = lookupIndexEntriesFmrV3_(sheetName, key);
-    });
+  if (
+    !keys.length
+  ) {
     return result;
   }
 
-  const cache = CacheService.getScriptCache();
-  const cacheKeyByExactKey = {};
-  const cacheKeys = keys.map(function (key) {
-    const cacheKey = indexCacheKeyFmrV3_(sheetName, key);
-    cacheKeyByExactKey[key] = cacheKey;
-    return cacheKey;
-  });
+  /**
+   * Preserve the existing exact single-key path for small requests.
+   *
+   * That path already uses the hardened Alpha 30.5.5 cache layer.
+   */
+  if (
+    keys.length <=
+    FMR_V3_BATCH_READ_POLICY
+      .EXACT_LOOKUP_THRESHOLD
+  ) {
+    keys.forEach(
+      function (
+        key
+      ) {
+        result[
+          key
+        ] =
+          lookupIndexEntriesFmrV3_(
+            sheetName,
+            key
+          );
+      }
+    );
 
-  const cachedValues = cache.getAll(cacheKeys) || {};
+    return result;
+  }
+
+  const cache =
+    CacheService
+      .getScriptCache();
+
+  const cacheKeyByExactKey = {};
+
+  const cacheKeys =
+    keys.map(
+      function (
+        key
+      ) {
+        const cacheKey =
+          indexCacheKeyFmrV3_(
+            sheetName,
+            key
+          );
+
+        cacheKeyByExactKey[
+          key
+        ] =
+          cacheKey;
+
+        return cacheKey;
+      }
+    );
+
+  /**
+   * Alpha 30.5.10:
+   * CacheService.getAll() can fail at the platform/service level.
+   *
+   * Cache is NEVER authoritative, so a failure is treated exactly like a cache
+   * miss and the request continues against the Spreadsheet index.
+   */
+  let cachedValues = {};
+
+  try {
+    cachedValues =
+      cache.getAll(
+        cacheKeys
+      ) ||
+      {};
+  } catch (
+    error
+  ) {
+    console.warn(
+      'FMR_V3_CACHE_ALPHA30_5_10 ' +
+      JSON.stringify({
+        event:
+          'BATCH_CACHE_READ_BYPASS',
+
+        sheet:
+          normalizeFmrV3_(
+            sheetName
+          ),
+
+        keyCount:
+          keys.length,
+
+        message:
+          normalizeFmrV3_(
+            error &&
+            error.message
+          )
+      })
+    );
+
+    cachedValues = {};
+  }
+
   const missingKeys = [];
 
-  keys.forEach(function (key) {
-    const raw = cachedValues[cacheKeyByExactKey[key]];
+  keys.forEach(
+    function (
+      key
+    ) {
+      const cacheKey =
+        cacheKeyByExactKey[
+          key
+        ];
 
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        result[key] = Array.isArray(parsed) ? parsed : [];
-        return;
-      } catch (error) {
-        // Treat malformed/expired cache content as a miss and rebuild it.
+      const raw =
+        cachedValues[
+          cacheKey
+        ];
+
+      if (
+        raw
+      ) {
+        try {
+          const parsed =
+            JSON.parse(
+              raw
+            );
+
+          result[
+            key
+          ] =
+            Array.isArray(
+              parsed
+            )
+              ? parsed
+              : [];
+
+          return;
+        } catch (
+          error
+        ) {
+          /**
+           * Malformed cache content is a miss.
+           * Cleanup is best-effort only.
+           */
+          try {
+            cache.remove(
+              cacheKey
+            );
+          } catch (
+            ignored
+          ) {}
+        }
       }
+
+      missingKeys.push(
+        key
+      );
     }
+  );
 
-    missingKeys.push(key);
-  });
+  if (
+    !missingKeys.length
+  ) {
+    return result;
+  }
 
-  if (!missingKeys.length) return result;
+  /**
+   * Authoritative Spreadsheet path.
+   */
+  const missingSet =
+    new Set(
+      missingKeys
+    );
 
-  const missingSet = new Set(missingKeys);
   const keyField =
-    sheetName === FMR_V3.SHEETS.SEARCH_INDEX
+    sheetName ===
+      FMR_V3.SHEETS
+        .SEARCH_INDEX
       ? 'Search_Key'
       : 'Index_Key';
 
-  const rows = findRowsByExactValuesFmrV3_(
-    sheetName,
-    1,
-    missingKeys
-  );
+  const rows =
+    findRowsByExactValuesFmrV3_(
+      sheetName,
+      1,
+      missingKeys
+    );
 
-  const records = readRowsObjectsBatchedFmrV3_(
-    sheetName,
-    rows,
-    {
-      maxGapRows: 4,
-      maxGroups: 20
-    }
-  );
+  const records =
+    readRowsObjectsBatchedFmrV3_(
+      sheetName,
+      rows,
+      {
+        maxGapRows:
+          4,
 
-  records.forEach(function (record) {
-    const key = normalizeUpperFmrV3_(record[keyField]);
+        maxGroups:
+          20
+      }
+    );
 
-    if (
-      missingSet.has(key) &&
-      yesFmrV3_(record.Active)
+  records.forEach(
+    function (
+      record
     ) {
-      result[key].push(record);
-    }
-  });
+      const key =
+        normalizeUpperFmrV3_(
+          record[
+            keyField
+          ]
+        );
 
-  const ttl = Math.max(
-    60,
-    Math.min(
-      21600,
-      numberFmrV3_(getConfigurationFmrV3_().SEARCH_CACHE_SECONDS) || 3600
-    )
+      if (
+        missingSet.has(
+          key
+        ) &&
+        yesFmrV3_(
+          record.Active
+        )
+      ) {
+        result[
+          key
+        ].push(
+          record
+        );
+      }
+    }
   );
 
-  const cachePayload = {};
-  missingKeys.forEach(function (key) {
-    cachePayload[cacheKeyByExactKey[key]] = JSON.stringify(result[key]);
-  });
+  const ttl =
+    Math.max(
+      60,
+      Math.min(
+        21600,
+        numberFmrV3_(
+          getConfigurationFmrV3_()
+            .SEARCH_CACHE_SECONDS
+        ) ||
+        3600
+      )
+    );
 
-  if (Object.keys(cachePayload).length) {
-    cache.putAll(cachePayload, ttl);
+  /**
+   * Prepare cache writes without risking the authoritative result.
+   *
+   * Small per-key results use the ordinary multi-key fast path.
+   * Oversized per-key values use the existing Alpha 30.5.5 chunk-aware writer.
+   */
+  const cachePayload = {};
+  const oversizedKeys = [];
+
+  missingKeys.forEach(
+    function (
+      key
+    ) {
+      try {
+        const serialized =
+          JSON.stringify(
+            result[
+              key
+            ]
+          );
+
+        const serializedBytes =
+          indexCacheUtf8BytesFmrV3_(
+            serialized
+          );
+
+        if (
+          serializedBytes <=
+          FMR_V3_INDEX_CACHE_SAFE_VALUE_BYTES_
+        ) {
+          cachePayload[
+            cacheKeyByExactKey[
+              key
+            ]
+          ] =
+            serialized;
+        } else {
+          oversizedKeys.push(
+            key
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.warn(
+          'FMR_V3_CACHE_ALPHA30_5_10 ' +
+          JSON.stringify({
+            event:
+              'BATCH_CACHE_PREP_BYPASS',
+
+            sheet:
+              normalizeFmrV3_(
+                sheetName
+              ),
+
+            exactKey:
+              key,
+
+            message:
+              normalizeFmrV3_(
+                error &&
+                error.message
+              )
+          })
+        );
+      }
+    }
+  );
+
+  if (
+    Object.keys(
+      cachePayload
+    ).length
+  ) {
+    try {
+      cache.putAll(
+        cachePayload,
+        ttl
+      );
+    } catch (
+      error
+    ) {
+      /**
+       * Do not retry dozens of individual cache calls while CacheService is
+       * degraded. The authoritative Spreadsheet result is already complete.
+       */
+      console.warn(
+        'FMR_V3_CACHE_ALPHA30_5_10 ' +
+        JSON.stringify({
+          event:
+            'BATCH_CACHE_WRITE_BYPASS',
+
+          sheet:
+            normalizeFmrV3_(
+              sheetName
+            ),
+
+          keyCount:
+            Object.keys(
+              cachePayload
+            ).length,
+
+          message:
+            normalizeFmrV3_(
+              error &&
+              error.message
+          )
+        })
+      );
+    }
   }
+
+  /**
+   * Large individual key payloads cannot safely go through putAll().
+   * Reuse the already-hardened Alpha 30.5.5 chunk writer.
+   */
+  oversizedKeys.forEach(
+    function (
+      key
+    ) {
+      try {
+        writeIndexCacheRecordsFmrV3_(
+          cache,
+          cacheKeyByExactKey[
+            key
+          ],
+          result[
+            key
+          ],
+          ttl
+        );
+      } catch (
+        error
+      ) {
+        console.warn(
+          'FMR_V3_CACHE_ALPHA30_5_10 ' +
+          JSON.stringify({
+            event:
+              'CHUNKED_CACHE_WRITE_BYPASS',
+
+            sheet:
+              normalizeFmrV3_(
+                sheetName
+              ),
+
+            exactKey:
+              key,
+
+            message:
+              normalizeFmrV3_(
+                error &&
+                error.message
+              )
+          })
+        );
+      }
+    }
+  );
 
   return result;
 }
+
+
+
+
+
 
 /**
  * Return Operational_Index records grouped by their requested source value.
