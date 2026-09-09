@@ -615,16 +615,38 @@ function searchPublishedFmrV3_(
   query,
   mode
 ) {
+  const performanceStartedAt =
+    Date.now();
+
+  let phaseStartedAt =
+    performanceStartedAt;
+
+  const timings = {};
+
   const user =
     assertSearchUserFmrV3_(
       userEmail
     );
+
+  timings.authorizationMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const keys =
     normalizeSearchRequestFmrV3_(
       query,
       mode
     );
+
+  timings.normalizeSearchMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   let entries = [];
 
@@ -652,9 +674,52 @@ function searchPublishedFmrV3_(
     }
   );
 
+  timings.searchIndexLookupMs =
+    Date.now() -
+    phaseStartedAt;
+
   if (
     !entries.length
   ) {
+    timings.totalMs =
+      Date.now() -
+      performanceStartedAt;
+
+    logPerformanceAlpha30_5_8FmrV3_(
+      'FIELD_SEARCH',
+      {
+        queryMode:
+          normalizeUpperFmrV3_(
+            mode ||
+            'AUTO'
+          ),
+
+        keyCount:
+          keys.length,
+
+        entryCount:
+          0,
+
+        lineCount:
+          0,
+
+        headerCount:
+          0,
+
+        cardCount:
+          0,
+
+        batchedReadsEnabled:
+          Boolean(
+            FMR_V3_ALPHA30_5_8_PERFORMANCE
+              .USE_BATCHED_FIELD_SEARCH_READS
+          ),
+
+        timings:
+          timings
+      }
+    );
+
     return {
       generatedAt:
         formatDateTimeFmrV3_(
@@ -677,16 +742,37 @@ function searchPublishedFmrV3_(
     };
   }
 
+  phaseStartedAt =
+    Date.now();
+
+  const lineRows =
+    entries.map(
+      function (
+        entry
+      ) {
+        return entry.Line_Row;
+      }
+    );
+
   const lines =
-    readRowsObjectsFmrV3_(
-      FMR_V3.SHEETS.LINES,
-      entries.map(
-        function (
-          entry
-        ) {
-          return entry.Line_Row;
-        }
-      )
+    (
+      FMR_V3_ALPHA30_5_8_PERFORMANCE
+        .USE_BATCHED_FIELD_SEARCH_READS
+        ? readRowsObjectsBatchedFmrV3_(
+            FMR_V3.SHEETS.LINES,
+            lineRows,
+            {
+              maxGapRows:
+                12,
+
+              maxGroups:
+                20
+            }
+          )
+        : readRowsObjectsFmrV3_(
+            FMR_V3.SHEETS.LINES,
+            lineRows
+          )
     ).filter(
       function (
         line
@@ -697,16 +783,41 @@ function searchPublishedFmrV3_(
       }
     );
 
+  timings.lineReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
+  const headerRows =
+    entries.map(
+      function (
+        entry
+      ) {
+        return entry.Header_Row;
+      }
+    );
+
   const headers =
-    readRowsObjectsFmrV3_(
-      FMR_V3.SHEETS.HEADERS,
-      entries.map(
-        function (
-          entry
-        ) {
-          return entry.Header_Row;
-        }
-      )
+    (
+      FMR_V3_ALPHA30_5_8_PERFORMANCE
+        .USE_BATCHED_FIELD_SEARCH_READS
+        ? readRowsObjectsBatchedFmrV3_(
+            FMR_V3.SHEETS.HEADERS,
+            headerRows,
+            {
+              maxGapRows:
+                4,
+
+              maxGroups:
+                20
+            }
+          )
+        : readRowsObjectsFmrV3_(
+            FMR_V3.SHEETS.HEADERS,
+            headerRows
+          )
     ).filter(
       function (
         header
@@ -716,6 +827,10 @@ function searchPublishedFmrV3_(
         );
       }
     );
+
+  timings.headerReadMs =
+    Date.now() -
+    phaseStartedAt;
 
   const headersById = {};
 
@@ -743,20 +858,44 @@ function searchPublishedFmrV3_(
       }
     );
 
+  phaseStartedAt =
+    Date.now();
+
   const bagsByLine =
     getActiveBagsByLineIdsFmrV3_(
       lineIds
     );
+
+  timings.activeBagReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const returnedByLine =
     getReturnedBackordersByLineIdsFmrV3_(
       lineIds
     );
 
+  timings.returnedBackorderReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   const noticesByLine =
     getFieldBackorderNoticesByLineIdsFmrV3_(
       lineIds
     );
+
+  timings.backorderNoticeReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const grouped = {};
 
@@ -881,6 +1020,49 @@ function searchPublishedFmrV3_(
           );
       }
     );
+
+  timings.groupAndSerializeMs =
+    Date.now() -
+    phaseStartedAt;
+
+  timings.totalMs =
+    Date.now() -
+    performanceStartedAt;
+
+  logPerformanceAlpha30_5_8FmrV3_(
+    'FIELD_SEARCH',
+    {
+      queryMode:
+        normalizeUpperFmrV3_(
+          mode ||
+          'AUTO'
+        ),
+
+      keyCount:
+        keys.length,
+
+      entryCount:
+        entries.length,
+
+      lineCount:
+        lines.length,
+
+      headerCount:
+        headers.length,
+
+      cardCount:
+        cards.length,
+
+      batchedReadsEnabled:
+        Boolean(
+          FMR_V3_ALPHA30_5_8_PERFORMANCE
+            .USE_BATCHED_FIELD_SEARCH_READS
+        ),
+
+      timings:
+        timings
+    }
+  );
 
   return {
     generatedAt:

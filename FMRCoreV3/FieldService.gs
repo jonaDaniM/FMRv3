@@ -140,22 +140,44 @@ function finishLineActionFmrV3_(
   details,
   extraPatch
 ) {
+  const performanceStartedAt =
+    Date.now();
+
+  let phaseStartedAt =
+    performanceStartedAt;
+
+  const timings = {};
+
   const actionDetails =
     details || {};
 
   const updatedLine =
-    updateLineStateFmrV3_(
+    updateKnownLineStateAlpha30_5_8FmrV3_(
       line,
       state,
       user,
       extraPatch
     );
 
+  timings.lineWriteMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   refreshHeaderFromIndexedLinesFmrV3_(
     line.FMR_ID,
     line.FMR_Number,
     user
   );
+
+  timings.headerRefreshMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   appendAuditFmrV3_(
     'FMR_LINE',
@@ -172,6 +194,13 @@ function finishLineActionFmrV3_(
     }
   );
 
+  timings.auditWriteMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   const rejectedResolution =
     resolveRejectedFieldNotificationsFmrV3_(
       line,
@@ -184,11 +213,32 @@ function finishLineActionFmrV3_(
       action
     );
 
+  timings.rejectedNoticeResolutionMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   syncFieldNotificationsForLineFmrV3_(
     line
   );
 
+  timings.notificationSyncMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+    
   SpreadsheetApp.flush();
+
+  timings.flushMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const activeBags =
     getActiveBagsByLineIdsFmrV3_(
@@ -199,6 +249,13 @@ function finishLineActionFmrV3_(
       line.FMR_Line_ID
     ] || [];
 
+  timings.activeBagReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
   const returnedBackorders =
     getReturnedBackordersByLineIdsFmrV3_(
       [
@@ -207,6 +264,13 @@ function finishLineActionFmrV3_(
     )[
       line.FMR_Line_ID
     ] || [];
+
+  timings.returnedBackorderReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const backorderNotices =
     getFieldBackorderNoticesByLineIdsFmrV3_(
@@ -217,7 +281,14 @@ function finishLineActionFmrV3_(
       line.FMR_Line_ID
     ] || [];
 
-  return {
+  timings.backorderNoticeReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
+  const response = {
     success:
       true,
 
@@ -247,11 +318,59 @@ function finishLineActionFmrV3_(
         backorderNotices
       )
   };
+
+  timings.serializeResponseMs =
+    Date.now() -
+    phaseStartedAt;
+
+  timings.totalFinishMs =
+    Date.now() -
+    performanceStartedAt;
+
+  logPerformanceAlpha30_5_8FmrV3_(
+    'FIELD_ACTION_FINISH',
+    {
+      action:
+        normalizeUpperFmrV3_(
+          action
+        ),
+
+      fmrNumber:
+        normalizeFmrV3_(
+          line.FMR_Number
+        ),
+
+      fmrLineId:
+        normalizeFmrV3_(
+          line.FMR_Line_ID
+        ),
+
+      correlationId:
+        normalizeFmrV3_(
+          correlationId
+        ),
+
+      knownLineWriteEnabled:
+        Boolean(
+          FMR_V3_ALPHA30_5_8_PERFORMANCE
+            .USE_KNOWN_LINE_WRITE
+        ),
+
+      timings:
+        timings
+    }
+  );
+
+  return response;
 }
+
 function performFieldActionFmrV3_(
   userEmail,
   request
 ) {
+  const performanceStartedAt =
+    Date.now();
+
   const lock =
     LockService
       .getScriptLock();
@@ -259,6 +378,24 @@ function performFieldActionFmrV3_(
   lock.waitLock(
     30000
   );
+
+  const lockAcquiredAt =
+    Date.now();
+
+  let actionForLog =
+    normalizeUpperFmrV3_(
+      request &&
+      request.action
+    );
+
+  const lineIdForLog =
+    normalizeFmrV3_(
+      request &&
+      request.fmrLineId
+    );
+
+  let failureMessage =
+    '';
 
   try {
     const user =
@@ -273,6 +410,9 @@ function performFieldActionFmrV3_(
       normalizeUpperFmrV3_(
         rawPayload.action
       );
+
+    actionForLog =
+      action;
 
     const line =
       getLineByIdFmrV3_(
@@ -352,13 +492,55 @@ function performFieldActionFmrV3_(
           action
         );
     }
+  } catch (
+    error
+  ) {
+    failureMessage =
+      normalizeFmrV3_(
+        error &&
+        error.message
+      ) ||
+      'Unknown Field action error.';
+
+    throw error;
   } finally {
+    const beforeRelease =
+      Date.now();
+
     lock.releaseLock();
+
+    logPerformanceAlpha30_5_8FmrV3_(
+      'FIELD_ACTION_TOTAL',
+      {
+        action:
+          actionForLog,
+
+        fmrLineId:
+          lineIdForLog,
+
+        outcome:
+          failureMessage
+            ? 'ERROR'
+            : 'SUCCESS',
+
+        error:
+          failureMessage,
+
+        lockWaitMs:
+          lockAcquiredAt -
+          performanceStartedAt,
+
+        lockedExecutionMs:
+          beforeRelease -
+          lockAcquiredAt,
+
+        totalMs:
+          Date.now() -
+          performanceStartedAt
+      }
+    );
   }
 }
-
-
-
 
 function confirmAvailableFmrV3_(
   user,
