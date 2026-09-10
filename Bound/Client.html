@@ -3556,6 +3556,9 @@
           silent:
             true
         });
+      queueWritePerformanceEventAlpha30_5_12V3_(
+          result
+        );
       } catch (
         error
       ) {
@@ -8172,185 +8175,259 @@ async function refreshAdminV3_() {
       renderAdminOperationalQueueV3_();
     }
 
-    async function submitBackorderDecisionV3_(
-      requestId,
-      decision,
-      maximum
-    ) {
-      if (
-        state.adminDecisionBusy
-      ) {
-        return;
-      }
+async function submitBackorderDecisionV3_(
+  requestId,
+  decision,
+  maximum
+) {
+  if (
+    state.adminDecisionBusy
+  ) {
+    return;
+  }
 
-      let quantity = 0;
+  let quantity = 0;
 
-      if (
-        decision ===
-        'CONFIRM'
-      ) {
-        const response =
-          window.prompt(
-            `Quantity to confirm, maximum ${maximum}:`,
-            String(
-              maximum
-            )
-          );
-
-        if (
-          response == null
-        ) {
-          return;
-        }
-
-        quantity =
-          Number(
-            response
-          );
-
-        if (
-          !Number.isFinite(
-            quantity
-          ) ||
-          quantity <= 0 ||
-          quantity > maximum
-        ) {
-          showErrorV3_(
-            `Enter a quantity between 0 and ${maximum}.`
-          );
-
-          return;
-        }
-      }
-
-      const notes =
-        window.prompt(
-          decision ===
-          'RETURN'
-            ? (
-                'Explain what the Field ' +
-                'team should review:'
-              )
-            : (
-                decision ===
-                  'REJECT'
-                  ? 'Explain why this backorder is being rejected:'
-                  : 'Optional Admin notes:'
-              ),
-          ''
-        );
-
-      if (
-        notes ===
-        null
-      ) {
-        return;
-      }
-
-      const normalizedNotes =
-        notes.trim();
-
-      if (
-        decision ===
-          'REJECT' &&
-        !normalizedNotes
-      ) {
-        showErrorV3_(
-          'A rejection reason is required.'
-        );
-
-        return;
-      }
-
-      if (
-        decision ===
-          'RETURN' &&
-        !normalizedNotes
-      ) {
-        showErrorV3_(
-          'A return-for-review reason is required.'
-        );
-
-        return;
-      }
-
-      const decisionLabel =
-        decision ===
-          'CONFIRM'
-          ? 'Confirm'
-          : (
-              decision ===
-                'REJECT'
-                ? 'Reject'
-                : 'Return for Field Review'
-            );
-
-      const quantityText =
-        decision ===
-          'CONFIRM'
-          ? (
-              ' Quantity: ' +
-              formatQtyV3_(
-                quantity
-              ) +
-              '.'
-            )
-          : '';
-
-      if (
-        !window.confirm(
-          (
-            decisionLabel +
-            ' this backorder request?' +
-            quantityText
-          )
+  if (
+    decision ===
+    'CONFIRM'
+  ) {
+    const response =
+      window.prompt(
+        `Quantity to confirm, maximum ${maximum}:`,
+        String(
+          maximum
         )
-      ) {
-        return;
-      }
-
-      setAdminDecisionBusyV3_(
-        true,
-        'Saving Admin decision and refreshing the selected FMR…'
       );
 
-      try {
-        await callServerV3_(
-          'reviewBackorderV3',
-          {
-            requestId:
-              requestId,
-
-            decision:
-              decision,
-
-            quantity:
-              quantity,
-
-            notes:
-              normalizedNotes
-          }
-        );
-
-        await refreshAdminV3_();
-
-        showSuccessV3_(
-          `Backorder ${
-            decision.toLowerCase()
-          } completed. The open FMR detail is current.`
-        );
-      } catch (
-        error
-      ) {
-        showErrorV3_(
-          error
-        );
-      } finally {
-        setAdminDecisionBusyV3_(
-          false
-        );
-      }
+    if (
+      response == null
+    ) {
+      return;
     }
+
+    quantity =
+      Number(
+        response
+      );
+
+    if (
+      !Number.isFinite(
+        quantity
+      ) ||
+      quantity <= 0 ||
+      quantity > maximum
+    ) {
+      showErrorV3_(
+        `Enter a quantity between 0 and ${maximum}.`
+      );
+
+      return;
+    }
+  }
+
+  const notes =
+    window.prompt(
+      decision ===
+      'RETURN'
+        ? (
+            'Explain what the Field ' +
+            'team should review:'
+          )
+        : (
+            decision ===
+              'REJECT'
+              ? 'Explain why this backorder is being rejected:'
+              : 'Optional Admin notes:'
+          ),
+      ''
+    );
+
+  if (
+    notes ===
+    null
+  ) {
+    return;
+  }
+
+  const normalizedNotes =
+    notes.trim();
+
+  if (
+    decision ===
+      'REJECT' &&
+    !normalizedNotes
+  ) {
+    showErrorV3_(
+      'A rejection reason is required.'
+    );
+
+    return;
+  }
+
+  if (
+    decision ===
+      'RETURN' &&
+    !normalizedNotes
+  ) {
+    showErrorV3_(
+      'A return-for-review reason is required.'
+    );
+
+    return;
+  }
+
+  const decisionLabel =
+    decision ===
+      'CONFIRM'
+      ? 'Confirm'
+      : (
+          decision ===
+            'REJECT'
+            ? 'Reject'
+            : 'Return for Field Review'
+        );
+
+  const quantityText =
+    decision ===
+      'CONFIRM'
+      ? (
+          ' Quantity: ' +
+          formatQtyV3_(
+            quantity
+          ) +
+          '.'
+        )
+      : '';
+
+  if (
+    !window.confirm(
+      (
+        decisionLabel +
+        ' this backorder request?' +
+        quantityText
+      )
+    )
+  ) {
+    return;
+  }
+
+  setAdminDecisionBusyV3_(
+    true,
+    'Saving Admin decision…'
+  );
+
+  const decisionStartedAt =
+    Date.now();
+
+  let decisionResult =
+    null;
+
+  /**
+   * Phase 1 — authoritative business decision.
+   *
+   * A failure here means the decision did NOT complete and must still be
+   * presented as an error.
+   */
+  try {
+    decisionResult =
+      await callServerV3_(
+        'reviewBackorderV3',
+        {
+          requestId:
+            requestId,
+
+          decision:
+            decision,
+
+          quantity:
+            quantity,
+
+          notes:
+            normalizedNotes
+        }
+      );
+  } catch (
+    error
+  ) {
+    showErrorV3_(
+      error
+    );
+
+    setAdminDecisionBusyV3_(
+      false
+    );
+
+    return;
+  }
+
+  const saveSeconds =
+    (
+      (
+        Date.now() -
+        decisionStartedAt
+      ) /
+      1000
+    ).toFixed(
+      1
+    );
+
+  showSuccessV3_(
+    `Backorder ${
+      decision.toLowerCase()
+    } saved in ${saveSeconds} seconds. Refreshing Admin data…`
+  );
+
+  setAdminDecisionBusyV3_(
+    true,
+    'Decision saved. Refreshing Admin data…'
+  );
+
+  /**
+   * Phase 2 — read-only UI verification.
+   *
+   * The decision has already succeeded. A refresh failure must not imply that
+   * the Backorder mutation failed.
+   */
+  try {
+    await refreshAdminAfterDecisionAlpha30_5_12V3_();
+
+    showSuccessV3_(
+      `Backorder ${
+        decision.toLowerCase()
+      } completed. The open FMR detail is current.`
+    );
+  } catch (
+    refreshError
+  ) {
+    console.error(
+      refreshError
+    );
+
+    showSuccessV3_(
+      `Backorder ${
+        decision.toLowerCase()
+      } was saved successfully, but the automatic Admin refresh did not fully complete. Use Refresh to load the latest state.`
+    );
+  } finally {
+    /**
+     * Persist only after the user-critical Admin reads are finished.
+     * This dispatch is fire-and-forget and is NOT awaited.
+     */
+    queueWritePerformanceEventAlpha30_5_12V3_(
+      decisionResult
+    );
+
+    setAdminDecisionBusyV3_(
+      false
+    );
+  }
+}
+
+
+
+
+
 
     function setAdminDecisionBusyV3_(
       busy,
@@ -13039,5 +13116,214 @@ function operationalHealthFailureMessagesV3_(
         }
       );
     }
+    /**
+ * Alpha 30.5.12 — persist optional slow-write telemetry without blocking the
+ * user's save/decision response.
+ *
+ * Call this only AFTER the normal Field verification / Admin refresh has
+ * finished so diagnostic traffic does not compete with the critical UI reads.
+ */
+function queueWritePerformanceEventAlpha30_5_12V3_(
+  result
+) {
+  const event =
+    result &&
+    result.writePerformanceEvent;
+
+  if (
+    !event
+  ) {
+    return;
+  }
+
+  window.setTimeout(
+    () => {
+      try {
+        google
+          .script
+          .run
+          .withFailureHandler(
+            error => {
+              console.warn(
+                'Write performance telemetry was not persisted.',
+                error
+              );
+            }
+          )
+          .withSuccessHandler(
+            () => {}
+          )
+          .recordWritePerformanceEventV3(
+            event
+          );
+      } catch (
+        error
+      ) {
+        console.warn(
+          'Write performance telemetry dispatch failed.',
+          error
+        );
+      }
+    },
+    100
+  );
+}
+
+
+/**
+ * Admin-decision-specific refresh.
+ *
+ * Unlike the normal Admin startup refresh, Register and Dashboard/Backorder rail
+ * can safely be requested in parallel after a completed decision.
+ *
+ * The open FMR detail is refreshed after the Register renders so its target DOM
+ * exists and the existing openAdminFmrDetailV3_() behavior is preserved.
+ */
+async function refreshAdminAfterDecisionAlpha30_5_12V3_() {
+  const openFmrNumber =
+    state.adminOpenFmrNumber;
+
+  const registerPromise =
+    callServerV3_(
+      'getAdminFmrRegisterV3',
+      adminRegisterRequestV3_()
+    );
+
+  const dashboardPromise =
+    callServerV3_(
+      'getAdminDashboardV3'
+    );
+
+  const results =
+    await Promise.allSettled([
+      registerPromise,
+      dashboardPromise
+    ]);
+
+  const registerResult =
+    results[0];
+
+  const dashboardResult =
+    results[1];
+
+  let firstError =
+    null;
+
+  if (
+    registerResult.status ===
+    'fulfilled'
+  ) {
+    renderAdminRegisterV3_(
+      registerResult.value
+    );
+  } else {
+    firstError =
+      registerResult.reason;
+
+    byId(
+      'adminRegisterStatusText'
+    ).textContent =
+      'Unable to refresh the FMR register.';
+  }
+
+  if (
+    dashboardResult.status ===
+    'fulfilled'
+  ) {
+    const dashboard =
+      dashboardResult.value ||
+      {};
+
+    const rail =
+      dashboard.operationalRail ||
+      {};
+
+    const backorderRail =
+      rail.backorders || {
+        requests:
+          dashboard.backorders ||
+          [],
+
+        canReview:
+          dashboard
+            .canReviewBackorders
+      };
+
+    state.adminBackorderRequests =
+      backorderRail.requests ||
+      [];
+
+    state.adminCanReviewBackorders =
+      Boolean(
+        backorderRail.canReview
+      );
+
+    renderKpisV3_(
+      dashboard.kpis ||
+      {}
+    );
+
+    renderAdminOperationalQueueV3_(
+      {
+        preserveListScroll:
+          true
+      }
+    );
+
+    /**
+     * Rendering the queue creates fresh decision buttons.
+     * Re-apply the busy state until this refresh is fully complete so stale or
+     * newly rendered buttons cannot be clicked twice.
+     */
+    if (
+      state.adminDecisionBusy
+    ) {
+      setAdminDecisionBusyV3_(
+        true,
+        'Decision saved. Refreshing the selected FMR…'
+      );
+    }
+  } else {
+    if (
+      !firstError
+    ) {
+      firstError =
+        dashboardResult.reason;
+    }
+
+    byId(
+      'adminOperationalStatus'
+    ).textContent =
+      'Unable to refresh backorders. Use Refresh to retry.';
+  }
+
+  /**
+   * The detail target is inside the freshly-rendered Register, therefore keep
+   * this step after Register rendering. This preserves current detail behavior.
+   */
+  if (
+    openFmrNumber &&
+    registerResult.status ===
+      'fulfilled'
+  ) {
+    await openAdminFmrDetailV3_(
+      openFmrNumber,
+      {
+        silent:
+          true,
+
+        forceReload:
+          true
+      }
+    );
+  }
+
+  if (
+    firstError
+  ) {
+    throw firstError;
+  }
+}
+
   })();
 </script>

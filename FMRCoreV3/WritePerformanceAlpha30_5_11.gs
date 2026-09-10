@@ -554,10 +554,6 @@ function recordSlowWritePerformanceAlpha30_5_11FmrV3_(
 }
 
 
-/**
- * Wrap the existing Field transaction so the persistent telemetry write occurs
- * only after performFieldActionFmrV3_() has released its ScriptLock.
- */
 function runTrackedFieldActionAlpha30_5_11FmrV3_(
   userEmail,
   request
@@ -567,31 +563,13 @@ function runTrackedFieldActionAlpha30_5_11FmrV3_(
   const startedAt =
     Date.now();
 
-  let outcome =
-    'SUCCESS';
-
-  let errorMessage =
-    '';
-
   try {
-    return performFieldActionFmrV3_(
-      userEmail,
-      request || {}
-    );
-  } catch (
-    error
-  ) {
-    outcome =
-      'ERROR';
-
-    errorMessage =
-      normalizeFmrV3_(
-        error &&
-        error.message
+    const result =
+      performFieldActionFmrV3_(
+        userEmail,
+        request || {}
       );
 
-    throw error;
-  } finally {
     const capture =
       currentWritePerformanceCaptureAlpha30_5_11FmrV3_();
 
@@ -603,72 +581,74 @@ function runTrackedFieldActionAlpha30_5_11FmrV3_(
       capture.fieldFinish ||
       {};
 
-    recordSlowWritePerformanceAlpha30_5_11FmrV3_({
-      operation:
-        'FIELD_ACTION',
+    const envelope =
+      buildWritePerformanceEnvelopeAlpha30_5_12FmrV3_({
+        operation:
+          'FIELD_ACTION',
 
-      action:
-        normalizeUpperFmrV3_(
-          (
-            request &&
-            request.action
+        action:
+          normalizeUpperFmrV3_(
+            (
+              request &&
+              request.action
+            ) ||
+            actionTotal.action
+          ),
+
+        outcome:
+          'SUCCESS',
+
+        fmrNumber:
+          fieldFinish.fmrNumber,
+
+        fmrLineId:
+          normalizeFmrV3_(
+            (
+              request &&
+              request.fmrLineId
+            ) ||
+            actionTotal.fmrLineId
+          ),
+
+        correlationId:
+          fieldFinish.correlationId,
+
+        totalMs:
+          numberFmrV3_(
+            actionTotal.totalMs
           ) ||
-          actionTotal.action
-        ),
-
-      outcome:
-        outcome,
-
-      userEmail:
-        userEmail,
-
-      fmrNumber:
-        fieldFinish.fmrNumber,
-
-      fmrLineId:
-        normalizeFmrV3_(
           (
-            request &&
-            request.fmrLineId
-          ) ||
-          actionTotal.fmrLineId
-        ),
+            Date.now() -
+            startedAt
+          ),
 
-      correlationId:
-        fieldFinish.correlationId,
+        lockWaitMs:
+          actionTotal.lockWaitMs,
 
-      totalMs:
-        numberFmrV3_(
-          actionTotal.totalMs
-        ) ||
-        (
-          Date.now() -
-          startedAt
-        ),
+        lockedExecutionMs:
+          actionTotal.lockedExecutionMs,
 
-      lockWaitMs:
-        actionTotal.lockWaitMs,
+        capture:
+          capture
+      });
 
-      lockedExecutionMs:
-        actionTotal.lockedExecutionMs,
-
-      error:
-        errorMessage,
-
-      capture:
-        capture
-    });
+    return attachWritePerformanceEnvelopeAlpha30_5_12FmrV3_(
+      result,
+      envelope
+    );
+  } catch (
+    error
+  ) {
+    /**
+     * Failed actions retain the original exception behavior.
+     * Cloud-log telemetry from performFieldActionFmrV3_() remains available.
+     * We do not delay an error response with a Performance_Events append.
+     */
+    throw error;
   }
 }
 
 
-/**
- * Wrap the existing Admin Backorder decision.
- *
- * The original reviewBackorderFmrV3_() still owns the lock and all business
- * decisions. This wrapper only persists the captured timing after that function
- * releases the lock.
- */
 function runTrackedAdminBackorderDecisionAlpha30_5_11FmrV3_(
   userEmail,
   request
@@ -678,31 +658,13 @@ function runTrackedAdminBackorderDecisionAlpha30_5_11FmrV3_(
   const startedAt =
     Date.now();
 
-  let outcome =
-    'SUCCESS';
-
-  let errorMessage =
-    '';
-
   try {
-    return reviewBackorderFmrV3_(
-      userEmail,
-      request || {}
-    );
-  } catch (
-    error
-  ) {
-    outcome =
-      'ERROR';
-
-    errorMessage =
-      normalizeFmrV3_(
-        error &&
-        error.message
+    const result =
+      reviewBackorderFmrV3_(
+        userEmail,
+        request || {}
       );
 
-    throw error;
-  } finally {
     const capture =
       currentWritePerformanceCaptureAlpha30_5_11FmrV3_();
 
@@ -710,55 +672,59 @@ function runTrackedAdminBackorderDecisionAlpha30_5_11FmrV3_(
       capture.adminBackorderTotal ||
       {};
 
-    recordSlowWritePerformanceAlpha30_5_11FmrV3_({
-      operation:
-        'ADMIN_BACKORDER_DECISION',
+    const envelope =
+      buildWritePerformanceEnvelopeAlpha30_5_12FmrV3_({
+        operation:
+          'ADMIN_BACKORDER_DECISION',
 
-      action:
-        normalizeUpperFmrV3_(
-          (
-            request &&
-            request.decision
+        action:
+          normalizeUpperFmrV3_(
+            (
+              request &&
+              request.decision
+            ) ||
+            adminTotal.action
+          ),
+
+        outcome:
+          'SUCCESS',
+
+        backorderRequestId:
+          normalizeFmrV3_(
+            (
+              request &&
+              request.requestId
+            ) ||
+            adminTotal.requestId
+          ),
+
+        totalMs:
+          numberFmrV3_(
+            adminTotal.totalMs
           ) ||
-          adminTotal.action
-        ),
-
-      outcome:
-        outcome,
-
-      userEmail:
-        userEmail,
-
-      backorderRequestId:
-        normalizeFmrV3_(
           (
-            request &&
-            request.requestId
-          ) ||
-          adminTotal.requestId
-        ),
+            Date.now() -
+            startedAt
+          ),
 
-      totalMs:
-        numberFmrV3_(
-          adminTotal.totalMs
-        ) ||
-        (
-          Date.now() -
-          startedAt
-        ),
+        lockWaitMs:
+          adminTotal.lockWaitMs,
 
-      lockWaitMs:
-        adminTotal.lockWaitMs,
+        lockedExecutionMs:
+          adminTotal.lockedExecutionMs,
 
-      lockedExecutionMs:
-        adminTotal.lockedExecutionMs,
+        capture:
+          capture
+      });
 
-      error:
-        errorMessage,
-
-      capture:
-        capture
-    });
+    return attachWritePerformanceEnvelopeAlpha30_5_12FmrV3_(
+      result,
+      envelope
+    );
+  } catch (
+    error
+  ) {
+    throw error;
   }
 }
 

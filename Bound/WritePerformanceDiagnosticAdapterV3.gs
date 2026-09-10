@@ -33,3 +33,15 @@ function getRecentWritePerformanceEventsV3(
 
   return result;
 }
+
+function recordWritePerformanceEventV3(
+  event
+) {
+  return FMRCoreV3
+    .recordFmrV3WritePerformanceEvent(
+      boundDatabaseIdFmrV3_(),
+      callerEmailFmrV3_(),
+      event || {}
+    );
+}
+
