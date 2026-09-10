@@ -341,11 +341,12 @@ function performFmrV3FieldAction(
     'Field transaction'
   );
 
-  return performFieldActionFmrV3_(
+  return runTrackedFieldActionAlpha30_5_11FmrV3_(
     userEmail,
     request || {}
   );
 }
+
 
 function getFmrV3AdminDashboard(
   databaseId,

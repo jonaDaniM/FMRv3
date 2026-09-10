@@ -235,7 +235,7 @@ function getBackorderQueueFmrV3_(userEmail) {
     );
   });
 
-  const sourceRequests = readRowsObjectsFmrV3_(
+  const sourceRequests = readRowsObjectsBatchedFmrV3_(
     FMR_V3.SHEETS.BACKORDERS,
     Array.from(
       new Set(
@@ -349,6 +349,12 @@ function reviewBackorderFmrV3_(
   userEmail,
   request
 ) {
+  const performanceStartedAt =
+    Date.now();
+
+  let performanceError =
+    '';
+
   const lock =
     LockService
       .getScriptLock();
@@ -356,6 +362,9 @@ function reviewBackorderFmrV3_(
   lock.waitLock(
     30000
   );
+
+  const lockAcquiredAt =
+    Date.now();
 
   try {
     const user =
@@ -609,10 +618,10 @@ function reviewBackorderFmrV3_(
         'BACKORDER_RETURNED';
     }
 
-    updateRowObjectFmrV3_(
+    updateKnownRowObjectAlpha30_5_11FmrV3_(
       FMR_V3.SHEETS
         .BACKORDERS,
-      backorder._rowNumber,
+      backorder,
       {
         Qty_Confirmed_Backorder:
           existingConfirmed +
@@ -1009,7 +1018,7 @@ function reviewBackorderFmrV3_(
       );
     }
 
-    updateLineStateFmrV3_(
+    updateKnownLineStateAlpha30_5_8FmrV3_(
       line,
       state,
       user
@@ -1117,8 +1126,55 @@ function reviewBackorderFmrV3_(
       splitReturnedQuantity:
         splitReturnedQuantity
     };
+  } catch (
+    error
+  ) {
+    performanceError =
+      normalizeFmrV3_(
+        error &&
+        error.message
+      );
+
+    throw error;
   } finally {
+    const beforeRelease =
+      Date.now();
+
     lock.releaseLock();
+
+    captureAdminBackorderTotalAlpha30_5_11FmrV3_({
+      action:
+        normalizeUpperFmrV3_(
+          request &&
+          request.decision
+        ),
+
+      requestId:
+        normalizeFmrV3_(
+          request &&
+          request.requestId
+        ),
+
+      outcome:
+        performanceError
+          ? 'ERROR'
+          : 'SUCCESS',
+
+      error:
+        performanceError,
+
+      lockWaitMs:
+        lockAcquiredAt -
+        performanceStartedAt,
+
+      lockedExecutionMs:
+        beforeRelease -
+        lockAcquiredAt,
+
+      totalMs:
+        Date.now() -
+        performanceStartedAt
+    });
   }
 }
 

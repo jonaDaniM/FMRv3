@@ -327,6 +327,34 @@ function finishLineActionFmrV3_(
     Date.now() -
     performanceStartedAt;
 
+  captureFieldFinishAlpha30_5_11FmrV3_({
+    action:
+      normalizeUpperFmrV3_(
+        action
+      ),
+
+    fmrNumber:
+      normalizeFmrV3_(
+        line.FMR_Number
+      ),
+
+    fmrLineId:
+      normalizeFmrV3_(
+        line.FMR_Line_ID
+      ),
+
+    correlationId:
+      normalizeFmrV3_(
+        correlationId
+      ),
+
+    timings:
+      Object.assign(
+        {},
+        timings
+      )
+  });
+
   logPerformanceAlpha30_5_8FmrV3_(
     'FIELD_ACTION_FINISH',
     {
@@ -363,6 +391,7 @@ function finishLineActionFmrV3_(
 
   return response;
 }
+
 
 function performFieldActionFmrV3_(
   userEmail,
@@ -509,35 +538,41 @@ function performFieldActionFmrV3_(
 
     lock.releaseLock();
 
+    const performancePayload = {
+      action:
+        actionForLog,
+
+      fmrLineId:
+        lineIdForLog,
+
+      outcome:
+        failureMessage
+          ? 'ERROR'
+          : 'SUCCESS',
+
+      error:
+        failureMessage,
+
+      lockWaitMs:
+        lockAcquiredAt -
+        performanceStartedAt,
+
+      lockedExecutionMs:
+        beforeRelease -
+        lockAcquiredAt,
+
+      totalMs:
+        Date.now() -
+        performanceStartedAt
+    };
+
+    captureFieldActionTotalAlpha30_5_11FmrV3_(
+      performancePayload
+    );
+
     logPerformanceAlpha30_5_8FmrV3_(
       'FIELD_ACTION_TOTAL',
-      {
-        action:
-          actionForLog,
-
-        fmrLineId:
-          lineIdForLog,
-
-        outcome:
-          failureMessage
-            ? 'ERROR'
-            : 'SUCCESS',
-
-        error:
-          failureMessage,
-
-        lockWaitMs:
-          lockAcquiredAt -
-          performanceStartedAt,
-
-        lockedExecutionMs:
-          beforeRelease -
-          lockAcquiredAt,
-
-        totalMs:
-          Date.now() -
-          performanceStartedAt
-      }
+      performancePayload
     );
   }
 }
@@ -2243,80 +2278,307 @@ function submitBackorderFmrV3_(
 }
 
 
+function refreshHeaderFromIndexedLinesFmrV3_(
+  fmrId,
+  fmrNumber,
+  user
+) {
+  const performanceStartedAt =
+    Date.now();
 
+  let phaseStartedAt =
+    performanceStartedAt;
 
+  const entries =
+    lookupIndexEntriesFmrV3_(
+      FMR_V3.SHEETS
+        .SEARCH_INDEX,
+      fmrSearchKeyFmrV3_(
+        fmrNumber
+      )
+    )
+      .filter(
+        function (
+          entry
+        ) {
+          return (
+            normalizeFmrV3_(
+              entry.FMR_ID
+            ) ===
+            normalizeFmrV3_(
+              fmrId
+            )
+          );
+        }
+      );
 
-function refreshHeaderFromIndexedLinesFmrV3_(fmrId, fmrNumber, user) {
-  const entries = lookupIndexEntriesFmrV3_(
-    FMR_V3.SHEETS.SEARCH_INDEX,
-    fmrSearchKeyFmrV3_(fmrNumber)
-  ).filter(function (entry) {
-    return normalizeFmrV3_(entry.FMR_ID) === normalizeFmrV3_(fmrId);
-  });
+  const indexLookupMs =
+    Date.now() -
+    phaseStartedAt;
 
-  if (!entries.length) {
-    throw new Error(`No active index entries were found for ${fmrNumber}.`);
-  }
-
-  const lines = readRowsObjectsFmrV3_(
-    FMR_V3.SHEETS.LINES,
-    entries.map(function (entry) { return entry.Line_Row; })
-  ).filter(function (line) { return yesFmrV3_(line.Active); });
-
-  const total = function (field) {
-    return lines.reduce(function (sum, line) {
-      return sum + numberFmrV3_(line[field]);
-    }, 0);
-  };
-
-  const requested = total('Qty_Requested');
-  const issued = total('Qty_Issued');
-  const statuses = lines.map(function (line) {
-    return normalizeUpperFmrV3_(line.Line_Status);
-  });
-
-  let status = 'Published';
-
-  if (lines.length && statuses.every(function (value) {
-    return value === 'ISSUED';
-  })) {
-    status = 'Issued';
-  } else if (
-    statuses.some(function (value) { return value === 'PARTIALLY ISSUED'; }) ||
-    issued > 0
+  if (
+    !entries.length
   ) {
-    status = 'Partially Issued';
-  } else if (statuses.some(function (value) {
-    return value === 'BACKORDERED' || value === 'PENDING BACKORDER';
-  })) {
-    status = 'Sourcing';
-  } else if (lines.length && lines.every(function (line) {
-    return numberFmrV3_(line.Qty_Confirmed_Located) >=
-      numberFmrV3_(line.Qty_Requested);
-  })) {
-    status = 'Located';
-  } else if (total('Qty_Confirmed_Located') > 0) {
-    status = 'Partially Located';
+    throw new Error(
+      'No active index entries were found for ' +
+      fmrNumber +
+      '.'
+    );
   }
 
-  return updateRowObjectFmrV3_(
-    FMR_V3.SHEETS.HEADERS,
-    entries[0].Header_Row,
-    {
-      Current_Status: status,
-      Total_Lines: lines.length,
-      Qty_Requested: requested,
-      Qty_Confirmed_Located: total('Qty_Confirmed_Located'),
-      Qty_Active_Bagged: total('Qty_Active_Bagged'),
-      Qty_Available: total('Qty_Available'),
-      Qty_Issued: issued,
-      Qty_Pending_Backorder: total('Qty_Pending_Backorder'),
-      Qty_Confirmed_Backorder: total('Qty_Confirmed_Backorder'),
-      Qty_Remaining_Requirement: Math.max(0, requested - issued),
-      Fulfillment_Pct: requested > 0 ? issued / requested : 0,
-      Updated_By: user.email,
-      Updated_At: nowFmrV3_(),
-      Last_Activity_At: nowFmrV3_()
-    }
-  );
+  phaseStartedAt =
+    Date.now();
+
+  const lines =
+    readRowsObjectsBatchedFmrV3_(
+      FMR_V3.SHEETS.LINES,
+      entries.map(
+        function (
+          entry
+        ) {
+          return entry.Line_Row;
+        }
+      ),
+      {
+        maxGapRows:
+          12,
+
+        maxGroups:
+          20
+      }
+    )
+      .filter(
+        function (
+          line
+        ) {
+          return yesFmrV3_(
+            line.Active
+          );
+        }
+      );
+
+  const lineReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  const total =
+    function (
+      field
+    ) {
+      return lines.reduce(
+        function (
+          sum,
+          line
+        ) {
+          return (
+            sum +
+            numberFmrV3_(
+              line[
+                field
+              ]
+            )
+          );
+        },
+        0
+      );
+    };
+
+  const requested =
+    total(
+      'Qty_Requested'
+    );
+
+  const issued =
+    total(
+      'Qty_Issued'
+    );
+
+  const statuses =
+    lines.map(
+      function (
+        line
+      ) {
+        return normalizeUpperFmrV3_(
+          line.Line_Status
+        );
+      }
+    );
+
+  let status =
+    'Published';
+
+  if (
+    lines.length &&
+    statuses.every(
+      function (
+        value
+      ) {
+        return (
+          value ===
+          'ISSUED'
+        );
+      }
+    )
+  ) {
+    status =
+      'Issued';
+  } else if (
+    statuses.some(
+      function (
+        value
+      ) {
+        return (
+          value ===
+          'PARTIALLY ISSUED'
+        );
+      }
+    ) ||
+    issued >
+      0
+  ) {
+    status =
+      'Partially Issued';
+  } else if (
+    statuses.some(
+      function (
+        value
+      ) {
+        return (
+          value ===
+            'BACKORDERED' ||
+          value ===
+            'PENDING BACKORDER'
+        );
+      }
+    )
+  ) {
+    status =
+      'Sourcing';
+  } else if (
+    lines.length &&
+    lines.every(
+      function (
+        line
+      ) {
+        return (
+          numberFmrV3_(
+            line.Qty_Confirmed_Located
+          ) >=
+          numberFmrV3_(
+            line.Qty_Requested
+          )
+        );
+      }
+    )
+  ) {
+    status =
+      'Located';
+  } else if (
+    total(
+      'Qty_Confirmed_Located'
+    ) >
+    0
+  ) {
+    status =
+      'Partially Located';
+  }
+
+  phaseStartedAt =
+    Date.now();
+
+  const result =
+    updateRowObjectFmrV3_(
+      FMR_V3.SHEETS.HEADERS,
+      entries[0].Header_Row,
+      {
+        Current_Status:
+          status,
+
+        Total_Lines:
+          lines.length,
+
+        Qty_Requested:
+          requested,
+
+        Qty_Confirmed_Located:
+          total(
+            'Qty_Confirmed_Located'
+          ),
+
+        Qty_Active_Bagged:
+          total(
+            'Qty_Active_Bagged'
+          ),
+
+        Qty_Available:
+          total(
+            'Qty_Available'
+          ),
+
+        Qty_Issued:
+          issued,
+
+        Qty_Pending_Backorder:
+          total(
+            'Qty_Pending_Backorder'
+          ),
+
+        Qty_Confirmed_Backorder:
+          total(
+            'Qty_Confirmed_Backorder'
+          ),
+
+        Qty_Remaining_Requirement:
+          Math.max(
+            0,
+            requested -
+              issued
+          ),
+
+        Fulfillment_Pct:
+          requested >
+            0
+            ? issued /
+              requested
+            : 0,
+
+        Updated_By:
+          user.email,
+
+        Updated_At:
+          nowFmrV3_(),
+
+        Last_Activity_At:
+          nowFmrV3_()
+      }
+    );
+
+  const headerWriteMs =
+    Date.now() -
+    phaseStartedAt;
+
+  captureHeaderRefreshAlpha30_5_11FmrV3_({
+    fmrNumber:
+      normalizeFmrV3_(
+        fmrNumber
+      ),
+
+    lineCount:
+      lines.length,
+
+    indexLookupMs:
+      indexLookupMs,
+
+    lineReadMs:
+      lineReadMs,
+
+    headerWriteMs:
+      headerWriteMs,
+
+    totalMs:
+      Date.now() -
+      performanceStartedAt
+  });
+
+  return result;
 }
