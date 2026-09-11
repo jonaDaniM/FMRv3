@@ -1189,19 +1189,12 @@ function syncFieldNotificationsForLineFmrV3_(
       line.FMR_Line_ID
     );
 
-  if (!lineId) {
+  if (
+    !lineId
+  ) {
     return;
   }
 
-  /**
-   * Alpha 30 production optimization:
-   *
-   * The previous implementation loaded every Backorder_Requests row and then
-   * filtered the complete table to one FMR line.
-   *
-   * FMR_Line_ID is column 5 in Backorder_Requests, so use an exact lookup and
-   * read only the matching requests.
-   */
   const requestRows =
     findRowsByExactValueFmrV3_(
       FMR_V3.SHEETS
@@ -1217,11 +1210,51 @@ function syncFieldNotificationsForLineFmrV3_(
   }
 
   const requests =
-    readRowsObjectsFmrV3_(
+    readRowsObjectsBatchedFmrV3_(
       FMR_V3.SHEETS
         .BACKORDERS,
-      requestRows
+      requestRows,
+      {
+        maxGapRows:
+          12,
+
+        maxGroups:
+          20
+      }
     );
+
+  const existingNotices =
+    fieldNoticeRowsByLineFmrV3_(
+      lineId
+    );
+
+  const noticesBySource = {};
+
+  existingNotices.forEach(
+    function (
+      notice
+    ) {
+      const sourceId =
+        normalizeFmrV3_(
+          notice.Source_ID
+        );
+
+      if (
+        sourceId &&
+        !Object.prototype
+          .hasOwnProperty
+          .call(
+            noticesBySource,
+            sourceId
+          )
+      ) {
+        noticesBySource[
+          sourceId
+        ] =
+          notice;
+      }
+    }
+  );
 
   requests.forEach(
     function (
@@ -1237,18 +1270,48 @@ function syncFieldNotificationsForLineFmrV3_(
         'REJECTED'
       ) {
         /**
-         * Preserve the existing lifecycle:
-         *
-         * rejected notices are created during the Admin decision or migration
-         * and reduced only by recorded Field work.
+         * Preserve existing lifecycle:
+         * rejected notices are created during Admin decision/migration and
+         * reduced only by recorded Field work.
          */
         return;
       }
 
-      upsertFieldNotificationFromBackorderFmrV3_(
-        request,
-        line
-      );
+      const sourceId =
+        normalizeFmrV3_(
+          request.Backorder_Request_ID
+        );
+
+      const hasKnownExisting =
+        Object.prototype
+          .hasOwnProperty
+          .call(
+            noticesBySource,
+            sourceId
+          );
+
+      const updated =
+        upsertFieldNotificationWithKnownExistingAlpha30_5_13FmrV3_(
+          request,
+          line,
+          null,
+          hasKnownExisting
+            ? noticesBySource[
+                sourceId
+              ]
+            : null,
+          hasKnownExisting
+        );
+
+      if (
+        sourceId &&
+        updated
+      ) {
+        noticesBySource[
+          sourceId
+        ] =
+          updated;
+      }
     }
   );
 }

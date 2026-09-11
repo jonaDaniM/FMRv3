@@ -3510,9 +3510,14 @@
             lineId
           );
 
-        applyFieldActionResultV3_(
-          result
-        );
+        if (
+          !result
+            .responseEnrichmentDeferred
+        ) {
+          applyFieldActionResultV3_(
+            result
+          );
+        }
 
         setFieldActionBusyV3_(
           false

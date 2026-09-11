@@ -151,6 +151,11 @@ function finishLineActionFmrV3_(
   const actionDetails =
     details || {};
 
+  const normalizedAction =
+    normalizeUpperFmrV3_(
+      action
+    );
+
   const updatedLine =
     updateKnownLineStateAlpha30_5_8FmrV3_(
       line,
@@ -220,9 +225,18 @@ function finishLineActionFmrV3_(
   phaseStartedAt =
     Date.now();
 
-  syncFieldNotificationsForLineFmrV3_(
-    line
-  );
+  const notificationSyncSkipped =
+    skipFullFieldNotificationSyncAlpha30_5_13FmrV3_(
+      normalizedAction
+    );
+
+  if (
+    !notificationSyncSkipped
+  ) {
+    syncFieldNotificationsForLineFmrV3_(
+      line
+    );
+  }
 
   timings.notificationSyncMs =
     Date.now() -
@@ -230,60 +244,82 @@ function finishLineActionFmrV3_(
 
   phaseStartedAt =
     Date.now();
-    
+
   SpreadsheetApp.flush();
 
   timings.flushMs =
     Date.now() -
     phaseStartedAt;
 
-  phaseStartedAt =
-    Date.now();
+  const responseEnrichmentDeferred =
+    usesLightweightFieldResponseAlpha30_5_13FmrV3_(
+      normalizedAction
+    );
 
-  const activeBags =
-    getActiveBagsByLineIdsFmrV3_(
-      [
+  let activeBags = [];
+  let returnedBackorders = [];
+  let backorderNotices = [];
+
+  if (
+    !responseEnrichmentDeferred
+  ) {
+    phaseStartedAt =
+      Date.now();
+
+    activeBags =
+      getActiveBagsByLineIdsFmrV3_(
+        [
+          line.FMR_Line_ID
+        ]
+      )[
         line.FMR_Line_ID
-      ]
-    )[
-      line.FMR_Line_ID
-    ] || [];
+      ] || [];
 
-  timings.activeBagReadMs =
-    Date.now() -
-    phaseStartedAt;
+    timings.activeBagReadMs =
+      Date.now() -
+      phaseStartedAt;
 
-  phaseStartedAt =
-    Date.now();
+    phaseStartedAt =
+      Date.now();
 
-  const returnedBackorders =
-    getReturnedBackordersByLineIdsFmrV3_(
-      [
+    returnedBackorders =
+      getReturnedBackordersByLineIdsFmrV3_(
+        [
+          line.FMR_Line_ID
+        ]
+      )[
         line.FMR_Line_ID
-      ]
-    )[
-      line.FMR_Line_ID
-    ] || [];
+      ] || [];
 
-  timings.returnedBackorderReadMs =
-    Date.now() -
-    phaseStartedAt;
+    timings.returnedBackorderReadMs =
+      Date.now() -
+      phaseStartedAt;
 
-  phaseStartedAt =
-    Date.now();
+    phaseStartedAt =
+      Date.now();
 
-  const backorderNotices =
-    getFieldBackorderNoticesByLineIdsFmrV3_(
-      [
+    backorderNotices =
+      getFieldBackorderNoticesByLineIdsFmrV3_(
+        [
+          line.FMR_Line_ID
+        ]
+      )[
         line.FMR_Line_ID
-      ]
-    )[
-      line.FMR_Line_ID
-    ] || [];
+      ] || [];
 
-  timings.backorderNoticeReadMs =
-    Date.now() -
-    phaseStartedAt;
+    timings.backorderNoticeReadMs =
+      Date.now() -
+      phaseStartedAt;
+  } else {
+    timings.activeBagReadMs =
+      0;
+
+    timings.returnedBackorderReadMs =
+      0;
+
+    timings.backorderNoticeReadMs =
+      0;
+  }
 
   phaseStartedAt =
     Date.now();
@@ -297,6 +333,9 @@ function finishLineActionFmrV3_(
 
     correlationId:
       correlationId,
+
+    responseEnrichmentDeferred:
+      responseEnrichmentDeferred,
 
     message:
       normalizeFmrV3_(
@@ -327,11 +366,15 @@ function finishLineActionFmrV3_(
     Date.now() -
     performanceStartedAt;
 
+  timings.notificationSyncSkipped =
+    notificationSyncSkipped;
+
+  timings.responseEnrichmentDeferred =
+    responseEnrichmentDeferred;
+
   captureFieldFinishAlpha30_5_11FmrV3_({
     action:
-      normalizeUpperFmrV3_(
-        action
-      ),
+      normalizedAction,
 
     fmrNumber:
       normalizeFmrV3_(
@@ -359,9 +402,7 @@ function finishLineActionFmrV3_(
     'FIELD_ACTION_FINISH',
     {
       action:
-        normalizeUpperFmrV3_(
-          action
-        ),
+        normalizedAction,
 
       fmrNumber:
         normalizeFmrV3_(
@@ -384,6 +425,12 @@ function finishLineActionFmrV3_(
             .USE_KNOWN_LINE_WRITE
         ),
 
+      notificationSyncSkipped:
+        notificationSyncSkipped,
+
+      responseEnrichmentDeferred:
+        responseEnrichmentDeferred,
+
       timings:
         timings
     }
@@ -391,6 +438,10 @@ function finishLineActionFmrV3_(
 
   return response;
 }
+
+
+
+
 
 
 function performFieldActionFmrV3_(
@@ -426,11 +477,20 @@ function performFieldActionFmrV3_(
   let failureMessage =
     '';
 
+  const dispatchTimings = {};
+
   try {
+    let phaseStartedAt =
+      Date.now();
+
     const user =
       assertFieldUserFmrV3_(
         userEmail
       );
+
+    dispatchTimings.authorizationMs =
+      Date.now() -
+      phaseStartedAt;
 
     const rawPayload =
       request || {};
@@ -443,10 +503,17 @@ function performFieldActionFmrV3_(
     actionForLog =
       action;
 
+    phaseStartedAt =
+      Date.now();
+
     const line =
       getLineByIdFmrV3_(
         rawPayload.fmrLineId
       );
+
+    dispatchTimings.lineLookupMs =
+      Date.now() -
+      phaseStartedAt;
 
     if (
       !yesFmrV3_(
@@ -458,6 +525,9 @@ function performFieldActionFmrV3_(
       );
     }
 
+    phaseStartedAt =
+      Date.now();
+
     const payload =
       normalizeFieldActionMetadataFmrV3_(
         user,
@@ -465,55 +535,76 @@ function performFieldActionFmrV3_(
         rawPayload
       );
 
+    dispatchTimings.metadataNormalizeMs =
+      Date.now() -
+      phaseStartedAt;
+
+    phaseStartedAt =
+      Date.now();
+
+    let result;
+
     switch (
       action
     ) {
       case FMR_V3.ACTIONS
         .CONFIRM_AVAILABLE:
-        return confirmAvailableFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          confirmAvailableFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       case FMR_V3.ACTIONS.BAG:
-        return bagMaterialFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          bagMaterialFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       case FMR_V3.ACTIONS
         .DIRECT_ISSUE:
-        return directIssueFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          directIssueFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       case FMR_V3.ACTIONS
         .ISSUE_FROM_AVAILABLE:
-        return issueAvailableFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          issueAvailableFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       case FMR_V3.ACTIONS
         .ISSUE_FROM_BAG:
-        return issueFromBagFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          issueFromBagFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       case FMR_V3.ACTIONS
         .BACKORDER_REQUESTED:
-        return submitBackorderFmrV3_(
-          user,
-          line,
-          payload
-        );
+        result =
+          submitBackorderFmrV3_(
+            user,
+            line,
+            payload
+          );
+        break;
 
       default:
         throw new Error(
@@ -521,6 +612,40 @@ function performFieldActionFmrV3_(
           action
         );
     }
+
+    dispatchTimings.actionExecutionMs =
+      Date.now() -
+      phaseStartedAt;
+
+    captureFieldDispatchAlpha30_5_13FmrV3_({
+      action:
+        action,
+
+      fmrLineId:
+        lineIdForLog,
+
+      authorizationMs:
+        numberFmrV3_(
+          dispatchTimings.authorizationMs
+        ),
+
+      lineLookupMs:
+        numberFmrV3_(
+          dispatchTimings.lineLookupMs
+        ),
+
+      metadataNormalizeMs:
+        numberFmrV3_(
+          dispatchTimings.metadataNormalizeMs
+        ),
+
+      actionExecutionMs:
+        numberFmrV3_(
+          dispatchTimings.actionExecutionMs
+        )
+    });
+
+    return result;
   } catch (
     error
   ) {
@@ -530,6 +655,25 @@ function performFieldActionFmrV3_(
         error.message
       ) ||
       'Unknown Field action error.';
+
+    /**
+     * Preserve timing collected before the failure point when possible.
+     */
+    captureFieldDispatchAlpha30_5_13FmrV3_(
+      Object.assign(
+        {
+          action:
+            actionForLog,
+
+          fmrLineId:
+            lineIdForLog,
+
+          outcome:
+            'ERROR'
+        },
+        dispatchTimings
+      )
+    );
 
     throw error;
   } finally {
@@ -572,10 +716,18 @@ function performFieldActionFmrV3_(
 
     logPerformanceAlpha30_5_8FmrV3_(
       'FIELD_ACTION_TOTAL',
-      performancePayload
+      Object.assign(
+        {},
+        performancePayload,
+        {
+          dispatchTimings:
+            dispatchTimings
+        }
+      )
     );
   }
 }
+
 
 function confirmAvailableFmrV3_(
   user,
