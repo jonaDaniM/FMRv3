@@ -1,3 +1,5 @@
+const FMR_V3_USER_AUTH_CACHE_SECONDS_ALPHA30_5_14 = 21600;
+
 function getUserFmrV3_(
   email
 ) {
@@ -121,11 +123,12 @@ function getUserFmrV3_(
     JSON.stringify(
       user
     ),
-    900
+    FMR_V3_USER_AUTH_CACHE_SECONDS_ALPHA30_5_14
   );
 
   return user;
 }
+
 
 function assertSearchUserFmrV3_(
   email

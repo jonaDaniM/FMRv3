@@ -1,18 +1,3 @@
-/**
- * Search/Operational index cache service.
- *
- * Alpha 30.5.5 hardening:
- * - preserves the Alpha 30.5.3 batched Spreadsheet read path;
- * - prevents high-cardinality index results from exceeding the Apps Script
- *   CacheService per-value limit;
- * - chunks only oversized cache payloads;
- * - keeps small index keys on the existing one-value fast path;
- * - treats cache write failure as a performance degradation, never as a
- *   business-read failure;
- * - understands and invalidates both legacy single-value cache entries and
- *   Alpha 30.5.5 chunked entries.
- */
-
 const FMR_V3_INDEX_CACHE_SAFE_VALUE_BYTES_ = 75000;
 const FMR_V3_INDEX_CACHE_META_VERSION_ = 2;
 const FMR_V3_INDEX_CACHE_MAX_CHUNKS_ = 100;
@@ -941,23 +926,98 @@ function deactivateExactIndexRowsFmrV3_(
   exactKey,
   entityId
 ) {
-  const records =
-    lookupIndexEntriesFmrV3_(
-      sheetName,
+  const key =
+    normalizeUpperFmrV3_(
       exactKey
     );
 
+  const targetEntityId =
+    normalizeFmrV3_(
+      entityId
+    );
+
+  if (!key) {
+    return;
+  }
+
+  let records = [];
+
+  if (
+    targetEntityId &&
+    sheetName ===
+      FMR_V3.SHEETS
+        .OPERATIONAL_INDEX
+  ) {
+    const contract =
+      headerMapFmrV3_(
+        sheetName
+      );
+
+    if (
+      !Object.prototype
+        .hasOwnProperty
+        .call(
+          contract.indexByHeader,
+          'Entity_ID'
+        )
+    ) {
+      throw new Error(
+        'Operational_Index Entity_ID column is unavailable.'
+      );
+    }
+
+    const entityIdColumn =
+      contract
+        .indexByHeader
+        .Entity_ID +
+      1;
+
+    const rows =
+      findRowsByExactValueFmrV3_(
+        sheetName,
+        entityIdColumn,
+        targetEntityId
+      );
+
+    records =
+      readRowsObjectsFmrV3_(
+        sheetName,
+        rows
+      )
+        .filter(
+          function (
+            record
+          ) {
+            return (
+              normalizeUpperFmrV3_(
+                record.Index_Key
+              ) ===
+                key &&
+              yesFmrV3_(
+                record.Active
+              )
+            );
+          }
+        );
+  } else {
+    records =
+      lookupIndexEntriesFmrV3_(
+        sheetName,
+        key
+      );
+  }
+
   records.forEach(
-    function (record) {
+    function (
+      record
+    ) {
       if (
-        !entityId ||
+        !targetEntityId ||
         normalizeFmrV3_(
           record.Entity_ID ||
           record.FMR_Line_ID
         ) ===
-          normalizeFmrV3_(
-            entityId
-          )
+          targetEntityId
       ) {
         updateRowObjectFmrV3_(
           sheetName,
@@ -965,6 +1025,7 @@ function deactivateExactIndexRowsFmrV3_(
           {
             Active:
               FMR_V3.NO,
+
             Updated_At:
               nowFmrV3_()
           }
@@ -975,9 +1036,10 @@ function deactivateExactIndexRowsFmrV3_(
 
   invalidateIndexKeyFmrV3_(
     sheetName,
-    exactKey
+    key
   );
 }
+
 
 function buildSearchEntriesForPublishedLineFmrV3_(
   header,

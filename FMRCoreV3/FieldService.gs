@@ -439,11 +439,6 @@ function finishLineActionFmrV3_(
   return response;
 }
 
-
-
-
-
-
 function performFieldActionFmrV3_(
   userEmail,
   request
@@ -1815,11 +1810,31 @@ function getActiveBagsByLineIdsFmrV3_(
   return result;
 }
 
+
+
 function issueFromBagFmrV3_(
   user,
   line,
   request
 ) {
+  const performanceStartedAt =
+    Date.now();
+
+  let phaseStartedAt =
+    performanceStartedAt;
+
+  const phaseTimings = {
+    bagLineLookupMs: 0,
+    bagItemReadMs: 0,
+    bagHeaderReadMs: 0,
+    bagItemWriteMs: 0,
+    bagHeaderWriteMs: 0,
+    bagLineIndexDeactivateMs: 0,
+    bagStatusDeactivateMs: 0,
+    transactionAppendMs: 0,
+    preFinishMs: 0
+  };
+
   const quantity =
     positiveNumberFmrV3_(
       request.quantity,
@@ -1848,11 +1863,18 @@ function issueFromBagFmrV3_(
     );
   }
 
+  phaseStartedAt =
+    Date.now();
+
   const entries =
     lookupOperationalRowsFmrV3_(
       'BAGLINE',
       line.FMR_Line_ID
     );
+
+  phaseTimings.bagLineLookupMs =
+    Date.now() -
+    phaseStartedAt;
 
   const matchingEntry =
     entries.find(
@@ -1876,12 +1898,22 @@ function issueFromBagFmrV3_(
     );
   }
 
+  phaseStartedAt =
+    Date.now();
+
   const item =
     readRowObjectFmrV3_(
       FMR_V3.SHEETS
         .BAG_ITEMS,
       matchingEntry.Row_Number
     );
+
+  phaseTimings.bagItemReadMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
 
   const header =
     readRowObjectFmrV3_(
@@ -1890,6 +1922,10 @@ function issueFromBagFmrV3_(
       matchingEntry
         .Secondary_Row_Number
     );
+
+  phaseTimings.bagHeaderReadMs =
+    Date.now() -
+    phaseStartedAt;
 
   const state =
     lineStateFmrV3_(
@@ -1927,10 +1963,16 @@ function issueFromBagFmrV3_(
     remainingInBag -
     quantity;
 
-  updateRowObjectFmrV3_(
+  const updatedAt =
+    nowFmrV3_();
+
+  phaseStartedAt =
+    Date.now();
+
+  updateKnownRowObjectAlpha30_5_11FmrV3_(
     FMR_V3.SHEETS
       .BAG_ITEMS,
-    item._rowNumber,
+    item,
     {
       Qty_Issued_From_Bag:
         numberFmrV3_(
@@ -1948,14 +1990,21 @@ function issueFromBagFmrV3_(
           : 'Issued',
 
       Updated_At:
-        nowFmrV3_()
+        updatedAt
     }
   );
 
-  updateRowObjectFmrV3_(
+  phaseTimings.bagItemWriteMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseStartedAt =
+    Date.now();
+
+  updateKnownRowObjectAlpha30_5_11FmrV3_(
     FMR_V3.SHEETS
       .BAG_HEADERS,
-    header._rowNumber,
+    header,
     {
       Status:
         itemRemaining > 0
@@ -1963,23 +2012,30 @@ function issueFromBagFmrV3_(
           : 'Issued',
 
       Updated_At:
-        nowFmrV3_()
+        updatedAt
     }
   );
+
+  phaseTimings.bagHeaderWriteMs =
+    Date.now() -
+    phaseStartedAt;
 
   if (
     itemRemaining <= 0
   ) {
-    updateRowObjectFmrV3_(
+    phaseStartedAt =
+      Date.now();
+
+    updateKnownRowObjectAlpha30_5_11FmrV3_(
       FMR_V3.SHEETS
         .OPERATIONAL_INDEX,
-      matchingEntry._rowNumber,
+      matchingEntry,
       {
         Active:
           FMR_V3.NO,
 
         Updated_At:
-          nowFmrV3_()
+          updatedAt
       }
     );
 
@@ -1992,6 +2048,19 @@ function issueFromBagFmrV3_(
       )
     );
 
+    phaseTimings.bagLineIndexDeactivateMs =
+      Date.now() -
+      phaseStartedAt;
+
+    phaseStartedAt =
+      Date.now();
+
+    /**
+     * Alpha 30.5.14:
+     * This call keeps the existing function signature/business behavior.
+     * Its implementation now takes an Entity_ID-targeted fast path for
+     * Operational_Index instead of resolving every BAGSTATUS:ACTIVE record.
+     */
     deactivateExactIndexRowsFmrV3_(
       FMR_V3.SHEETS
         .OPERATIONAL_INDEX,
@@ -2001,6 +2070,10 @@ function issueFromBagFmrV3_(
       ),
       bagTagId
     );
+
+    phaseTimings.bagStatusDeactivateMs =
+      Date.now() -
+      phaseStartedAt;
   }
 
   state.bagged -=
@@ -2016,6 +2089,9 @@ function issueFromBagFmrV3_(
     uuidFmrV3_(
       'CORR'
     );
+
+  phaseStartedAt =
+    Date.now();
 
   appendTransactionFmrV3_(
     line,
@@ -2042,6 +2118,44 @@ function issueFromBagFmrV3_(
         request.notes
     }
   );
+
+  phaseTimings.transactionAppendMs =
+    Date.now() -
+    phaseStartedAt;
+
+  phaseTimings.preFinishMs =
+    Date.now() -
+    performanceStartedAt;
+
+  captureIssueFromBagPhasesAlpha30_5_14FmrV3_({
+    action:
+      'ISSUE_FROM_BAG',
+
+    fmrNumber:
+      normalizeFmrV3_(
+        line.FMR_Number
+      ),
+
+    fmrLineId:
+      normalizeFmrV3_(
+        line.FMR_Line_ID
+      ),
+
+    bagTagId:
+      bagTagId,
+
+    bagClosed:
+      itemRemaining <= 0,
+
+    candidateBagLineEntries:
+      entries.length,
+
+    timings:
+      Object.assign(
+        {},
+        phaseTimings
+      )
+  });
 
   return finishLineActionFmrV3_(
     user,
