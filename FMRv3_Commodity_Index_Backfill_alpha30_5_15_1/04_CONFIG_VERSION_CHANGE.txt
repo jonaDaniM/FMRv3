@@ -1,0 +1,12 @@
+FMRCoreV3/Config.gs
+
+Change:
+
+FROM:
+3.0.0-alpha.30.5.15
+
+TO:
+3.0.0-alpha.30.5.15.1
+
+This hotfix keeps the later security release available for:
+3.0.0-alpha.30.5.16
