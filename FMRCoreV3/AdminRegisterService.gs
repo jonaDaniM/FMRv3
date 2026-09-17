@@ -101,7 +101,13 @@ function getAdminFmrRegisterFmrV3_(userEmail, request) {
 
 function normalizeAdminRegisterRequestFmrV3_(request) {
   const source = request || {};
-  const allowedQueryTypes = ['AUTO', 'FMR', 'ISO', 'IWP'];
+  const allowedQueryTypes = [
+    'AUTO',
+    'FMR',
+    'ISO',
+    'IWP',
+    'COMMODITY'
+  ];
   const allowedExceptions = [
     'ALL',
     'HAS_REMAINING',
@@ -158,6 +164,27 @@ function resolveAdminRegisterIndexedIdsFmrV3_(query, queryType) {
       )
     );
   }
+
+  if (
+  queryType ===
+  'COMMODITY'
+) {
+  const key =
+    commoditySearchKeyFmrV3_(
+      value
+    );
+
+  if (!key) {
+    return new Set();
+  }
+
+  return fmrIdsFromSearchEntriesFmrV3_(
+    lookupIndexEntriesFmrV3_(
+      FMR_V3.SHEETS.SEARCH_INDEX,
+      key
+    )
+  );
+}
 
   if (queryType === 'ISO') {
     const parsed = parseCombinedIsoFmrV3_(value);
