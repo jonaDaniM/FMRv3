@@ -10,6 +10,13 @@ const FMR_V3_ADMIN_FIELD_NOTES =
         'DIRECT_ISSUE',
         'ISSUE_FROM_AVAILABLE',
         'ISSUE_FROM_BAG'
+      ]),
+
+    ISSUE_TRANSACTION_TYPES:
+      Object.freeze([
+        'DIRECT_ISSUE',
+        'ISSUE_FROM_AVAILABLE',
+        'ISSUE_FROM_BAG'
       ])
   });
 
@@ -69,6 +76,108 @@ function adminFieldNoteSortValueFmrV3_(
     : date.getTime();
 }
 
+/**
+ * Returns the text shown in Admin > FMR Detail > Field Notes.
+ *
+ * PERFORMANCE RULE:
+ * - Uses only fields already present on the Material_Transactions row.
+ * - Does NOT query Audit_Log.
+ * - Does NOT issue an additional SpreadsheetApp read.
+ * - Preserves an explicitly entered field note when one exists.
+ * - For historical/future issue transactions with blank Notes, derives the
+ *   issuance event text from Quantity, UOM and Issued_To_Name.
+ *
+ * This allows an ISSUE_* transaction to participate in the existing
+ * newest-first note ordering even when its legacy Notes cell is blank.
+ */
+function adminFieldTransactionDisplayNoteFmrV3_(
+  transaction,
+  transactionType
+) {
+  const record =
+    transaction ||
+    {};
+
+  const explicitNote =
+    normalizeFmrV3_(
+      record.Notes
+    );
+
+  if (explicitNote) {
+    return explicitNote;
+  }
+
+  const type =
+    normalizeUpperFmrV3_(
+      transactionType ||
+      record.Transaction_Type
+    );
+
+  if (
+    !FMR_V3_ADMIN_FIELD_NOTES
+      .ISSUE_TRANSACTION_TYPES
+      .includes(
+        type
+      )
+  ) {
+    return '';
+  }
+
+  const issuedTo =
+    normalizeFmrV3_(
+      record.Issued_To_Name
+    );
+
+  if (!issuedTo) {
+    return '';
+  }
+
+  const quantity =
+    numberFmrV3_(
+      record.Quantity
+    );
+
+  const uom =
+    normalizeFmrV3_(
+      record.UOM
+    );
+
+  const quantityLabel =
+    [
+      quantity > 0
+        ? String(
+            quantity
+          )
+        : '',
+      uom
+    ]
+      .filter(
+        Boolean
+      )
+      .join(
+        ' '
+      );
+
+  const verb =
+    type ===
+      'DIRECT_ISSUE'
+      ? 'located and issued to'
+      : 'issued to';
+
+  return (
+    (
+      quantityLabel
+        ? quantityLabel +
+          ' '
+        : ''
+    ) +
+    verb +
+    ' ' +
+    issuedTo +
+    '.'
+  );
+}
+
 function adminFieldTransactionNotesByLineFmrV3_(
   fmrNumber
 ) {
@@ -108,12 +217,6 @@ function adminFieldTransactionNotesByLineFmrV3_(
             .Transaction_Type
         );
 
-      const notes =
-        normalizeFmrV3_(
-          transaction
-            .Notes
-        );
-
       const lineId =
         normalizeFmrV3_(
           transaction
@@ -122,7 +225,6 @@ function adminFieldTransactionNotesByLineFmrV3_(
 
       if (
         !lineId ||
-        !notes ||
         normalizeUpperFmrV3_(
           transaction
             .FMR_Number
@@ -134,6 +236,16 @@ function adminFieldTransactionNotesByLineFmrV3_(
             type
           )
       ) {
+        return;
+      }
+
+      const notes =
+        adminFieldTransactionDisplayNoteFmrV3_(
+          transaction,
+          type
+        );
+
+      if (!notes) {
         return;
       }
 
@@ -531,6 +643,12 @@ function getAdminFmrDetailWithFieldNotesFmrV3_(
 
       loadPolicy:
         'ADMIN_FMR_DETAIL_ONLY',
+
+      blankIssueTransactionNotePolicy:
+        'DERIVE_FROM_ALREADY_LOADED_TRANSACTION_METADATA',
+
+      additionalSpreadsheetReadsForDerivedIssueNotes:
+        0,
 
       maximumNotesPerLine:
         FMR_V3_ADMIN_FIELD_NOTES

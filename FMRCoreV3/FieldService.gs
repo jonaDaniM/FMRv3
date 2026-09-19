@@ -101,6 +101,102 @@ function updateLineStateFmrV3_(line, state, user, extraPatch) {
   );
 }
 
+function defaultFieldTransactionNoteFmrV3_(
+  line,
+  transactionType,
+  quantity,
+  details
+) {
+  const data =
+    details ||
+    {};
+
+  const explicitNote =
+    normalizeFmrV3_(
+      data.notes
+    );
+
+  if (explicitNote) {
+    return explicitNote;
+  }
+
+  const type =
+    normalizeUpperFmrV3_(
+      transactionType
+    );
+
+  if (
+    ![
+      FMR_V3.ACTIONS
+        .DIRECT_ISSUE,
+      FMR_V3.ACTIONS
+        .ISSUE_FROM_AVAILABLE,
+      FMR_V3.ACTIONS
+        .ISSUE_FROM_BAG
+    ].includes(
+      type
+    )
+  ) {
+    return '';
+  }
+
+  const issuedTo =
+    normalizeFmrV3_(
+      data.issuedToName
+    );
+
+  if (!issuedTo) {
+    return '';
+  }
+
+  const normalizedQuantity =
+    numberFmrV3_(
+      quantity
+    );
+
+  const uom =
+    normalizeFmrV3_(
+      line &&
+      line.UOM
+    );
+
+  const quantityLabel =
+    [
+      normalizedQuantity > 0
+        ? String(
+            normalizedQuantity
+          )
+        : '',
+      uom
+    ]
+      .filter(
+        Boolean
+      )
+      .join(
+        ' '
+      );
+
+  const verb =
+    type ===
+      FMR_V3.ACTIONS
+        .DIRECT_ISSUE
+      ? 'located and issued to'
+      : 'issued to';
+
+  return (
+    (
+      quantityLabel
+        ? quantityLabel +
+          ' '
+        : ''
+    ) +
+    verb +
+    ' ' +
+    issuedTo +
+    '.'
+  );
+}
+
 function appendTransactionFmrV3_(
   line,
   transactionType,
@@ -108,28 +204,95 @@ function appendTransactionFmrV3_(
   user,
   details
 ) {
-  const data = details || {};
+  const data =
+    details ||
+    {};
 
-  return appendObjectFmrV3_(FMR_V3.SHEETS.TRANSACTIONS, {
-    Transaction_ID: uuidFmrV3_('TXN'),
-    Correlation_ID: normalizeFmrV3_(data.correlationId),
-    FMR_ID: line.FMR_ID,
-    FMR_Number: line.FMR_Number,
-    FMR_Line_ID: line.FMR_Line_ID,
-    Transaction_Type: normalizeUpperFmrV3_(transactionType),
-    Quantity: quantity,
-    UOM: line.UOM,
-    Authenticated_Email: user.email,
-    Performed_By_Name: normalizeFmrV3_(data.performedByName || user.name),
-    Issued_To_Name: normalizeFmrV3_(data.issuedToName),
-    Source_Bag_Tag_ID: normalizeFmrV3_(data.sourceBagTagId),
-    Target_Bag_Tag_ID: normalizeFmrV3_(data.targetBagTagId),
-    Storage_Location: normalizeFmrV3_(data.storageLocation),
-    Backorder_Request_ID: normalizeFmrV3_(data.backorderRequestId),
-    Timestamp: nowFmrV3_(),
-    Notes: normalizeFmrV3_(data.notes)
-  });
+  const normalizedType =
+    normalizeUpperFmrV3_(
+      transactionType
+    );
+
+  return appendObjectFmrV3_(
+    FMR_V3.SHEETS
+      .TRANSACTIONS,
+    {
+      Transaction_ID:
+        uuidFmrV3_(
+          'TXN'
+        ),
+
+      Correlation_ID:
+        normalizeFmrV3_(
+          data.correlationId
+        ),
+
+      FMR_ID:
+        line.FMR_ID,
+
+      FMR_Number:
+        line.FMR_Number,
+
+      FMR_Line_ID:
+        line.FMR_Line_ID,
+
+      Transaction_Type:
+        normalizedType,
+
+      Quantity:
+        quantity,
+
+      UOM:
+        line.UOM,
+
+      Authenticated_Email:
+        user.email,
+
+      Performed_By_Name:
+        normalizeFmrV3_(
+          data.performedByName ||
+          user.name
+        ),
+
+      Issued_To_Name:
+        normalizeFmrV3_(
+          data.issuedToName
+        ),
+
+      Source_Bag_Tag_ID:
+        normalizeFmrV3_(
+          data.sourceBagTagId
+        ),
+
+      Target_Bag_Tag_ID:
+        normalizeFmrV3_(
+          data.targetBagTagId
+        ),
+
+      Storage_Location:
+        normalizeFmrV3_(
+          data.storageLocation
+        ),
+
+      Backorder_Request_ID:
+        normalizeFmrV3_(
+          data.backorderRequestId
+        ),
+
+      Timestamp:
+        nowFmrV3_(),
+
+      Notes:
+        defaultFieldTransactionNoteFmrV3_(
+          line,
+          normalizedType,
+          quantity,
+          data
+        )
+    }
+  );
 }
+
 
 function finishLineActionFmrV3_(
   user,
