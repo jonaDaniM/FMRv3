@@ -1,0 +1,50 @@
+runBoundIdentityAndEnvironmentDiagnosticV3
+{
+  "passed": true,
+  "readOnly": true,
+  "diagnostic": "BOUND_IDENTITY_AND_ENVIRONMENT_ALPHA23",
+  "activeEmail": "jonathanmura05@gmail.com",
+  "effectiveEmail": "jonathanmura05@gmail.com",
+  "resolvedCallerEmail": "jonathanmura05@gmail.com",
+  "usedEffectiveUserFallback": false,
+  "activeMatchesEffective": true,
+  "activeEnvironment": "TEST",
+  "databasePropertyKey": "FMR_V3_DATABASE_ID_TEST",
+  "databasePropertyConfigured": true,
+  "usingDefaultTestDatabaseFallback": false,
+  "resolvedDatabaseFingerprint": "7CENCggnLAW_",
+  "coreDatabaseFingerprint": "7CENCggnLAW_",
+  "coreEnvironment": "TEST",
+  "transactionMode": "ENABLED",
+  "coreVersion": "3.0.0-alpha.30.5.15.2",
+  "identityPolicy": "ACTIVE_USER_THEN_EFFECTIVE_USER_UNCHANGED_PENDING_DIAGNOSTIC"
+}
+
+runStrictBoundEnvironmentDiagnosticV3
+{
+  "passed": true,
+  "readOnly": true,
+  "diagnostic": "BOUND_IDENTITY_AND_ENVIRONMENT_ALPHA23",
+  "activeEmail": "jonathanmura05@gmail.com",
+  "effectiveEmail": "jonathanmura05@gmail.com",
+  "resolvedCallerEmail": "jonathanmura05@gmail.com",
+  "usedEffectiveUserFallback": false,
+  "activeMatchesEffective": true,
+  "activeEnvironment": "TEST",
+  "databasePropertyKey": "FMR_V3_DATABASE_ID_TEST",
+  "databasePropertyConfigured": true,
+  "usingDefaultTestDatabaseFallback": false,
+  "resolvedDatabaseFingerprint": "7CENCggnLAW_",
+  "coreDatabaseFingerprint": "7CENCggnLAW_",
+  "coreEnvironment": "TEST",
+  "transactionMode": "ENABLED",
+  "coreVersion": "3.0.0-alpha.30.5.15.2",
+  "identityPolicy": "ACTIVE_USER_THEN_EFFECTIVE_USER_UNCHANGED_PENDING_DIAGNOSTIC",
+  "strictDiagnostic": "BOUND_ENVIRONMENT_STRICT_ALPHA30_5_16",
+  "environmentMatch": true,
+  "fingerprintMatch": true
+}
+
+Transactions tested for FMR 55 - Issue, bag and tag, backorder request
+
+

@@ -436,12 +436,13 @@ function runBoundIdentityAndEnvironmentDiagnosticV3() {
 function getPortalBootstrapV3(
   interfaceName
 ) {
-  return FMRCoreV3.getFmrV3Bootstrap(
-    boundDatabaseIdFmrV3_(),
-    callerEmailFmrV3_(),
-    interfaceName ||
-      'PORTAL',
-    activeBoundEnvironmentV3_()
+  return callFmrWriteGatewayV3_(
+    'BOOTSTRAP',
+    {
+      interfaceName:
+        interfaceName ||
+        'PORTAL'
+    }
   );
 }
 
@@ -460,10 +461,12 @@ function searchPortalV3(
 function performFieldActionV3(
   request
 ) {
-  return FMRCoreV3.performFmrV3FieldAction(
-    boundDatabaseIdFmrV3_(),
-    callerEmailFmrV3_(),
-    request || {}
+  return callFmrWriteGatewayV3_(
+    'FIELD_ACTION',
+    {
+      request:
+        request || {}
+    }
   );
 }
 
@@ -737,10 +740,12 @@ function getAdminActiveBagsV3(
 function reviewBackorderV3(
   request
 ) {
-  return FMRCoreV3.reviewFmrV3Backorder(
-    boundDatabaseIdFmrV3_(),
-    callerEmailFmrV3_(),
-    request || {}
+  return callFmrWriteGatewayV3_(
+    'ADMIN_BACKORDER_DECISION',
+    {
+      request:
+        request || {}
+    }
   );
 }
 

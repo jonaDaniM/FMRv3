@@ -37,11 +37,12 @@ function getRecentWritePerformanceEventsV3(
 function recordWritePerformanceEventV3(
   event
 ) {
-  return FMRCoreV3
-    .recordFmrV3WritePerformanceEvent(
-      boundDatabaseIdFmrV3_(),
-      callerEmailFmrV3_(),
-      event || {}
-    );
+  return callFmrWriteGatewayV3_(
+    'WRITE_PERFORMANCE_EVENT',
+    {
+      event:
+        event || {}
+    }
+  );
 }
 
