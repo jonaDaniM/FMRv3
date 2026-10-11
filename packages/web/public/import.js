@@ -479,9 +479,16 @@ async function sendDrawings(files) {
   const total = files.reduce((sum, file) => sum + file.size, 0);
 
   try {
-    const started = total > DIRECT_UPLOAD_LIMIT
+    // Over the limit the package goes the long way round, but only where that
+    // road exists: a deployment with no bucket, and every local run, answer
+    // 404 and take the direct path instead. Erroring there refused a package
+    // the server would happily have accepted — locally there is no front end
+    // and no 32MB ceiling to work around.
+    const viaStorage = total > DIRECT_UPLOAD_LIMIT
       ? await sendViaStorage(files)
-      : await sendDirectly(files);
+      : null;
+
+    const started = viaStorage ?? await sendDirectly(files);
 
     watchJob(started.jobId, files.length);
   } catch (failure) {
@@ -509,6 +516,8 @@ async function sendDirectly(files) {
  */
 async function sendViaStorage(files) {
   const objects = await uploadToStorage(files);
+  // No bucket here. The caller sends the package directly instead.
+  if (!objects) return null;
 
   $('uploadWhat').textContent = 'Reading the drawings…';
 
@@ -536,15 +545,13 @@ async function uploadToStorage(files) {
       body: JSON.stringify({ files: files.map((f) => ({ name: f.name })) })
     }));
   } catch (failure) {
-    // 404 is the deployment saying it has no bucket. Anything else is a real
-    // failure and keeps its own message.
-    if (failure.status !== 404) throw failure;
-    const megabytes = Math.round(files.reduce((s, f) => s + f.size, 0) / 1_000_000);
-    throw new Error(
-      `That package is too large for this server to accept in one piece (${megabytes}MB). `
-      + 'Send the drawings as separate files, or ask for large uploads to be '
-      + 'switched on.'
-    );
+    // 404 is the deployment saying it has no bucket — every local run, and any
+    // deployment where large uploads were never switched on. Answer null so
+    // the caller sends it directly instead: the server's own limit is then
+    // what decides, which off Cloud Run is far higher than this road's.
+    // Anything else is a real failure and keeps its own message.
+    if (failure.status === 404) return null;
+    throw failure;
   }
 
   const total = files.reduce((sum, file) => sum + file.size, 0);
@@ -628,10 +635,16 @@ async function sendTakeoff(files) {
     // A package over the front end's limit goes to Cloud Storage first and is
     // named rather than sent, exactly as the FMR import does.
     const total = pdfs.reduce((sum, file) => sum + file.size, 0);
-    const request = total > DIRECT_UPLOAD_LIMIT
+
+    // Over the limit it goes to Cloud Storage first — but only where there is
+    // a bucket. Without one, uploadToStorage answers null and this falls back
+    // to sending the bytes, which off Cloud Run has no 32MB ceiling to dodge.
+    const objects = total > DIRECT_UPLOAD_LIMIT ? await uploadToStorage(pdfs) : null;
+
+    const request = objects
       ? {
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ objects: await uploadToStorage(pdfs) })
+          body: JSON.stringify({ objects })
         }
       : {
           body: frameFiles(await Promise.all(

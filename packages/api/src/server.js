@@ -73,6 +73,18 @@ import { once, IdempotencyConflict, IdempotencyInFlight } from './idempotency.js
 import { createRateLimiter, callerAddress } from './rateLimit.js';
 
 /**
+ * The largest body this deployment can actually receive.
+ *
+ * Cloud Run's front end refuses anything over 32MB before it reaches this
+ * container, so promising more than that behind it is a promise the server
+ * cannot keep — a larger package fails upstream with no log line and no
+ * message anyone can act on. K_SERVICE is set by Cloud Run and by nothing
+ * else, which is what distinguishes "behind that front end" from a local run
+ * where no such limit exists and the old ceiling still holds.
+ */
+const DIRECT_BODY_LIMIT = process.env.K_SERVICE ? 30_000_000 : 100_000_000;
+
+/**
  * Headers on everything this server sends.
  *
  * The pages build HTML by concatenation, so escaping is what stands between a
@@ -823,7 +835,7 @@ route('POST', /^\/api\/import\/drawings$/, async (req, res, { url }) => {
       // Cloud Run's front end refuses a body over 32MB before it reaches this
       // container, so a larger figure here would be a promise this server
       // cannot keep. Anything bigger goes through /api/import/uploads.
-      if (size > 30_000_000) {
+      if (size > DIRECT_BODY_LIMIT) {
         throw new LedgerError(
           'That package is too large to send directly. Reload the page and try '
           + 'again — it will upload in a way that has no size limit.',
@@ -921,7 +933,7 @@ route('POST', /^\/api\/import\/takeoff$/, async (req, res, { url }) => {
       size += chunk.length;
       // Cloud Run's front end refuses anything larger before it reaches this
       // container, so a bigger figure here would be a promise it cannot keep.
-      if (size > 30_000_000) {
+      if (size > DIRECT_BODY_LIMIT) {
         throw new LedgerError(
           'That package is too large to send directly. Reload the page and try '
           + 'again — it will upload in a way that has no size limit.',
